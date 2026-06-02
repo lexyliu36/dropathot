@@ -19,37 +19,75 @@ function relativeTime(isoString) {
 }
 
 export default function ThotPin({ thot, isYou = false, onClick }) {
-  const color = isYou ? '#e11d48' : thot.pen_name ? '#7c3aed' : '#334155'
-  const borderColor = isYou ? '#e11d48' : thot.pen_name ? '#7c3aed' : '#475569'
-  const avatarColor = isYou ? '#e11d48' : thot.pen_name ? '#7c3aed' : '#64748b'
+  const accentColor = isYou ? '#e11d48' : thot.pen_name ? '#7c3aed' : '#64748b'
+  const avatarColor = accentColor
 
   return (
     <div
-      className="flex flex-col items-center cursor-pointer group"
-      style={{ pointerEvents: 'auto' }}
       onClick={() => onClick(thot)}
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        cursor: 'pointer',
+        overflow: 'visible',
+        position: 'relative',
+      }}
     >
+      {/* Bubble */}
       <div
-        className="relative max-w-[180px] rounded-2xl rounded-bl-none px-3 py-2 mb-1 shadow-lg transition-transform duration-150 group-hover:scale-105"
-        style={{ background: '#0e0e1a', border: `1px solid ${borderColor}40` }}
+        style={{
+          position: 'relative',
+          maxWidth: '200px',
+          minWidth: '80px',
+          background: 'rgba(10, 10, 26, 0.92)',
+          backdropFilter: 'blur(12px)',
+          border: `1px solid ${accentColor}55`,
+          borderRadius: '14px 14px 14px 2px',
+          padding: '8px 12px',
+          marginBottom: '6px',
+          boxShadow: `0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${accentColor}22`,
+        }}
       >
-        <p className="text-white text-xs leading-snug line-clamp-2">{thot.content}</p>
-        <div className="flex items-center justify-between gap-2 mt-1">
-          <span className="text-[10px]" style={{ color: borderColor }}>
+        <p style={{
+          color: '#fff',
+          fontSize: '12px',
+          lineHeight: '1.45',
+          margin: 0,
+          display: '-webkit-box',
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          wordBreak: 'break-word',
+        }}>
+          {thot.content}
+        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', marginTop: '5px' }}>
+          <span style={{ fontSize: '10px', color: accentColor, fontWeight: 600 }}>
             {thot.pen_name || 'anon'}
           </span>
-          <span className="text-[10px] text-slate-600">{relativeTime(thot.created_at)}</span>
+          <span style={{ fontSize: '10px', color: '#475569' }}>
+            {relativeTime(thot.created_at)}
+          </span>
         </div>
-        <div
-          className="absolute -bottom-[6px] left-3 w-3 h-3"
-          style={{
-            background: '#0e0e1a',
-            clipPath: 'polygon(0 0, 100% 0, 0 100%)',
-            borderLeft: `1px solid ${borderColor}40`,
-            borderBottom: `1px solid ${borderColor}40`,
-          }}
-        />
+
+        {/* Tail — bottom-left pointing down */}
+        <svg
+          width="12"
+          height="10"
+          viewBox="0 0 12 10"
+          style={{ position: 'absolute', bottom: '-10px', left: '14px' }}
+        >
+          <path
+            d="M0 0 L12 0 L0 10 Z"
+            fill="rgba(10, 10, 26, 0.92)"
+          />
+          <line x1="0" y1="0" x2="0" y2="10" stroke={`${accentColor}55`} strokeWidth="1" />
+          <line x1="0" y1="0" x2="12" y2="0" stroke={`${accentColor}55`} strokeWidth="1" />
+        </svg>
       </div>
+
+      {/* Avatar */}
       <AnonAvatar size={36} color={avatarColor} active={isYou} />
     </div>
   )
