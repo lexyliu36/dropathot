@@ -1,0 +1,55 @@
+import 'dotenv/config'
+import { createServer } from 'http'
+import { Server } from 'socket.io'
+import express from 'express'
+import cors from 'cors'
+import helmet from 'helmet'
+import { latLngToH3 } from './lib/geo.js'
+import thotsRouter from './routes/thots.js'
+import authRouter from './routes/auth.js'
+
+const app = express()
+const httpServer = createServer(app)
+
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173'
+
+const io = new Server(httpServer, {
+  cors: { origin: FRONTEND_ORIGIN, methods: ['GET', 'POST'] },
+})
+
+app.use(helmet())
+app.use(cors({ origin: FRONTEND_ORIGIN }))
+app.use(express.json())
+
+// Make io available in route handlers
+app.use((req, _res, next) => {
+  req.io = io
+  next()
+})
+
+app.use('/thots', thotsRouter)
+app.use('/auth', authRouter)
+
+app.get('/health', (_req, res) => res.json({ ok: true }))
+
+// Socket.io — H3 room subscriptions
+io.on('connection', (socket) => {
+  socket.on('subscribe', ({ lat, lng }) => {
+    if (typeof lat !== 'number' || typeof lng !== 'number') return
+    const cell = latLngToH3(lat, lng)
+    socket.join(cell)
+    socket.data.cell = cell
+  })
+
+  socket.on('unsubscribe', () => {
+    if (socket.data.cell) {
+      socket.leave(socket.data.cell)
+      socket.data.cell = null
+    }
+  })
+})
+
+const PORT = process.env.PORT || 4000
+httpServer.listen(PORT, () => {
+  console.log(`Thots server running on port ${PORT}`)
+})
