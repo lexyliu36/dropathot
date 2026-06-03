@@ -31,20 +31,20 @@ export default function ThotPin({ thot, isYou = false, onClick }) {
 
   return (
     <div
-      onClick={() => onClick(thot)}
       style={{
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'flex-start',
-        cursor: 'pointer',
         overflow: 'visible',
         position: 'relative',
         opacity,
         transition: 'opacity 0.5s ease',
+        pointerEvents: 'none', // only bubble and avatar are clickable, not empty space
       }}
     >
       {/* Bubble */}
       <div
+        onClick={() => onClick(thot)}
         style={{
           position: 'relative',
           maxWidth: '200px',
@@ -56,6 +56,8 @@ export default function ThotPin({ thot, isYou = false, onClick }) {
           padding: '8px 12px',
           marginBottom: '6px',
           boxShadow: `0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${accentColor}22`,
+          pointerEvents: 'auto',
+          cursor: 'pointer',
         }}
       >
         <p style={{
@@ -85,7 +87,7 @@ export default function ThotPin({ thot, isYou = false, onClick }) {
           width="12"
           height="10"
           viewBox="0 0 12 10"
-          style={{ position: 'absolute', bottom: '-10px', left: '14px' }}
+          style={{ position: 'absolute', bottom: '-10px', left: '14px', pointerEvents: 'none' }}
         >
           <path
             d="M0 0 L12 0 L0 10 Z"
@@ -97,7 +99,9 @@ export default function ThotPin({ thot, isYou = false, onClick }) {
       </div>
 
       {/* Avatar */}
-      <AnonAvatar size={36} color={avatarColor} active={isYou} />
+      <div onClick={() => onClick(thot)} style={{ pointerEvents: 'auto', cursor: 'pointer' }}>
+        <AnonAvatar size={36} color={avatarColor} active={isYou} />
+      </div>
     </div>
   )
 }

@@ -70,7 +70,7 @@ export default function Map() {
       container: mapRef.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center,
-      zoom: 14,
+      zoom: 17,
       attributionControl: false,
     })
 
@@ -97,7 +97,7 @@ export default function Map() {
   useEffect(() => {
     const map = mapInstanceRef.current
     if (!map || !location) return
-    map.easeTo({ center: [location.lng, location.lat], zoom: 14, duration: 800 })
+    map.easeTo({ center: [location.lng, location.lat], zoom: 17, duration: 800 })
   }, [location])
 
   // Your location marker
@@ -139,13 +139,17 @@ export default function Map() {
       }
     })
 
-    // Add new
-    thots.forEach((thot) => {
-      if (existingIds.has(thot.id)) return
+    // Add new — oldest first so newer pins are later in the DOM and
+    // naturally win pointer-event ties without relying solely on z-index
+    const newThots = thots
+      .filter((t) => !existingIds.has(t.id))
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+
+    newThots.forEach((thot) => {
       const isYou = thot.session_id === session?.id
 
       const el = document.createElement('div')
-      el.style.cssText = 'pointer-events: auto; overflow: visible;'
+      el.style.cssText = 'pointer-events: none; overflow: visible;'
       const root = createRoot(el)
       root.render(<ThotPin thot={thot} isYou={isYou} onClick={setSelectedThot} />)
 
@@ -153,14 +157,11 @@ export default function Map() {
         .setLngLat([thot.lng, thot.lat])
         .addTo(map)
 
-      // React renders async — nudge Mapbox to recompute position after paint,
-      // then set age-based z-index on the marker wrapper (newer = higher)
-      requestAnimationFrame(() => {
-        marker.setLngLat([thot.lng, thot.lat])
-        const ageHours = pinAgeHours(thot)
-        const zIndex = Math.max(1, 24 - Math.floor(ageHours))
-        if (el.parentElement) el.parentElement.style.zIndex = zIndex
-      })
+      const zIndex = Math.max(1, 24 - Math.floor(pinAgeHours(thot)))
+      if (el.parentElement) el.parentElement.style.zIndex = zIndex
+
+      // Separate rAF only for position nudge (React renders async)
+      requestAnimationFrame(() => marker.setLngLat([thot.lng, thot.lat]))
 
       markersRef.current[thot.id] = { marker, root }
     })
