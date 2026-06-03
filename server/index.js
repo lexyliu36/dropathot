@@ -4,6 +4,7 @@ import { Server } from 'socket.io'
 import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
+import cookieParser from 'cookie-parser'
 import { latLngToH3 } from './lib/geo.js'
 import thotsRouter from './routes/thots.js'
 import authRouter from './routes/auth.js'
@@ -18,8 +19,9 @@ const io = new Server(httpServer, {
 })
 
 app.use(helmet())
-app.use(cors({ origin: FRONTEND_ORIGIN }))
+app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }))
 app.use(express.json())
+app.use(cookieParser())
 
 // Make io available in route handlers
 app.use((req, _res, next) => {

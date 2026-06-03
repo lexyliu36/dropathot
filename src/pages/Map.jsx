@@ -30,11 +30,21 @@ export default function Map() {
   const selectedThot = useAppStore((s) => s.selectedThot)
   const setSelectedThot = useAppStore((s) => s.setSelectedThot)
   const setSession = useAppStore((s) => s.setSession)
-  const setThots = useAppStore((s) => s.setThots)
 
   // Load session from localStorage
   useEffect(() => {
-    setSession(getOrCreateSession())
+    const localSession = getOrCreateSession()
+    setSession(localSession)
+    // Register with server — it issues an httpOnly cookie as the authoritative
+    // session_id. The returned session_id may differ from localStorage (server-generated).
+    fetch(`${API_URL}/auth/anon`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.session_id) setSession({ ...localSession, id: data.session_id }) })
+      .catch(() => {}) // non-blocking — falls back to localStorage UUID if backend is down
   }, [])
 
   // Request location on mount
@@ -150,34 +160,6 @@ export default function Map() {
     })
   }, [thots, mapReady, session?.id])
 
-  function seedDevThots() {
-    const map = mapInstanceRef.current
-    const center = map ? map.getCenter() : { lat: 40.7128, lng: -74.006 }
-    const lat = center.lat ?? center.lat
-    const lng = center.lng ?? center.lng
-    const SAMPLES = [
-      { text: 'anyone else notice how the sky looks different at 3am', pen_name: null },
-      { text: 'just dropped my phone in a puddle and it survived. we are SO back', pen_name: 'VoidDrifter' },
-      { text: 'the coffee shop on 5th st has free wifi that actually works', pen_name: 'NeonEcho' },
-      { text: 'unpopular opinion: silence is underrated', pen_name: null },
-      { text: "if you're reading this you're within a mile of me. spooky", pen_name: 'LiminalTrace' },
-      { text: 'this city never actually sleeps it just gets quieter and weirder', pen_name: 'GlitchWalker' },
-    ]
-    const offsets = [
-      [0.0008, 0.0012], [-0.0011, 0.0006], [0.0005, -0.0009],
-      [-0.0007, -0.0013], [0.0014, 0.0003], [-0.0003, 0.0015],
-    ]
-    setThots(SAMPLES.map((s, i) => ({
-      id: `dev-${i}`,
-      content: s.text,
-      pen_name: s.pen_name,
-      session_id: i === 0 ? session?.id : `other-${i}`,
-      created_at: new Date(Date.now() - i * 3 * 60000).toISOString(),
-      lat: lat + offsets[i][0],
-      lng: lng + offsets[i][1],
-    })))
-  }
-
   async function handlePost(content) {
     if (!location) throw new Error('Location required')
     const body = {
@@ -189,6 +171,7 @@ export default function Map() {
     }
     const res = await fetch(`${API_URL}/thots`, {
       method: 'POST',
+      credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
@@ -196,6 +179,8 @@ export default function Map() {
       const data = await res.json().catch(() => ({}))
       throw new Error(data.error || `Server error ${res.status}`)
     }
+    const newThot = await res.json()
+    useAppStore.getState().addThot(newThot)
   }
 
   return (
@@ -247,16 +232,7 @@ export default function Map() {
 
       {/* Compose button */}
       {!composing && !selectedThot && (
-        <div className="absolute bottom-6 right-5 z-20 flex flex-col items-center gap-3">
-          {import.meta.env.DEV && (
-            <button
-              onClick={seedDevThots}
-              title="Seed dev pins"
-              className="w-10 h-10 rounded-full bg-white/10 border border-white/20 flex items-center justify-center text-slate-300 hover:bg-white/20 transition-colors cursor-pointer text-xs font-bold"
-            >
-              📍
-            </button>
-          )}
+        <div className="absolute bottom-6 right-5 z-20">
           <button
             onClick={() => setComposing(true)}
             className="w-14 h-14 rounded-full bg-brand-red shadow-lg flex items-center justify-center text-white hover:bg-rose-500 transition-colors cursor-pointer"
