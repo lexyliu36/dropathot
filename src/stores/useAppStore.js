@@ -13,7 +13,9 @@ const useAppStore = create((set, get) => ({
   setThots: (thots) => set({ thots }),
   addThot: (thot) => {
     const existing = get().thots.find((t) => t.id === thot.id)
-    if (!existing) set((s) => ({ thots: [thot, ...s.thots] }))
+    if (existing) return
+    // Remove previous thot from the same session (server marks it hidden, we mirror that locally)
+    set((s) => ({ thots: [thot, ...s.thots.filter((t) => t.session_id !== thot.session_id)] }))
   },
 
   composing: false,

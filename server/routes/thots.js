@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { createHash } from 'crypto'
 import { supabase } from '../lib/supabase.js'
 import { neighborCells } from '../lib/geo.js'
-import { thotRateLimit } from '../middleware/rateLimit.js'
+import { smartRateLimit } from '../middleware/rateLimit.js'
 import { moderate } from '../middleware/moderate.js'
 
 const router = Router()
@@ -32,8 +32,21 @@ router.get('/', async (req, res) => {
 })
 
 // POST /thots
-router.post('/', thotRateLimit, moderate, async (req, res) => {
-  const { content, lat, lng, session_id, pen_name } = req.body
+router.post('/', smartRateLimit, moderate, async (req, res) => {
+  const { content, lat, lng } = req.body
+  // Cookie is authoritative — prevents session_id spoofing from the client body
+  const session_id = req.cookies?.session_id ?? req.body.session_id
+
+  // Anon users always post without a pen name; auth users get theirs from the DB
+  let pen_name = null
+  if (req.user) {
+    const { data } = await supabase
+      .from('users')
+      .select('pen_name')
+      .eq('id', req.user.id)
+      .single()
+    pen_name = data?.pen_name ?? null
+  }
 
   // Validate
   if (!content || typeof content !== 'string' || content.trim().length === 0) {

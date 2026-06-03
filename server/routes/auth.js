@@ -4,17 +4,26 @@ import { supabase } from '../lib/supabase.js'
 
 const router = Router()
 
-// POST /auth/anon — create or validate anonymous session
-router.post('/anon', (req, res) => {
-  const existing = req.cookies?.session_id
-  if (existing) return res.json({ session_id: existing, type: 'anon' })
+const IS_PROD = process.env.NODE_ENV === 'production'
 
+const SESSION_COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: 'strict',
+  secure: IS_PROD,          // HTTPS-only in production
+  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (not a year — limits hijack window)
+}
+
+// POST /auth/anon — issue or refresh httpOnly session cookie
+router.post('/anon', (req, res) => {
+  // Cookie already set — return it; never let the request body override
+  if (req.cookies?.session_id) {
+    return res.json({ session_id: req.cookies.session_id, type: 'anon' })
+  }
+
+  // Always generate server-side — never trust client-provided UUIDs
+  // (prevents session fixation: attacker can't claim a known victim UUID)
   const session_id = randomUUID()
-  res.cookie('session_id', session_id, {
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 365 * 24 * 60 * 60 * 1000,
-  })
+  res.cookie('session_id', session_id, SESSION_COOKIE_OPTS)
   res.json({ session_id, type: 'anon' })
 })
 
