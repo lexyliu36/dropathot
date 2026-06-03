@@ -12,7 +12,7 @@ create table thots (
   lat         float8 generated always as (ST_Y(location::geometry)) stored,
   lng         float8 generated always as (ST_X(location::geometry)) stored,
   created_at  timestamptz default now(),
-  expires_at  timestamptz default now() + interval '6 hours',
+  expires_at  timestamptz default now() + interval '24 hours',
   hidden      boolean default false
 );
 

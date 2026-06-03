@@ -18,9 +18,16 @@ function relativeTime(isoString) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
+export function pinAgeHours(thot) {
+  return (Date.now() - new Date(thot.created_at).getTime()) / 3_600_000
+}
+
 export default function ThotPin({ thot, isYou = false, onClick }) {
   const accentColor = isYou ? '#e11d48' : thot.pen_name ? '#7c3aed' : '#64748b'
   const avatarColor = accentColor
+
+  const ageHours = pinAgeHours(thot)
+  const opacity = Math.max(0.05, 1 - ageHours / 24)
 
   return (
     <div
@@ -32,6 +39,8 @@ export default function ThotPin({ thot, isYou = false, onClick }) {
         cursor: 'pointer',
         overflow: 'visible',
         position: 'relative',
+        opacity,
+        transition: 'opacity 0.5s ease',
       }}
     >
       {/* Bubble */}

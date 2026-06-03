@@ -6,7 +6,7 @@ import { Settings2, MessageSquarePlus } from 'lucide-react'
 import useAppStore from '../stores/useAppStore'
 import useLocation from '../hooks/useLocation'
 import useThots from '../hooks/useThots'
-import ThotPin, { AnonAvatar } from '../components/ThotPin'
+import ThotPin, { AnonAvatar, pinAgeHours } from '../components/ThotPin'
 import ComposeDrawer from '../components/ComposeDrawer'
 import { getOrCreateSession } from '../lib/identity'
 
@@ -153,8 +153,14 @@ export default function Map() {
         .setLngLat([thot.lng, thot.lat])
         .addTo(map)
 
-      // React renders async — nudge Mapbox to recompute position after paint
-      requestAnimationFrame(() => marker.setLngLat([thot.lng, thot.lat]))
+      // React renders async — nudge Mapbox to recompute position after paint,
+      // then set age-based z-index on the marker wrapper (newer = higher)
+      requestAnimationFrame(() => {
+        marker.setLngLat([thot.lng, thot.lat])
+        const ageHours = pinAgeHours(thot)
+        const zIndex = Math.max(1, 24 - Math.floor(ageHours))
+        if (el.parentElement) el.parentElement.style.zIndex = zIndex
+      })
 
       markersRef.current[thot.id] = { marker, root }
     })
@@ -227,6 +233,22 @@ export default function Map() {
       {thotsError && (
         <div className="absolute top-14 left-1/2 -translate-x-1/2 z-20 bg-[#0e0e1a] border border-yellow-500/30 rounded-xl px-3 py-1.5">
           <p className="text-yellow-400/80 text-[10px]">{thotsError}</p>
+        </div>
+      )}
+
+      {/* Dev coords — copy exact browser location for seed commands */}
+      {import.meta.env.DEV && location && (
+        <div
+          className="absolute bottom-24 left-4 z-20 bg-black/70 border border-white/10 rounded-xl px-3 py-2 cursor-pointer hover:border-white/30 transition-colors"
+          onClick={() => {
+            const cmd = `node --env-file=server/.env server/seed.js --lat=${location.lat.toFixed(6)} --lng=${location.lng.toFixed(6)}`
+            navigator.clipboard.writeText(cmd)
+          }}
+          title="Click to copy seed command"
+        >
+          <p className="text-white/40 text-[9px] uppercase tracking-widest mb-0.5">your location</p>
+          <p className="text-white font-mono text-[11px]">{location.lat.toFixed(6)}, {location.lng.toFixed(6)}</p>
+          <p className="text-white/30 text-[9px] mt-0.5">click to copy seed command</p>
         </div>
       )}
 

@@ -52,18 +52,25 @@ Run `supabase/migrations/001_init.sql` in your Supabase SQL editor to set up the
 
 ## Seeding Local Data
 
-Find your coordinates:
+Get your exact coordinates from the map: open `http://localhost:5173/map` in dev mode, allow location, and click the coordinate display in the bottom-left corner — it copies the full seed command to your clipboard.
+
+**Persistent seed** — 8 thots that never expire, for general UI testing:
 ```bash
-curl -s https://ipinfo.io/json
-# look for "loc": "lat,lng"
+node --env-file=server/.env server/seed.js --lat=40.709704 --lng=-74.007315
 ```
 
-Seed 8 sample thots around your location:
+**Opacity demo seed** — 15 thots spread across the 24hr fade window (98% → 5% opacity):
 ```bash
-node server/seed.js --lat=40.7143 --lng=-74.0060
+node --env-file=server/.env server/seed-demo.js --lat=40.709704 --lng=-74.007315
 ```
 
-Re-running clears and replaces previous seed data automatically.
+Or from inside `server/`:
+```bash
+npm run seed -- --lat=40.709704 --lng=-74.007315
+npm run seed:demo -- --lat=40.709704 --lng=-74.007315
+```
+
+Both commands clear all previous seed data before inserting, so re-running is always safe.
 
 ---
 
