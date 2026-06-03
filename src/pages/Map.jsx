@@ -2,12 +2,13 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import mapboxgl from 'mapbox-gl'
-import { Settings2, MessageSquarePlus } from 'lucide-react'
+import { SlidersHorizontal, MessageSquarePlus } from 'lucide-react'
 import useAppStore from '../stores/useAppStore'
 import useLocation from '../hooks/useLocation'
 import useThots from '../hooks/useThots'
 import ThotPin, { AnonAvatar, pinAgeHours } from '../components/ThotPin'
 import ComposeDrawer from '../components/ComposeDrawer'
+import ToolsPanel from '../components/ToolsPanel'
 import { getOrCreateSession } from '../lib/identity'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
@@ -19,6 +20,7 @@ export default function Map() {
   const youMarkerRef = useRef(null)
   const [mapReady, setMapReady] = useState(false)
   const [mapError, setMapError] = useState(null)
+  const [toolsOpen, setToolsOpen] = useState(false)
 
   const { location, error: locationError, request: requestLocation, retry } = useLocation()
   const { error: thotsError } = useThots()
@@ -215,8 +217,15 @@ export default function Map() {
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-[#0a0f1e] to-transparent pointer-events-none">
         <span className="text-white font-black text-xl tracking-tight">Thots.</span>
-        <button className="w-9 h-9 rounded-full bg-white/10 border border-white/15 flex items-center justify-center text-slate-300 hover:bg-white/20 cursor-pointer pointer-events-auto">
-          <Settings2 size={16} />
+        <button
+          onClick={() => setToolsOpen(o => !o)}
+          className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer pointer-events-auto ${
+            toolsOpen
+              ? 'bg-brand-purple/20 border-brand-purple/50 text-brand-purple'
+              : 'bg-white/10 border-white/15 text-slate-300 hover:bg-white/20'
+          }`}
+        >
+          <SlidersHorizontal size={15} />
         </button>
       </div>
 
@@ -237,21 +246,42 @@ export default function Map() {
         </div>
       )}
 
-      {/* Dev coords — copy exact browser location for seed commands */}
-      {import.meta.env.DEV && location && (
-        <div
-          className="absolute bottom-24 left-4 z-20 bg-black/70 border border-white/10 rounded-xl px-3 py-2 cursor-pointer hover:border-white/30 transition-colors"
-          onClick={() => {
-            const cmd = `node --env-file=server/.env server/seed.js --lat=${location.lat.toFixed(6)} --lng=${location.lng.toFixed(6)}`
-            navigator.clipboard.writeText(cmd)
-          }}
-          title="Click to copy seed command"
-        >
-          <p className="text-white/40 text-[9px] uppercase tracking-widest mb-0.5">your location</p>
-          <p className="text-white font-mono text-[11px]">{location.lat.toFixed(6)}, {location.lng.toFixed(6)}</p>
-          <p className="text-white/30 text-[9px] mt-0.5">click to copy seed command</p>
+      {/* Bottom-left stack: zoom controls above dev coords */}
+      <div className="absolute bottom-6 left-4 z-20 flex flex-col items-start gap-2">
+        {/* Zoom controls */}
+        <div className="flex flex-col rounded-xl overflow-hidden border border-white/10 shadow-lg">
+          <button
+            onClick={() => mapInstanceRef.current?.zoomIn({ duration: 200 })}
+            className="w-9 h-9 bg-[#0e0e1a]/90 text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center text-lg font-light transition-colors cursor-pointer border-b border-white/10"
+            aria-label="Zoom in"
+          >
+            +
+          </button>
+          <button
+            onClick={() => mapInstanceRef.current?.zoomOut({ duration: 200 })}
+            className="w-9 h-9 bg-[#0e0e1a]/90 text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center text-lg font-light transition-colors cursor-pointer"
+            aria-label="Zoom out"
+          >
+            −
+          </button>
         </div>
-      )}
+
+        {/* Dev coords — only in dev mode */}
+        {import.meta.env.DEV && location && (
+          <div
+            className="bg-black/70 border border-white/10 rounded-xl px-3 py-2 cursor-pointer hover:border-white/30 transition-colors"
+            onClick={() => {
+              const cmd = `node --env-file=server/.env server/seed.js --lat=${location.lat.toFixed(6)} --lng=${location.lng.toFixed(6)}`
+              navigator.clipboard.writeText(cmd)
+            }}
+            title="Click to copy seed command"
+          >
+            <p className="text-white/40 text-[9px] uppercase tracking-widest mb-0.5">your location</p>
+            <p className="text-white font-mono text-[11px]">{location.lat.toFixed(6)}, {location.lng.toFixed(6)}</p>
+            <p className="text-white/30 text-[9px] mt-0.5">click to copy seed command</p>
+          </div>
+        )}
+      </div>
 
       {/* Compose button */}
       {!composing && !selectedThot && (
@@ -276,10 +306,19 @@ export default function Map() {
         />
       )}
 
+      {/* Tools panel */}
+      {toolsOpen && (
+        <ToolsPanel
+          onClose={() => setToolsOpen(false)}
+          thots={thots}
+          session={session}
+        />
+      )}
+
       {/* Selected thot detail sheet */}
       {selectedThot && (
         <div
-          className="absolute inset-0 z-25 bg-black/40 flex items-end"
+          className="absolute inset-0 z-40 bg-black/40 flex items-end"
           onClick={() => setSelectedThot(null)}
         >
           <div
