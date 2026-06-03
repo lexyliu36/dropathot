@@ -70,7 +70,7 @@ export default function Map() {
       container: mapRef.current,
       style: 'mapbox://styles/mapbox/dark-v11',
       center,
-      zoom: 17,
+      zoom: 16,
       attributionControl: false,
     })
 
@@ -97,7 +97,7 @@ export default function Map() {
   useEffect(() => {
     const map = mapInstanceRef.current
     if (!map || !location) return
-    map.easeTo({ center: [location.lng, location.lat], zoom: 17, duration: 800 })
+    map.easeTo({ center: [location.lng, location.lat], zoom: 16, duration: 800 })
   }, [location])
 
   // Your location marker
@@ -151,7 +151,7 @@ export default function Map() {
       const el = document.createElement('div')
       el.style.cssText = 'pointer-events: none; overflow: visible;'
       const root = createRoot(el)
-      root.render(<ThotPin thot={thot} isYou={isYou} onClick={setSelectedThot} />)
+      root.render(<ThotPin thot={thot} isYou={isYou} onClick={setSelectedThot} session={session} />)
 
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([thot.lng, thot.lat])
