@@ -6,9 +6,10 @@ import { SlidersHorizontal, MessageSquarePlus } from 'lucide-react'
 import useAppStore from '../stores/useAppStore'
 import useLocation from '../hooks/useLocation'
 import useThots from '../hooks/useThots'
-import ThotPin, { AnonAvatar, pinAgeHours } from '../components/ThotPin'
+import ThotPin, { AnonAvatar, YouPin, pinAgeHours } from '../components/ThotPin'
 import ComposeDrawer from '../components/ComposeDrawer'
 import ToolsPanel from '../components/ToolsPanel'
+import ProfileSheet from '../components/ProfileSheet'
 import { getOrCreateSession } from '../lib/identity'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
@@ -31,6 +32,7 @@ export default function Map() {
   const setComposing = useAppStore((s) => s.setComposing)
   const selectedThot = useAppStore((s) => s.selectedThot)
   const setSelectedThot = useAppStore((s) => s.setSelectedThot)
+  const [showYouProfile, setShowYouProfile] = useState(false)
   const setSession = useAppStore((s) => s.setSession)
 
   // Load session from localStorage
@@ -80,9 +82,25 @@ export default function Map() {
 
     map.on('load', () => setMapReady(true))
 
+    // Update fetch center + radius when the user pans or zooms (debounced 400ms)
+    let moveTimer
+    map.on('moveend', () => {
+      clearTimeout(moveTimer)
+      moveTimer = setTimeout(() => {
+        const c = map.getCenter()
+        const zoom = map.getZoom()
+        // Radius scales with zoom: ~600m at z16, ~2.5km at z14, capped at 10km
+        const radius = Math.min(Math.round(40000 / Math.pow(2, zoom - 10)), 10000)
+        const store = useAppStore.getState()
+        store.setMapCenter({ lat: c.lat, lng: c.lng })
+        store.setRadius(radius)
+      }, 400)
+    })
+
     mapInstanceRef.current = map
 
     return () => {
+      clearTimeout(moveTimer)
       Object.values(markersRef.current).forEach(({ root }) => root.unmount())
       markersRef.current = {}
       if (youMarkerRef.current) {
@@ -102,17 +120,17 @@ export default function Map() {
     map.easeTo({ center: [location.lng, location.lat], zoom: 16, duration: 800 })
   }, [location])
 
-  // Your location marker
+  // Your location marker — created once on location + mapReady
   useEffect(() => {
     const map = mapInstanceRef.current
     if (!map || !mapReady || !location) return
 
     const el = document.createElement('div')
-    el.style.cssText = 'pointer-events: none;'
+    el.style.cssText = 'pointer-events: none; overflow: visible;'
     const root = createRoot(el)
-    root.render(<AnonAvatar size={40} color="#e11d48" active />)
+    root.render(<YouPin hasThot={false} onAvatarClick={() => setShowYouProfile(true)} />)
 
-    const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+    const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
       .setLngLat([location.lng, location.lat])
       .addTo(map)
 
@@ -122,6 +140,18 @@ export default function Map() {
     }
     youMarkerRef.current = { marker, root }
   }, [location, mapReady])
+
+  // Re-render YouPin when the user's thot status changes
+  useEffect(() => {
+    if (!youMarkerRef.current) return
+    const userThot = thots.find(t => t.session_id === session?.id) ?? null
+    youMarkerRef.current.root.render(
+      <YouPin
+        hasThot={!!userThot}
+        onAvatarClick={() => setShowYouProfile(true)}
+      />
+    )
+  }, [thots, session?.id])
 
   // Sync thot markers
   useEffect(() => {
@@ -153,7 +183,21 @@ export default function Map() {
       const el = document.createElement('div')
       el.style.cssText = 'pointer-events: none; overflow: visible;'
       const root = createRoot(el)
-      root.render(<ThotPin thot={thot} isYou={isYou} onClick={setSelectedThot} session={session} />)
+      root.render(
+        <ThotPin
+          thot={thot}
+          isYou={isYou}
+          session={session}
+          onClick={(t) => {
+            if (t.session_id === session?.id) {
+              setShowYouProfile(true)
+            } else {
+              setSelectedThot(t)
+            }
+            setToolsOpen(false)
+          }}
+        />
+      )
 
       const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
         .setLngLat([thot.lng, thot.lat])
@@ -162,11 +206,12 @@ export default function Map() {
       const zIndex = Math.max(1, 24 - Math.floor(pinAgeHours(thot)))
       if (el.parentElement) el.parentElement.style.zIndex = zIndex
 
-      // Separate rAF only for position nudge (React renders async)
-      requestAnimationFrame(() => marker.setLngLat([thot.lng, thot.lat]))
-
-      markersRef.current[thot.id] = { marker, root }
+      markersRef.current[thot.id] = { marker, root, thot }
     })
+
+    // Re-insert YouPin's element last so it wins click ties by DOM order
+    const youEl = youMarkerRef.current?.marker?.getElement()
+    if (youEl?.parentElement) youEl.parentElement.appendChild(youEl)
   }, [thots, mapReady, session?.id])
 
   async function handlePost(content) {
@@ -284,7 +329,7 @@ export default function Map() {
       </div>
 
       {/* Compose button */}
-      {!composing && !selectedThot && (
+      {!composing && (
         <div className="absolute bottom-6 right-5 z-20">
           <button
             onClick={() => setComposing(true)}
@@ -315,44 +360,24 @@ export default function Map() {
         />
       )}
 
-      {/* Selected thot detail sheet */}
-      {selectedThot && (
-        <div
-          className="absolute inset-0 z-40 bg-black/40 flex items-end"
-          onClick={() => setSelectedThot(null)}
-        >
-          <div
-            className="w-full bg-[#0e0e1a] border-t border-white/10 rounded-t-3xl p-5"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start gap-3 mb-3">
-              <AnonAvatar
-                size={40}
-                color={selectedThot.pen_name ? '#7c3aed' : '#64748b'}
-              />
-              <div className="flex-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-brand-purple font-semibold text-sm">
-                    {selectedThot.pen_name || 'Anonymous'}
-                  </span>
-                  <span className="text-slate-600 text-xs">
-                    {new Date(selectedThot.created_at).toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </span>
-                </div>
-                <p className="text-white text-sm leading-relaxed mt-1">{selectedThot.content}</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setSelectedThot(null)}
-              className="text-slate-500 text-sm hover:text-white cursor-pointer"
-            >
-              Close
-            </button>
-          </div>
-        </div>
+      {/* Profile sheet — tapping any thot bubble or avatar */}
+      {selectedThot && !composing && (
+        <ProfileSheet
+          thot={selectedThot}
+          session={session}
+          onClose={() => setSelectedThot(null)}
+        />
+      )}
+
+      {/* Your profile sheet — tapping your own YouPin */}
+      {showYouProfile && !composing && (
+        <ProfileSheet
+          thot={thots.find(t => t.session_id === session?.id) ?? null}
+          session={session}
+          isYouProfile
+          onCompose={() => { setShowYouProfile(false); setComposing(true) }}
+          onClose={() => setShowYouProfile(false)}
+        />
       )}
     </div>
   )

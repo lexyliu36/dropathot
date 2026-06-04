@@ -27,7 +27,8 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
   }
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-30 bg-[#0e0e1a] border-t border-white/10 rounded-t-3xl p-5 flex flex-col gap-4 shadow-2xl">
+    <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none" onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="w-full mx-5 sm:mx-0 sm:max-w-[550px] bg-[#0e0e1a] border border-white/10 rounded-3xl p-5 flex flex-col gap-4 shadow-2xl pointer-events-auto">
       <div className="flex items-center justify-between">
         <span className="text-white font-semibold text-base">Drop a thot</span>
         <button onClick={onClose} className="text-slate-500 hover:text-white cursor-pointer">
@@ -66,7 +67,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, MAX))}
             placeholder="What's on your mind?"
-            rows={3}
+            rows={4}
             className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 text-white placeholder:text-slate-600 resize-none focus:outline-none focus:border-brand-purple transition-colors text-sm"
           />
           {error && <p className="text-red-400 text-xs">{error}</p>}
@@ -89,6 +90,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
           </div>
         </>
       )}
+    </div>
     </div>
   )
 }

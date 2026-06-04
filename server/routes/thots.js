@@ -8,7 +8,26 @@ import { moderate } from '../middleware/moderate.js'
 const router = Router()
 
 // GET /thots?lat=&lng=&radius=
+// GET /thots?session_id=  (returns post history for a session, no location filter)
 router.get('/', async (req, res) => {
+  // Session history mode
+  if (req.query.session_id) {
+    const sessionId = req.query.session_id
+    if (!/^[0-9a-f-]{36}$/.test(sessionId)) {
+      return res.status(400).json({ error: 'invalid session_id' })
+    }
+    const { data, error } = await supabase
+      .from('thots')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('hidden', false)
+      .order('created_at', { ascending: false })
+      .limit(50)
+    if (error) return res.status(500).json({ error: 'Failed to fetch thots' })
+    return res.json(data)
+  }
+
+  // Geo mode
   const lat = parseFloat(req.query.lat)
   const lng = parseFloat(req.query.lng)
   const radius = parseFloat(req.query.radius) || 2000
