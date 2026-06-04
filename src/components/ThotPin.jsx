@@ -25,10 +25,8 @@ export function pinAgeHours(thot) {
 }
 
 const AVATAR_SIZE = 36
-const DOT_SIZE = 4   // isYou marker size
-// Bubble bottom = anchor size + tail height
-const bubbleBottom = (isYou) => (isYou ? DOT_SIZE : AVATAR_SIZE) + 10
-const bubbleLeft   = (isYou) => isYou ? Math.round(DOT_SIZE / 2) - 13 : 0
+const bubbleBottom = AVATAR_SIZE + 10
+const bubbleLeft   = 0
 
 export default function ThotPin({ thot, isYou = false, onClick, session }) {
   const [dismissed, setDismissed] = useState(false)
@@ -40,15 +38,12 @@ export default function ThotPin({ thot, isYou = false, onClick, session }) {
   const ageHours = pinAgeHours(thot)
   const opacity = Math.max(0.05, 1 - ageHours / 24)
 
-  // isYou uses a small dot anchor; others use the full avatar
-  const anchorSize = isYou ? DOT_SIZE : AVATAR_SIZE
-
   return (
     <div
       style={{
         position: 'relative',
-        width: `${anchorSize}px`,
-        height: `${anchorSize}px`,
+        width: `${AVATAR_SIZE}px`,
+        height: `${AVATAR_SIZE}px`,
         overflow: 'visible',
         opacity: dismissed ? 0 : opacity,
         transition: 'opacity 0.3s ease',
@@ -62,8 +57,8 @@ export default function ThotPin({ thot, isYou = false, onClick, session }) {
         onClick={() => !dismissed && onClick(thot)}
         style={{
           position: 'absolute',
-          bottom: `${bubbleBottom(isYou)}px`,
-          left: `${bubbleLeft(isYou)}px`,
+          bottom: `${bubbleBottom}px`,
+          left: `${bubbleLeft}px`,
           maxWidth: '200px',
           minWidth: '80px',
           background: 'rgba(10, 10, 26, 0.92)',
@@ -161,22 +156,12 @@ export default function ThotPin({ thot, isYou = false, onClick, session }) {
         </svg>
       </div>
 
-      {/* Anchor — small red dot for your own thot, avatar for others */}
+      {/* Anchor — hidden for your own thot, space preserved so bubble stays in position */}
       <div
         onClick={() => onClick(thot)}
-        style={{ pointerEvents: 'auto', cursor: 'pointer', width: `${anchorSize}px`, height: `${anchorSize}px` }}
+        style={{ pointerEvents: 'auto', cursor: 'pointer', width: `${AVATAR_SIZE}px`, height: `${AVATAR_SIZE}px`, visibility: isYou ? 'hidden' : 'visible' }}
       >
-        {isYou ? (
-          <div style={{
-            width: `${DOT_SIZE}px`,
-            height: `${DOT_SIZE}px`,
-            borderRadius: '50%',
-            background: '#e11d48',
-            boxShadow: '0 0 8px #e11d4890, 0 0 16px #e11d4840',
-          }} />
-        ) : (
-          <AnonAvatar size={AVATAR_SIZE} color={accentColor} active={false} />
-        )}
+        <AnonAvatar size={AVATAR_SIZE} color={accentColor} active={false} />
       </div>
     </div>
   )
