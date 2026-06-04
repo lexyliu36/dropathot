@@ -182,9 +182,9 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
           <button
             onClick={onCompose}
             className="w-full rounded-xl py-2.5 text-sm font-semibold transition-colors cursor-pointer"
-            style={{ background: '#e11d4818', color: '#e11d48', border: '1px solid #e11d4835' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#e11d4828'}
-            onMouseLeave={e => e.currentTarget.style.background = '#e11d4818'}
+            style={{ background: '#e11d48', color: '#fff', border: 'none' }}
+            onMouseEnter={e => e.currentTarget.style.background = '#be123c'}
+            onMouseLeave={e => e.currentTarget.style.background = '#e11d48'}
           >
             + Drop a new thot
           </button>

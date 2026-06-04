@@ -189,7 +189,11 @@ export default function Map() {
           isYou={isYou}
           session={session}
           onClick={(t) => {
-            setSelectedThot(t)
+            if (t.session_id === session?.id) {
+              setShowYouProfile(true)
+            } else {
+              setSelectedThot(t)
+            }
             setToolsOpen(false)
           }}
         />
