@@ -2,7 +2,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import mapboxgl from 'mapbox-gl'
-import { SlidersHorizontal, MessageSquarePlus } from 'lucide-react'
+import { SlidersHorizontal, MessageSquarePlus, LocateFixed } from 'lucide-react'
 import useAppStore from '../stores/useAppStore'
 import useLocation from '../hooks/useLocation'
 import useThots from '../hooks/useThots'
@@ -39,8 +39,9 @@ export default function Map() {
   useEffect(() => {
     const localSession = getOrCreateSession()
     setSession(localSession)
-    // Register with server — it issues an httpOnly cookie as the authoritative
-    // session_id. The returned session_id may differ from localStorage (server-generated).
+    // Auth users already have a session cookie from login — skip /auth/anon
+    if (localSession.type === 'user') return
+    // Anon users: register with server to get the authoritative httpOnly session cookie
     fetch(`${API_URL}/auth/anon`, {
       method: 'POST',
       credentials: 'include',
@@ -48,7 +49,7 @@ export default function Map() {
     })
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data?.session_id) setSession({ ...localSession, id: data.session_id }) })
-      .catch(() => {}) // non-blocking — falls back to localStorage UUID if backend is down
+      .catch(() => {})
   }, [])
 
   // Request location on mount
@@ -128,7 +129,7 @@ export default function Map() {
     const el = document.createElement('div')
     el.style.cssText = 'pointer-events: none; overflow: visible;'
     const root = createRoot(el)
-    root.render(<YouPin hasThot={false} onAvatarClick={() => setShowYouProfile(true)} />)
+    root.render(<YouPin hasThot={false} onAvatarClick={() => { setShowYouProfile(true); setSelectedThot(null) }} />)
 
     const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
       .setLngLat([location.lng, location.lat])
@@ -148,7 +149,7 @@ export default function Map() {
     youMarkerRef.current.root.render(
       <YouPin
         hasThot={!!userThot}
-        onAvatarClick={() => setShowYouProfile(true)}
+        onAvatarClick={() => { setShowYouProfile(true); setSelectedThot(null) }}
       />
     )
   }, [thots, session?.id])
@@ -191,8 +192,10 @@ export default function Map() {
           onClick={(t) => {
             if (t.session_id === session?.id) {
               setShowYouProfile(true)
+              setSelectedThot(null)
             } else {
               setSelectedThot(t)
+              setShowYouProfile(false)
             }
             setToolsOpen(false)
           }}
@@ -214,7 +217,7 @@ export default function Map() {
     if (youEl?.parentElement) youEl.parentElement.appendChild(youEl)
   }, [thots, mapReady, session?.id])
 
-  async function handlePost(content) {
+  async function handlePost(content, duration) {
     if (!location) throw new Error('Location required')
     const body = {
       content,
@@ -222,11 +225,15 @@ export default function Map() {
       lng: location.lng,
       session_id: session?.id,
       pen_name: session?.penName ?? null,
+      duration_hours: duration,
     }
+    const headers = { 'Content-Type': 'application/json' }
+    if (session?.supabaseToken) headers['Authorization'] = `Bearer ${session.supabaseToken}`
+
     const res = await fetch(`${API_URL}/thots`, {
       method: 'POST',
       credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(body),
     })
     if (!res.ok) {
@@ -293,6 +300,17 @@ export default function Map() {
 
       {/* Bottom-left stack: zoom controls above dev coords */}
       <div className="absolute bottom-6 left-4 z-20 flex flex-col items-start gap-2">
+        {/* Recenter button */}
+        {location && (
+          <button
+            onClick={() => mapInstanceRef.current?.flyTo({ center: [location.lng, location.lat], zoom: 16, duration: 600 })}
+            className="w-9 h-9 rounded-xl bg-[#0e0e1a]/90 border border-white/10 shadow-lg text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
+            aria-label="Recenter on me"
+          >
+            <LocateFixed size={15} />
+          </button>
+        )}
+
         {/* Zoom controls */}
         <div className="flex flex-col rounded-xl overflow-hidden border border-white/10 shadow-lg">
           <button

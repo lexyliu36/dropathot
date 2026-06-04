@@ -5,6 +5,15 @@ import "./index.css"
 import Landing from "./pages/Landing"
 import AgeGate from "./pages/AgeGate"
 import Map from "./pages/Map"
+import { getOrCreateSession } from "./lib/identity"
+
+function RequireAuth({ children }) {
+  const session = getOrCreateSession()
+  const enrolled = session.ageVerified === true &&
+    (session.type === "anon" || session.type === "user")
+  if (!enrolled) return <Navigate to="/" replace />
+  return children
+}
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
@@ -12,7 +21,7 @@ createRoot(document.getElementById("root")).render(
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/age-gate" element={<AgeGate />} />
-        <Route path="/map" element={<Map />} />
+        <Route path="/map" element={<RequireAuth><Map /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

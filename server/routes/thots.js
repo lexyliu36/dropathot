@@ -20,7 +20,6 @@ router.get('/', async (req, res) => {
       .from('thots')
       .select('*')
       .eq('session_id', sessionId)
-      .eq('hidden', false)
       .order('created_at', { ascending: false })
       .limit(50)
     if (error) return res.status(500).json({ error: 'Failed to fetch thots' })
@@ -52,7 +51,7 @@ router.get('/', async (req, res) => {
 
 // POST /thots
 router.post('/', smartRateLimit, moderate, async (req, res) => {
-  const { content, lat, lng } = req.body
+  const { content, lat, lng, duration_hours } = req.body
   // Cookie is authoritative — prevents session_id spoofing from the client body
   const session_id = req.cookies?.session_id ?? req.body.session_id
 
@@ -85,6 +84,24 @@ router.post('/', smartRateLimit, moderate, async (req, res) => {
     .update((req.ip || '') + (process.env.IP_SALT || ''))
     .digest('hex')
 
+  // Compute expires_at from duration_hours
+  // Auth users: null → permanent (100 years), or 1–24 hours
+  // Anon users: 1–3 hours only (default 3)
+  let expires_at
+  if (req.user) {
+    if (duration_hours === null || duration_hours === undefined) {
+      expires_at = new Date(Date.now() + 100 * 365.25 * 24 * 3600 * 1000).toISOString()
+    } else {
+      const h = parseInt(duration_hours)
+      if (isNaN(h) || h < 1 || h > 24) return res.status(400).json({ error: 'duration must be 1–24 hours' })
+      expires_at = new Date(Date.now() + h * 3600 * 1000).toISOString()
+    }
+  } else {
+    const h = parseInt(duration_hours) || 3
+    if (![1, 2, 3].includes(h)) return res.status(400).json({ error: 'anonymous posts can stay up for 1–3 hours' })
+    expires_at = new Date(Date.now() + h * 3600 * 1000).toISOString()
+  }
+
   // Hide previous active thot from this session
   await supabase
     .from('thots')
@@ -102,6 +119,7 @@ router.post('/', smartRateLimit, moderate, async (req, res) => {
       session_id,
       ip_hash,
       location: `SRID=4326;POINT(${lng} ${lat})`,
+      expires_at,
     })
     .select()
     .single()

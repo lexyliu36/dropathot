@@ -1,5 +1,6 @@
 /**
- * Persistent dev seed — thots never expire, for map UI testing.
+ * Persistent dev seed — auth-style thots near your current location, for map UI testing.
+ * All pins are permanent (no expiry). Pass your real coords to place them around you.
  *
  * Usage:
  *   node server/seed.js --lat=40.7143 --lng=-74.0060
@@ -52,7 +53,7 @@ async function seed() {
     ip_hash: createHash('sha256').update(`seed-${i}${IP_SALT}`).digest('hex'),
     location: `SRID=4326;POINT(${centerLng + OFFSETS[i][1]} ${centerLat + OFFSETS[i][0]})`,
     created_at: new Date(Date.now() - i * 4 * 60 * 1000).toISOString(),
-    expires_at: new Date(Date.now() + 10 * 365 * 24 * 60 * 60 * 1000).toISOString(),
+    expires_at: new Date(Date.now() + 100 * 365.25 * 24 * 60 * 60 * 1000).toISOString(),
   }))
 
   const { data, error } = await supabase.from('thots').insert(rows).select('id, content')

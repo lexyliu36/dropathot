@@ -1,23 +1,44 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { X, Send, User } from 'lucide-react'
 
 const MAX = 280
+
+const ANON_OPTIONS = [
+  { value: 3, label: '3 hours' },
+  { value: 2, label: '2 hours' },
+  { value: 1, label: '1 hour' },
+]
+
+const AUTH_OPTIONS = [
+  { value: null, label: 'Forever' },
+  { value: 24, label: '1 day' },
+  { value: 6, label: '6 hours' },
+  { value: 5, label: '5 hours' },
+  { value: 4, label: '4 hours' },
+  { value: 3, label: '3 hours' },
+  { value: 2, label: '2 hours' },
+  { value: 1, label: '1 hour' },
+]
 
 export default function ComposeDrawer({ onClose, onPost, location, session }) {
   const [text, setText] = useState('')
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState(null)
 
+  const navigate = useNavigate()
   const isAuth = session?.type === 'user'
   const identity = isAuth ? (session?.penName || 'member') : 'anonymous'
   const rateNote = isAuth ? '10 thots/hr' : '3 thots/hr'
+  const durationOptions = isAuth ? AUTH_OPTIONS : ANON_OPTIONS
+  const [duration, setDuration] = useState(durationOptions[0].value)
 
   async function handlePost() {
     if (!text.trim() || posting) return
     setPosting(true)
     setError(null)
     try {
-      await onPost(text.trim())
+      await onPost(text.trim(), duration)
       onClose()
     } catch (err) {
       setError(err.message || 'Failed to post. Try again.')
@@ -52,9 +73,12 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
           <span className="text-slate-600 ml-1">· {rateNote}</span>
         </span>
         {!isAuth && (
-          <span className="ml-auto text-[10px] text-slate-600 underline cursor-pointer hover:text-slate-400">
+          <button
+            onClick={() => navigate('/', { state: { openSignup: true } })}
+            className="ml-auto text-[10px] text-brand-purple underline cursor-pointer hover:text-violet-400 transition-colors"
+          >
             Sign up for more
-          </span>
+          </button>
         )}
       </div>
 
@@ -71,6 +95,31 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
             className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 text-white placeholder:text-slate-600 resize-none focus:outline-none focus:border-brand-purple transition-colors text-sm"
           />
           {error && <p className="text-red-400 text-xs">{error}</p>}
+
+          {/* Duration picker */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 flex-shrink-0">Visible for</span>
+            <select
+              value={duration ?? ''}
+              onChange={(e) => setDuration(e.target.value === '' ? null : parseInt(e.target.value))}
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-white text-xs focus:outline-none focus:border-brand-purple transition-colors cursor-pointer"
+            >
+              {durationOptions.map(opt => (
+                <option key={String(opt.value)} value={opt.value ?? ''} style={{ background: '#0e0e1a' }}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            {!isAuth && (
+              <span className="text-[10px] text-slate-600 flex-shrink-0">
+                <button
+                  onClick={() => navigate('/', { state: { openSignup: true } })}
+                  className="text-brand-purple underline hover:text-violet-400 transition-colors cursor-pointer"
+                >Sign up</button> for permanent thots
+              </span>
+            )}
+          </div>
+
           <div className="flex items-center justify-between">
             <span className={`text-xs ${MAX - text.length < 30 ? 'text-brand-red' : 'text-slate-500'}`}>
               {MAX - text.length} remaining

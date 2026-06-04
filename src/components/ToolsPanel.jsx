@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { X, Trophy, User, Settings } from 'lucide-react'
 
 const TABS = [
@@ -61,6 +62,7 @@ function Leaderboard({ thots }) {
 }
 
 function ProfileTab({ session, thots }) {
+  const navigate = useNavigate()
   const isAuth = session?.type === 'user'
   const myThots = (thots ?? []).filter(t => t.session_id === session?.id)
   const totalHypes = myThots.reduce((sum, t) => sum + (t.hype_count ?? 0), 0)
@@ -110,10 +112,16 @@ function ProfileTab({ session, thots }) {
           <p className="text-slate-400 text-[11px] leading-relaxed mb-3">
             Sign up to claim a pen name, post 10 thots/hr, and track your hypes across sessions.
           </p>
-          <button className="w-full py-2 rounded-lg bg-brand-purple text-white text-xs font-semibold hover:bg-violet-500 transition-colors cursor-pointer">
+          <button
+            onClick={() => navigate('/', { state: { openSignup: true } })}
+            className="w-full py-2 rounded-lg bg-brand-purple text-white text-xs font-semibold hover:bg-violet-500 transition-colors cursor-pointer"
+          >
             Create account
           </button>
-          <button className="w-full py-1.5 mt-1.5 rounded-lg text-slate-400 text-xs hover:text-white transition-colors cursor-pointer">
+          <button
+            onClick={() => navigate('/', { state: { openLogin: true } })}
+            className="w-full py-1.5 mt-1.5 rounded-lg text-brand-purple text-xs hover:text-violet-400 transition-colors cursor-pointer underline"
+          >
             Already have an account? Sign in
           </button>
         </div>

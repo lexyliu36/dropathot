@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { X, ShieldX, ShieldCheck } from 'lucide-react'
 import { AnonAvatar } from './ThotPin'
 import useAppStore from '../stores/useAppStore'
@@ -54,6 +55,7 @@ function ThotCard({ thot, accentColor, highlighted, isAuth }) {
 export default function ProfileSheet({ thot, session, isYouProfile = false, onCompose, onClose }) {
   const [history, setHistory] = useState(null)
   const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
 
   const blockedSessions = useAppStore((s) => s.blockedSessions)
   const blockSession = useAppStore((s) => s.blockSession)
@@ -163,7 +165,10 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
             )}
             {!isAuth && (
               <p className="text-slate-600 text-[10px]">
-                <a href="/landing" style={{ color: '#7c3aed' }}>Sign in</a> to keep your pen name across sessions
+                <button
+                  onClick={() => navigate('/', { state: { openSignup: true } })}
+                  className="text-brand-purple underline hover:text-violet-400 transition-colors cursor-pointer"
+                >Sign up</button> to keep your pen name across sessions
               </p>
             )}
           </div>
@@ -171,7 +176,10 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
 
         {!loading && allThots.length > 0 && !isAuth && (
           <p className="text-slate-600 text-[10px] text-center pt-2">
-            <span className="text-white">Sign up</span> to hype thots
+            <button
+              onClick={() => navigate('/', { state: { openSignup: true } })}
+              className="text-brand-purple underline hover:text-violet-400 transition-colors cursor-pointer"
+            >Sign up</button> to hype thots
           </p>
         )}
       </div>

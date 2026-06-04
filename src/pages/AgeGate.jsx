@@ -1,7 +1,8 @@
 import { useState, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ChevronRight, ChevronLeft, RotateCcw } from "lucide-react";
+import { ChevronRight, ChevronLeft, RotateCcw, Loader2, Mail } from "lucide-react";
 import { updateSession } from "../lib/identity";
+import { signUp } from "../lib/auth";
 
 // ─── Birth year scroll picker ────────────────────────────────────────────────
 const CURRENT_YEAR = new Date().getFullYear();
@@ -166,10 +167,15 @@ function DragCaptcha({ onVerified }) {
 export default function AgeGate() {
   const navigate = useNavigate();
   const { state } = useLocation();
-  const [step, setStep] = useState("age"); // age | captcha
+  const [step, setStep] = useState("age"); // age | captcha | email-sent
   const [year, setYear] = useState(2000);
   const [agreed, setAgreed] = useState(false);
   const [error, setError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [signedUpEmail, setSignedUpEmail] = useState("");
+
+  // Redirect to landing if accessed directly without going through the flow
+  const flowType = state?.type || "anon";
 
   function handleAgeContinue() {
     if (!agreed) { setError("You must confirm you meet the age requirements."); return; }
@@ -179,9 +185,37 @@ export default function AgeGate() {
     setStep("captcha");
   }
 
-  function handleVerified() {
-    updateSession({ ageVerified: true, type: state?.type || "anon" });
-    navigate("/map");
+  async function handleVerified() {
+    if (flowType === "anon") {
+      updateSession({ ageVerified: true, type: "anon" });
+      navigate("/map");
+      return;
+    }
+
+    // Signup flow — read credentials from sessionStorage, wipe immediately, then call API
+    let pending;
+    try {
+      pending = JSON.parse(sessionStorage.getItem("pending_signup") || "null");
+    } catch {}
+    sessionStorage.removeItem("pending_signup"); // clear regardless of parse result
+
+    if (!pending?.email || !pending?.password) {
+      setError("Session expired. Please go back and try again.");
+      return;
+    }
+
+    setSubmitting(true);
+    setError("");
+    try {
+      await signUp(pending.email, pending.password, pending.penName, year);
+      setSignedUpEmail(pending.email);
+      setStep("email-sent");
+    } catch (err) {
+      setError(err.message);
+      setStep("captcha");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -253,12 +287,42 @@ export default function AgeGate() {
             {step === "captcha" && (
               <>
                 <DragCaptcha onVerified={handleVerified} />
+                {submitting && (
+                  <div className="flex items-center justify-center gap-2 text-slate-400 text-sm">
+                    <Loader2 size={16} className="animate-spin" /> Creating your account…
+                  </div>
+                )}
+                {error && <p className="text-brand-red text-sm text-center">{error}</p>}
                 <div className="flex justify-start">
                   <button onClick={() => setStep("age")} className="text-slate-500 text-sm hover:text-white cursor-pointer flex items-center gap-1">
                     <ChevronLeft size={14} /> Back
                   </button>
                 </div>
               </>
+            )}
+
+            {step === "email-sent" && (
+              <div className="flex flex-col items-center gap-5 py-2 text-center">
+                <div className="w-14 h-14 rounded-full bg-brand-blue/10 border border-brand-blue/30 flex items-center justify-center">
+                  <Mail size={26} className="text-brand-blue" />
+                </div>
+                <div>
+                  <h2 className="text-white font-bold text-xl mb-2">Check your email</h2>
+                  <p className="text-slate-300 text-sm leading-relaxed">
+                    We sent a confirmation link to{" "}
+                    <span className="text-white font-semibold">{signedUpEmail}</span>.
+                  </p>
+                  <p className="text-slate-400 text-sm mt-2 leading-relaxed">
+                    Click it to verify your account, then come back here to log in.
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate("/", { state: { openLogin: true } })}
+                  className="w-full py-3 rounded-2xl bg-brand-blue text-white font-semibold hover:bg-blue-500 transition-colors cursor-pointer"
+                >
+                  Go to sign in
+                </button>
+              </div>
             )}
           </div>
         </div>
