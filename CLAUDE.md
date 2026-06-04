@@ -105,7 +105,7 @@ create table thots (
   ip_hash     text not null,                 -- hashed IP, never plaintext
   location    geography(Point, 4326) not null,
   created_at  timestamptz default now(),
-  expires_at  timestamptz default now() + interval '6 hours',
+  expires_at  timestamptz default now() + interval '24 hours',
   hidden      boolean default false          -- hidden if user posts again
 );
 

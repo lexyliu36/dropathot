@@ -17,10 +17,11 @@ export default function useThots() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const socketSubscribed = useRef(false)
-  const { userLocation, radius, setThots, addThot } = useAppStore()
+  const { userLocation, mapCenter, radius, setThots, addThot } = useAppStore()
+  const fetchCenter = mapCenter ?? userLocation
 
   useEffect(() => {
-    if (!userLocation) return
+    if (!fetchCenter) return
 
     let cancelled = false
 
@@ -29,7 +30,7 @@ export default function useThots() {
       setError(null)
       try {
         const res = await fetch(
-          `${API_URL}/thots?lat=${userLocation.lat}&lng=${userLocation.lng}&radius=${radius}`
+          `${API_URL}/thots?lat=${fetchCenter.lat}&lng=${fetchCenter.lng}&radius=${radius}`
         )
         if (!res.ok) throw new Error(`Server error ${res.status}`)
         const data = await res.json()
@@ -39,8 +40,8 @@ export default function useThots() {
           // Fall back to mock data so the map renders something during development
           setThots(MOCK_THOTS.map((t) => ({
             ...t,
-            lat: userLocation.lat + (t.lat - 40.7128),
-            lng: userLocation.lng + (t.lng - (-74.006)),
+            lat: fetchCenter.lat + (t.lat - 40.7128),
+            lng: fetchCenter.lng + (t.lng - (-74.006)),
           })))
           setError('Using mock data — backend not running.')
         }
@@ -63,7 +64,7 @@ export default function useThots() {
     return () => {
       cancelled = true
     }
-  }, [userLocation?.lat, userLocation?.lng, radius])
+  }, [fetchCenter?.lat, fetchCenter?.lng, radius])
 
   useEffect(() => {
     return () => {

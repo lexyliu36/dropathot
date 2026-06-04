@@ -24,6 +24,12 @@ export function pinAgeHours(thot) {
   return (Date.now() - new Date(thot.created_at).getTime()) / 3_600_000
 }
 
+const AVATAR_SIZE = 36
+const DOT_SIZE = 4   // isYou marker size
+// Bubble bottom = anchor size + tail height
+const bubbleBottom = (isYou) => (isYou ? DOT_SIZE : AVATAR_SIZE) + 10
+const bubbleLeft   = (isYou) => isYou ? Math.round(DOT_SIZE / 2) - 13 : 0
+
 export default function ThotPin({ thot, isYou = false, onClick, session }) {
   const [dismissed, setDismissed] = useState(false)
   const [hovered, setHovered] = useState(false)
@@ -34,24 +40,30 @@ export default function ThotPin({ thot, isYou = false, onClick, session }) {
   const ageHours = pinAgeHours(thot)
   const opacity = Math.max(0.05, 1 - ageHours / 24)
 
+  // isYou uses a small dot anchor; others use the full avatar
+  const anchorSize = isYou ? DOT_SIZE : AVATAR_SIZE
+
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'flex-start',
-      overflow: 'visible',
-      position: 'relative',
-      opacity,
-      transition: 'opacity 0.5s ease',
-      pointerEvents: 'none',
-    }}>
-      {/* Bubble — visibility:hidden when dismissed so layout is preserved and avatar doesn't jump */}
+    <div
+      style={{
+        position: 'relative',
+        width: `${anchorSize}px`,
+        height: `${anchorSize}px`,
+        overflow: 'visible',
+        opacity: dismissed ? 0 : opacity,
+        transition: 'opacity 0.3s ease',
+        pointerEvents: 'none',
+      }}
+    >
+      {/* Bubble — floats above the avatar, visibility:hidden when dismissed to preserve layout */}
       <div
         onMouseEnter={() => !dismissed && setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onClick={() => !dismissed && onClick(thot)}
         style={{
-          position: 'relative',
+          position: 'absolute',
+          bottom: `${bubbleBottom(isYou)}px`,
+          left: `${bubbleLeft(isYou)}px`,
           maxWidth: '200px',
           minWidth: '80px',
           background: 'rgba(10, 10, 26, 0.92)',
@@ -59,7 +71,6 @@ export default function ThotPin({ thot, isYou = false, onClick, session }) {
           border: `1px solid ${accentColor}55`,
           borderRadius: '14px 14px 14px 2px',
           padding: '8px 12px 6px',
-          marginBottom: '6px',
           boxShadow: `0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${accentColor}22`,
           pointerEvents: dismissed ? 'none' : 'auto',
           cursor: dismissed ? 'default' : 'pointer',
@@ -121,37 +132,25 @@ export default function ThotPin({ thot, isYou = false, onClick, session }) {
               {relativeTime(thot.created_at)}
             </span>
           </div>
-
-          {/* Hype button */}
           <button
-            onClick={(e) => {
-              e.stopPropagation()
-              if (isAuth) setHyped(h => !h)
-            }}
+            onClick={(e) => { e.stopPropagation(); if (isAuth) setHyped(h => !h) }}
             title={isAuth ? (hyped ? 'Un-hype' : 'Hype this') : 'Sign up to hype'}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '2px',
-              flexShrink: 0,
+              display: 'flex', alignItems: 'center', flexShrink: 0,
               background: hyped ? `${accentColor}25` : 'transparent',
-              border: 'none',
-              borderRadius: '6px',
-              padding: '2px 4px',
+              border: 'none', borderRadius: '6px', padding: '2px 4px',
               cursor: isAuth ? 'pointer' : 'default',
               opacity: isAuth ? 1 : 0.35,
               color: hyped ? accentColor : 'rgba(255,255,255,0.35)',
-              fontSize: '11px',
-              pointerEvents: 'auto',
-              transition: 'color 0.15s, background 0.15s',
-              lineHeight: 1,
+              fontSize: '11px', pointerEvents: 'auto',
+              transition: 'color 0.15s, background 0.15s', lineHeight: 1,
             }}
           >
             ⚡
           </button>
         </div>
 
-        {/* Tail */}
+        {/* Tail — bridges bubble bottom to avatar top */}
         <svg
           width="12" height="10" viewBox="0 0 12 10"
           style={{ position: 'absolute', bottom: '-10px', left: '14px', pointerEvents: 'none' }}
@@ -162,9 +161,44 @@ export default function ThotPin({ thot, isYou = false, onClick, session }) {
         </svg>
       </div>
 
-      {/* Avatar */}
-      <div onClick={() => onClick(thot)} style={{ pointerEvents: 'auto', cursor: 'pointer' }}>
-        <AnonAvatar size={36} color={accentColor} active={isYou} />
+      {/* Anchor — small red dot for your own thot, avatar for others */}
+      <div
+        onClick={() => onClick(thot)}
+        style={{ pointerEvents: 'auto', cursor: 'pointer', width: `${anchorSize}px`, height: `${anchorSize}px` }}
+      >
+        {isYou ? (
+          <div style={{
+            width: `${DOT_SIZE}px`,
+            height: `${DOT_SIZE}px`,
+            borderRadius: '50%',
+            background: '#e11d48',
+            boxShadow: '0 0 8px #e11d4890, 0 0 16px #e11d4840',
+          }} />
+        ) : (
+          <AnonAvatar size={AVATAR_SIZE} color={accentColor} active={false} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Your location marker — clean avatar, no bubble.
+// Thot appears once as a regular ThotPin. Clicking here opens compose or your profile.
+export function YouPin({ onAvatarClick, hasThot }) {
+  return (
+    <div style={{
+      position: 'relative',
+      width: `${AVATAR_SIZE}px`,
+      height: `${AVATAR_SIZE}px`,
+      overflow: 'visible',
+      pointerEvents: 'none',
+    }}>
+      <div
+        onClick={onAvatarClick}
+        title={hasThot ? 'View your thot' : 'Drop a thot'}
+        style={{ pointerEvents: 'auto', cursor: 'pointer', width: `${AVATAR_SIZE}px`, height: `${AVATAR_SIZE}px` }}
+      >
+        <AnonAvatar size={AVATAR_SIZE} color="#e11d48" active />
       </div>
     </div>
   )
