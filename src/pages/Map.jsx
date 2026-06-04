@@ -10,7 +10,7 @@ import ThotPin, { AnonAvatar, YouPin, pinAgeHours } from '../components/ThotPin'
 import ComposeDrawer from '../components/ComposeDrawer'
 import ToolsPanel from '../components/ToolsPanel'
 import ProfileSheet from '../components/ProfileSheet'
-import { getOrCreateSession } from '../lib/identity'
+import { getOrCreateSession, updateSession } from '../lib/identity'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
@@ -35,12 +35,28 @@ export default function Map() {
   const [showYouProfile, setShowYouProfile] = useState(false)
   const setSession = useAppStore((s) => s.setSession)
 
-  // Load session from localStorage
+  // Load session from localStorage and refresh auth user's pen name from the server
   useEffect(() => {
     const localSession = getOrCreateSession()
     setSession(localSession)
-    // Auth users already have a session cookie from login — skip /auth/anon
-    if (localSession.type === 'user') return
+
+    if (localSession.type === 'user' && localSession.supabaseToken) {
+      // Refresh pen name in case localStorage is stale or penName was never set
+      fetch(`${API_URL}/auth/profile`, {
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${localSession.supabaseToken}` },
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.pen_name) {
+            updateSession({ penName: data.pen_name })
+            setSession({ ...localSession, penName: data.pen_name })
+          }
+        })
+        .catch(() => {})
+      return
+    }
+
     // Anon users: register with server to get the authoritative httpOnly session cookie
     fetch(`${API_URL}/auth/anon`, {
       method: 'POST',

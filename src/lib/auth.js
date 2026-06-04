@@ -21,6 +21,17 @@ export async function checkEmailExists(email) {
   return data.exists // boolean
 }
 
+export async function resendVerification(email) {
+  const res = await fetch(`${API_URL}/auth/resend-verification`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+  const data = await res.json()
+  if (!res.ok) throw new Error(data.error || 'Failed to resend email')
+  return data
+}
+
 export async function signUp(email, password, penName, birthYear) {
   const res = await fetch(`${API_URL}/auth/signup`, {
     method: 'POST',

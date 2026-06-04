@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { randomUUID } from 'crypto'
 import { supabase } from '../lib/supabase.js'
+import { sendVerificationEmail } from '../lib/email.js'
 
 const router = Router()
 
@@ -12,6 +13,23 @@ const SESSION_COOKIE_OPTS = {
   secure: IS_PROD,          // HTTPS-only in production
   maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (not a year — limits hijack window)
 }
+
+// GET /auth/profile — returns the current auth user's pen_name (requires Bearer token)
+router.get('/profile', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '').trim()
+  if (!token) return res.status(401).json({ error: 'unauthorized' })
+
+  const { data: { user }, error } = await supabase.auth.getUser(token)
+  if (error || !user) return res.status(401).json({ error: 'invalid token' })
+
+  const { data: userData } = await supabase
+    .from('users')
+    .select('pen_name')
+    .eq('id', user.id)
+    .single()
+
+  res.json({ pen_name: userData?.pen_name ?? null })
+})
 
 // GET /auth/check-email?email= — returns { exists: bool } without revealing sensitive info
 router.get('/check-email', async (req, res) => {
@@ -58,10 +76,11 @@ router.post('/signup', async (req, res) => {
     return res.status(400).json({ error: 'Must be 18 or older' })
   }
 
+  // Create user with email_confirm: false so we control the verification email
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
-    email_confirm: true,
+    email_confirm: false,
   })
   if (authError) return res.status(400).json({ error: authError.message })
 
@@ -70,9 +89,60 @@ router.post('/signup', async (req, res) => {
     pen_name,
     birth_year,
   })
-  if (userError) return res.status(400).json({ error: userError.message })
+  if (userError) {
+    await supabase.auth.admin.deleteUser(authData.user.id)
+    return res.status(400).json({ error: userError.message })
+  }
+
+  // Generate verification link and send via Resend
+  const siteUrl = process.env.SITE_URL || 'http://localhost:5173'
+  const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+    type: 'signup',
+    email,
+    options: { redirectTo: siteUrl },
+  })
+  if (linkError) return res.status(500).json({ error: 'Account created but failed to send verification email' })
+
+  try {
+    await sendVerificationEmail(email, linkData.properties.action_link)
+  } catch (emailErr) {
+    console.error('Email send failed:', emailErr.message)
+    // Non-fatal — user can request resend
+  }
 
   res.status(201).json({ user_id: authData.user.id, pen_name })
+})
+
+// POST /auth/resend-verification
+router.post('/resend-verification', async (req, res) => {
+  const email = (req.body.email || '').toLowerCase().trim()
+  if (!email) return res.status(400).json({ error: 'email required' })
+
+  // Only resend if account exists and is unconfirmed
+  const { data: listData } = await supabase.auth.admin.listUsers({
+    filter: `email=eq.${email}`,
+    page: 1,
+    perPage: 1,
+  })
+  const user = listData?.users?.[0]
+  if (!user) return res.status(404).json({ error: 'No account found with that email' })
+  if (user.email_confirmed_at) return res.status(400).json({ error: 'Email is already verified. Try logging in.' })
+
+  const siteUrl = process.env.SITE_URL || 'http://localhost:5173'
+  const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
+    type: 'signup',
+    email,
+    options: { redirectTo: siteUrl },
+  })
+  if (linkError) return res.status(500).json({ error: 'Failed to generate verification link' })
+
+  try {
+    await sendVerificationEmail(email, linkData.properties.action_link)
+  } catch (emailErr) {
+    return res.status(500).json({ error: 'Failed to send email' })
+  }
+
+  res.json({ message: 'Verification email sent' })
 })
 
 // POST /auth/login

@@ -63,8 +63,11 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
 
   const isYou = isYouProfile || thot?.session_id === session?.id
   const isAuth = session?.type === 'user'
-  const sessionId = thot?.session_id ?? session?.id
-  const penName = thot?.pen_name ?? session?.penName ?? null
+  const sessionId = isYou ? (session?.id ?? thot?.session_id) : thot?.session_id
+  // For your own profile, prefer the session pen name (always current) over the thot's stored copy
+  const penName = isYou
+    ? (session?.penName ?? thot?.pen_name ?? null)
+    : (thot?.pen_name ?? null)
   const accentColor = isYou ? '#e11d48' : thot?.pen_name ? '#7c3aed' : '#64748b'
   const isBlocked = blockedSessions.has(sessionId)
 
