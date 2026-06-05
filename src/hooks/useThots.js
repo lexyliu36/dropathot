@@ -46,7 +46,7 @@ export default function useThots() {
     if (!socketSubscribed.current) {
       const socket = getSocket()
       socket.connect()
-      socket.emit('subscribe', { lat: userLocation.lat, lng: userLocation.lng })
+      socket.emit('subscribe', { lat: fetchCenter.lat, lng: fetchCenter.lng })
       socket.on('thot:new', addThot)
       socketSubscribed.current = true
     }

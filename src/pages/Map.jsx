@@ -375,6 +375,14 @@ export default function Map() {
         <div ref={mapRef} className="w-full h-full" style={{ transform: "translateZ(0)" }} />
       </div>
 
+      {/* Loading overlay — shown until Mapbox fires its load event */}
+      {!mapReady && !mapError && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0f1e] z-10 gap-3">
+          <div className="w-8 h-8 border-2 border-white/10 border-t-white/60 rounded-full animate-spin" />
+          <p className="text-slate-500 text-xs">Loading map…</p>
+        </div>
+      )}
+
       {/* Token missing fallback */}
       {mapError && mapError !== 'no-token' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0f1e] z-10 px-8">
