@@ -364,7 +364,7 @@ export default function Map() {
   }
 
   return (
-    <div className="fixed inset-0 overflow-hidden bg-[#0a0f1e] select-none">
+    <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, overflow: "hidden", background: "#0a0f1e", userSelect: "none" }}>
       {/* Mapbox container — always rendered so ref is available */}
       <div className="absolute inset-0 overflow-hidden">
         <div ref={mapRef} className="w-full h-full" />
