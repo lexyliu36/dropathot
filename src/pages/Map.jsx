@@ -123,10 +123,11 @@ export default function Map() {
       .catch(() => {})
   }, [])
 
-  // Request location on mount
+  // Request location only after map is fully loaded — prevents iOS from killing
+  // the WebGL context mid-initialization when the permission dialog appears
   useEffect(() => {
-    requestLocation()
-  }, [])
+    if (mapReady) requestLocation()
+  }, [mapReady])
 
   // Listen for auth-required signals from detached ThotPin React roots
   useEffect(() => {
@@ -155,6 +156,8 @@ export default function Map() {
       center,
       zoom: 16,
       attributionControl: false,
+      preserveDrawingBuffer: true,   // prevents iOS Safari from killing the WebGL context
+      fadeDuration: 0,               // skip tile fade-in — helps iOS rendering stability
     })
 
     map.addControl(new mapboxgl.AttributionControl({ compact: true }))
@@ -172,10 +175,11 @@ export default function Map() {
     // iOS Safari: resize map when browser UI changes (address bar hide/show,
     // permission dialogs dismiss) to prevent blank canvas
     const onResize = () => map.resize()
+    const onVisible = () => { if (document.visibilityState === 'visible') map.resize() }
+    const onPageShow = () => { setTimeout(() => map.resize(), 100) }
     window.addEventListener('resize', onResize)
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') map.resize()
-    })
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('pageshow', onPageShow)
 
     // Update fetch params on every pan/zoom (debounced 400ms)
     let moveTimer
@@ -189,6 +193,8 @@ export default function Map() {
     return () => {
       clearTimeout(moveTimer)
       window.removeEventListener('resize', onResize)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('pageshow', onPageShow)
       Object.values(markersRef.current).forEach(({ root }) => root.unmount())
       markersRef.current = {}
       if (youMarkerRef.current) {
