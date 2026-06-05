@@ -123,6 +123,11 @@ export default function Map() {
       .catch(() => {})
   }, [])
 
+  // Ping server on mount to wake Railway from cold start before any real requests
+  useEffect(() => {
+    fetch(`${API_URL}/health`, { method: 'GET' }).catch(() => {})
+  }, [])
+
   // Request location on mount
   useEffect(() => {
     requestLocation()
