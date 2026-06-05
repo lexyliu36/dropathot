@@ -1,13 +1,25 @@
 import { useState } from 'react'
+import { ArrowBigUp } from 'lucide-react'
+import useAppStore from '../stores/useAppStore'
 
 export function AnonAvatar({ size = 44, color = '#7c3aed', active = false }) {
   return (
     <svg width={size} height={size} viewBox="0 0 44 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="22" cy="22" r="21" fill={color} fillOpacity="0.2" stroke={color} strokeWidth={active ? 2.5 : 1.5} />
-      <ellipse cx="22" cy="19" rx="8" ry="7" fill={color} fillOpacity="0.6" />
-      <ellipse cx="22" cy="35" rx="11" ry="8" fill={color} fillOpacity="0.4" />
-      <ellipse cx="18.5" cy="18.5" rx="2" ry="1.2" fill="white" fillOpacity="0.8" />
-      <ellipse cx="25.5" cy="18.5" rx="2" ry="1.2" fill="white" fillOpacity="0.8" />
+      {/* Pin outer shape: circle top, tapers to point at bottom */}
+      <path
+        d="M22 1 A17 17 0 0 1 39 18 C39 28 30 38 22 43 C14 38 5 28 5 18 A17 17 0 0 1 22 1 Z"
+        fill={color} fillOpacity="0.18"
+        stroke={color} strokeWidth={active ? 2.5 : 2}
+      />
+
+      {/* Inner ring */}
+      <circle cx="22" cy="18" r="13" stroke={color} strokeWidth="1" strokeOpacity="0.35" fill="none"/>
+
+      {/* Person silhouette — head */}
+      <circle cx="22" cy="13" r="5" fill={color} fillOpacity="0.65"/>
+
+      {/* Person silhouette — shoulders */}
+      <ellipse cx="22" cy="25" rx="9" ry="6" fill={color} fillOpacity="0.5"/>
     </svg>
   )
 }
@@ -28,15 +40,16 @@ const AVATAR_SIZE = 36
 const bubbleBottom = AVATAR_SIZE + 10
 const bubbleLeft   = 0
 
-export default function ThotPin({ thot, isYou = false, onClick, session }) {
+export default function ThotPin({ thot, isYou = false, onClick, onHype, session }) {
   const [dismissed, setDismissed] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const [hyped, setHyped] = useState(false)
+
+  // Read live hype state + count from store so updates from any hype action reflect immediately
+  const hyped = useAppStore((s) => s.hypedThotIds.has(thot.id))
+  const hypeCount = useAppStore((s) => s.thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0)
+  const isAuth = useAppStore((s) => s.session?.type === 'user')
 
   const accentColor = isYou ? '#e11d48' : thot.pen_name ? '#7c3aed' : '#64748b'
-  const isAuth = session?.type === 'user'
-  const ageHours = pinAgeHours(thot)
-  const opacity = Math.max(0.05, 1 - ageHours / 24)
 
   return (
     <div
@@ -45,7 +58,7 @@ export default function ThotPin({ thot, isYou = false, onClick, session }) {
         width: `${AVATAR_SIZE}px`,
         height: `${AVATAR_SIZE}px`,
         overflow: 'visible',
-        opacity: dismissed ? 0 : opacity,
+        opacity: dismissed ? 0 : 1,
         transition: 'opacity 0.3s ease',
         pointerEvents: 'none',
       }}
@@ -128,20 +141,28 @@ export default function ThotPin({ thot, isYou = false, onClick, session }) {
             </span>
           </div>
           <button
-            onClick={(e) => { e.stopPropagation(); if (isAuth) setHyped(h => !h) }}
-            title={isAuth ? (hyped ? 'Un-hype' : 'Hype this') : 'Sign up to hype'}
+            onClick={(e) => {
+              e.stopPropagation()
+              console.log('[hype btn] clicked isAuth:', isAuth, 'onHype:', !!onHype)
+              if (!isAuth) {
+                window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+              } else {
+                onHype?.(thot.id)
+              }
+            }}
+            title={isAuth ? (hyped ? 'Remove upvote' : 'Upvote') : 'Sign in to upvote'}
             style={{
-              display: 'flex', alignItems: 'center', flexShrink: 0,
+              display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0,
               background: hyped ? `${accentColor}25` : 'transparent',
               border: 'none', borderRadius: '6px', padding: '2px 4px',
               cursor: isAuth ? 'pointer' : 'default',
-              opacity: isAuth ? 1 : 0.35,
               color: hyped ? accentColor : 'rgba(255,255,255,0.35)',
               fontSize: '11px', pointerEvents: 'auto',
               transition: 'color 0.15s, background 0.15s', lineHeight: 1,
             }}
           >
-            ⚡
+            <ArrowBigUp size={14} style={{ fill: hyped ? accentColor : 'none', strokeWidth: 1.5 }} />
+            <span>{hypeCount}</span>
           </button>
         </div>
 

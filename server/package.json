@@ -17,6 +17,7 @@
     "express-rate-limit": "^7.0.0",
     "h3-js": "^4.0.0",
     "helmet": "^7.0.0",
+    "resend": "^6.12.4",
     "socket.io": "^4.7.0"
   }
 }

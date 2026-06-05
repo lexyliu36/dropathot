@@ -95,3 +95,37 @@ grant execute on function get_thots_nearby(float, float, float) to service_role;
 
 -- Allow anon/authenticated roles to call the nearby function
 grant execute on function get_thots_nearby(float, float, float) to anon, authenticated;
+
+-- Hypes table (one per user per thot)
+create table hypes (
+  id          uuid primary key default gen_random_uuid(),
+  thot_id     uuid not null references thots(id) on delete cascade,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  created_at  timestamptz default now(),
+  unique(thot_id, user_id)
+);
+
+-- Add hype_count to thots
+alter table thots add column if not exists hype_count int not null default 0;
+
+-- Trigger to keep hype_count in sync
+create or replace function update_hype_count()
+returns trigger as $$
+begin
+  if TG_OP = 'INSERT' then
+    update thots set hype_count = hype_count + 1 where id = NEW.thot_id;
+  elsif TG_OP = 'DELETE' then
+    update thots set hype_count = greatest(0, hype_count - 1) where id = OLD.thot_id;
+  end if;
+  return null;
+end;
+$$ language plpgsql;
+
+create trigger hype_count_sync
+after insert or delete on hypes
+for each row execute function update_hype_count();
+
+-- RLS
+alter table hypes enable row level security;
+create policy "Users can manage their own hypes"
+  on hypes for all using (auth.uid() = user_id);
