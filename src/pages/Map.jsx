@@ -207,6 +207,9 @@ export default function Map() {
     if (!map || !location) return
     map.resize()
     map.easeTo({ center: [location.lng, location.lat], zoom: 16, duration: 800 })
+    // Second resize after browser UI fully settles on mobile
+    const t = setTimeout(() => map.resize(), 300)
+    return () => clearTimeout(t)
   }, [location])
 
   // Your location marker — created once on location + mapReady
@@ -353,7 +356,7 @@ export default function Map() {
   }
 
   return (
-    <div className="relative w-screen overflow-hidden bg-[#0a0f1e] select-none" style={{ height: "100dvh" }}>
+    <div className="fixed inset-0 overflow-hidden bg-[#0a0f1e] select-none">
       {/* Mapbox container — always rendered so ref is available */}
       <div className="absolute inset-3 rounded-2xl overflow-hidden">
         <div ref={mapRef} className="w-full h-full" />
