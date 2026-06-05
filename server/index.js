@@ -18,8 +18,11 @@ const io = new Server(httpServer, {
   cors: { origin: FRONTEND_ORIGIN, methods: ['GET', 'POST'] },
 })
 
-app.use(helmet())
-app.use(cors({ origin: FRONTEND_ORIGIN, credentials: true }))
+app.use(helmet({ crossOriginResourcePolicy: false }))
+
+const corsOptions = { origin: FRONTEND_ORIGIN, credentials: true, optionsSuccessStatus: 204 }
+app.use(cors(corsOptions))
+app.options('*', cors(corsOptions))   // explicit preflight for all routes
 app.use(express.json())
 app.use(cookieParser())
 
