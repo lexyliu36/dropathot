@@ -38,8 +38,8 @@ const IS_PROD = process.env.NODE_ENV === 'production'
 
 const SESSION_COOKIE_OPTS = {
   httpOnly: true,
-  sameSite: 'strict',
-  secure: IS_PROD,          // HTTPS-only in production
+  sameSite: IS_PROD ? 'none' : 'lax',   // 'none' required for cross-domain (Vercel ↔ Railway)
+  secure: IS_PROD,                       // HTTPS-only in production
   maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (not a year — limits hijack window)
 }
 

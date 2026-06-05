@@ -59,15 +59,15 @@ Get your exact coordinates from the map: open `http://localhost:5173/map` in dev
 node --env-file=server/.env server/seed.js --lat=40.709704 --lng=-74.007315
 ```
 
-**Opacity demo seed** — 15 thots spread across the 24hr fade window (98% → 5% opacity):
+**NYC demo seed** — 85 thots across Hell's Kitchen, Central Park, Williamsburg, Queens, LES, FiDi, and scattered landmarks (no coordinates needed):
 ```bash
-node --env-file=server/.env server/seed-demo.js --lat=40.709704 --lng=-74.007315
+node --env-file=server/.env server/seed-demo.js
 ```
 
 Or from inside `server/`:
 ```bash
 npm run seed -- --lat=40.709704 --lng=-74.007315
-npm run seed:demo -- --lat=40.709704 --lng=-74.007315
+npm run seed:demo
 ```
 
 Both commands clear all previous seed data before inserting, so re-running is always safe.
@@ -95,6 +95,45 @@ Both commands clear all previous seed data before inserting, so re-running is al
 ---
 
 ## Changelog
+
+### `v0.4` — Auth, Hype & Smart Map
+
+#### Auth & Enrollment
+- **Full signup flow** — pen name, email, password → age gate → CAPTCHA → account created in Supabase with credentials stored in `user_metadata`; branded verification email sent via Resend
+- **Email verification page** (`/verify-email`) — dedicated screen shown when login fails due to unverified email; 60-second resend cooldown with server-side throttle (max 3/hr per email)
+- **Login** — real `POST /auth/login`; returns `access_token` + `refresh_token`; Supabase SDK auto-refreshes the token via `onAuthStateChange` so sessions never silently expire
+- **Route guard** — `/map` requires completed enrollment; direct navigation without age gate redirects to `/`
+- **Logout** — Settings tab in the Tools panel clears session and returns to landing
+- **Sign up / Sign in CTAs** — all nudges throughout the app (ComposeDrawer, ProfileSheet, ToolsPanel) now correctly navigate to the Landing form in the right mode
+
+#### Email Infrastructure
+- **Resend integration** (`server/lib/email.js`) — branded HTML email template; dev mode overrides all recipients to a single test address; falls back to console-logging the link when no API key is configured
+- **`RESEND_API_KEY` / `EMAIL_FROM` / `SITE_URL`** added to `server/.env`
+
+#### Map & Thots
+- **Zoom-aware fetching** — radius and thot limit scale with zoom level automatically on pan and zoom; street level shows everything, country level shows only the top handful
+- **`get_thots_nearby` updated** — accepts `max_results`, orders by `created_at DESC`, returns `hype_count`
+- **Stable session identity for auth users** — `session_id` is now the user's Supabase UUID so thots remain linked across logouts and re-logins
+- **Pen name on posts** — server reads `pen_name` from `user_metadata` instead of the `users` table
+
+#### Hype (Upvote)
+- **`hypes` table** — `(thot_id, user_id)` unique constraint; trigger keeps `thots.hype_count` in sync automatically
+- **`POST /thots/:id/hype`** — toggles hype; auth-only; anon attempts return `AUTH_REQUIRED` and redirect to sign-up
+- **`GET /thots/my-hypes`** — loads which thots the current user has hyped on map mount so pins show the correct state immediately
+- **Live counts** — ThotPin and ProfileSheet read `hypedThotIds` and `hype_count` from the Zustand store; counts update instantly without re-fetching
+- **Leaderboard** — re-ranks by `hype_count DESC` with recency as tiebreaker
+
+#### Seed Data
+- **`seed-demo.js` rewritten** — 85 thots with real NYC coordinates across Hell's Kitchen, Central Park, Williamsburg, Queens, LES, FiDi, and scattered landmarks; no `--lat/--lng` args needed
+- **Duration support** — anonymous thots expire in 3h; auth thots are permanent; seeder reflects these rules
+
+#### Database (`supabase/migrations/001_init.sql`)
+- `hypes` table with cascade delete
+- `hype_count int default 0` column on `thots`
+- `hype_count_sync` trigger
+- RLS disabled on all app tables (auth enforced server-side via JWT validation)
+
+---
 
 ### `v0.3` — Session Security & Anonymous Posting
 
