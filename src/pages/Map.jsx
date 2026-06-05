@@ -169,6 +169,14 @@ export default function Map() {
       setMapError(e?.error?.message || e?.message || 'map-error')
     })
 
+    // iOS Safari: resize map when browser UI changes (address bar hide/show,
+    // permission dialogs dismiss) to prevent blank canvas
+    const onResize = () => map.resize()
+    window.addEventListener('resize', onResize)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') map.resize()
+    })
+
     // Update fetch params on every pan/zoom (debounced 400ms)
     let moveTimer
     map.on('moveend', () => {
@@ -180,6 +188,7 @@ export default function Map() {
 
     return () => {
       clearTimeout(moveTimer)
+      window.removeEventListener('resize', onResize)
       Object.values(markersRef.current).forEach(({ root }) => root.unmount())
       markersRef.current = {}
       if (youMarkerRef.current) {
@@ -192,10 +201,11 @@ export default function Map() {
     }
   }, [])
 
-  // Pan to user location once available
+  // Pan to user location once available + force resize in case iOS blanked the canvas
   useEffect(() => {
     const map = mapInstanceRef.current
     if (!map || !location) return
+    map.resize()
     map.easeTo({ center: [location.lng, location.lat], zoom: 16, duration: 800 })
   }, [location])
 
