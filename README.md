@@ -2,6 +2,8 @@
 
 > Anonymous location-based social network. Twitter-length posts appear as pins on a live map, tied to where they were posted.
 
+**Live:** [thots-beta.vercel.app](https://thots-beta.vercel.app) · API: [thots-production.up.railway.app](https://thots-production.up.railway.app/health)
+
 **Stack:** React + Vite · Mapbox GL JS · Supabase (Postgres + PostGIS) · Express · Socket.io · Zustand · Tailwind CSS
 
 ---
@@ -95,6 +97,17 @@ Both commands clear all previous seed data before inserting, so re-running is al
 ---
 
 ## Changelog
+
+### `v0.5` — Production Launch 🚀
+
+- **Live at [thots-beta.vercel.app](https://thots-beta.vercel.app)**
+- **Frontend deployed to Vercel** — `vite build` output served via Vercel CDN; `vercel.json` rewrites all routes to `index.html` for client-side routing
+- **Backend deployed to Railway** — Express + Socket.io server running via `node index.js`; environment variables (`SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `RESEND_API_KEY`, `SITE_URL`, etc.) configured in Railway dashboard
+- **Supabase production project** — schema applied, RLS disabled on app tables, `get_thots_nearby` function deployed with PostGIS
+- **`SITE_URL`** updated to production domain so email verification links redirect correctly after click
+- **`FRONTEND_ORIGIN`** set to the Vercel deployment URL to allow CORS and Socket.io connections from production
+
+---
 
 ### `v0.4` — Auth, Hype & Smart Map
 
