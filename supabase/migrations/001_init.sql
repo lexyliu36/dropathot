@@ -97,7 +97,7 @@ grant execute on function get_thots_nearby(float, float, float) to service_role;
 grant execute on function get_thots_nearby(float, float, float) to anon, authenticated;
 
 -- Hypes table (one per user per thot)
-create table hypes (
+create table if not exists hypes (
   id          uuid primary key default gen_random_uuid(),
   thot_id     uuid not null references thots(id) on delete cascade,
   user_id     uuid not null references auth.users(id) on delete cascade,

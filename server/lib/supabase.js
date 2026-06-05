@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import ws from 'ws'
 
 const key = process.env.SUPABASE_SERVICE_KEY
 
@@ -13,6 +14,8 @@ if (key && !key.startsWith('eyJ')) {
 }
 
 export const supabase = createClient(process.env.SUPABASE_URL, key, {
+  global: { fetch },
+  realtime: { transport: ws },
   auth: {
     persistSession: false,   // don't store user JWTs between calls — prevents
     autoRefreshToken: false, // signInWithPassword from overwriting service_role context
