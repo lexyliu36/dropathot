@@ -46,16 +46,26 @@ function verifyTemplate(actionLink) {
 </html>`
 }
 
+const DEV_OVERRIDE_EMAIL = 'dev.lexliu@gmail.com'
+const IS_PROD = process.env.NODE_ENV === 'production'
+
 export async function sendVerificationEmail(to, actionLink) {
   if (!resend) {
-    // Dev fallback — log the link so you can test without real SMTP
     console.log(`\n[EMAIL] Verification link for ${to}:\n${actionLink}\n`)
     return
   }
+
+  const recipient = IS_PROD ? to : DEV_OVERRIDE_EMAIL
+  if (!IS_PROD) {
+    console.log(`[EMAIL:dev] Redirecting email for ${to} → ${DEV_OVERRIDE_EMAIL}`)
+  }
+
   const { error } = await resend.emails.send({
     from: FROM,
-    to,
-    subject: 'Verify your Thots. account',
+    to: recipient,
+    subject: IS_PROD
+      ? 'Verify your Thots. account'
+      : `[DEV] Verify Thots. account (originally for ${to})`,
     html: verifyTemplate(actionLink),
   })
   if (error) throw new Error(`Failed to send email: ${error.message}`)

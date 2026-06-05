@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { MapPin, Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
-import { signIn, checkEmailExists, resendVerification } from "../lib/auth";
+import { signIn, checkEmailExists } from "../lib/auth";
 import { updateSession, clearSession, getOrCreateSession } from "../lib/identity";
 
 export default function Landing() {
@@ -14,8 +14,6 @@ export default function Landing() {
   const [error, setError] = useState(null);
   const [fieldErrors, setFieldErrors] = useState({});
   const [touched, setTouched] = useState(new Set());
-  const [unverifiedEmail, setUnverifiedEmail] = useState(null); // set when login blocked by unverified email
-  const [resendStatus, setResendStatus] = useState(null); // 'sending' | 'sent' | 'error'
 
   const validators = {
     email: v => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v.trim()) ? null : 'Enter a valid email address.',
@@ -74,17 +72,7 @@ export default function Landing() {
   }, []);
 
   // Components navigate here with { openLogin } or { openSignup } to pre-select a mode
-  function resetValidation() { setFieldErrors({}); setTouched(new Set()); setUnverifiedEmail(null); setResendStatus(null); }
-
-  async function handleResend() {
-    setResendStatus('sending');
-    try {
-      await resendVerification(unverifiedEmail);
-      setResendStatus('sent');
-    } catch (err) {
-      setResendStatus('error');
-    }
-  }
+  function resetValidation() { setFieldErrors({}); setTouched(new Set()); }
 
   useEffect(() => {
     if (state?.openLogin) { setMode("login"); resetValidation(); }
@@ -110,11 +98,12 @@ export default function Landing() {
         penName: data.pen_name,
         userId: data.user_id,
         supabaseToken: data.access_token,
+        supabaseRefreshToken: data.refresh_token,
       });
       navigate("/map");
     } catch (err) {
       if (err.message.toLowerCase().includes("email not confirmed")) {
-        setUnverifiedEmail(form.email);
+        navigate("/verify-email", { state: { email: form.email } });
       } else {
         setError(err.message);
       }
@@ -236,29 +225,7 @@ export default function Landing() {
                 </button>
               </div>
             </div>
-            {unverifiedEmail && (
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 flex flex-col gap-2">
-                <p className="text-amber-300 text-sm font-medium">Email not verified</p>
-                <p className="text-amber-200/70 text-xs leading-relaxed">
-                  Check your inbox for <span className="text-amber-200 font-semibold">{unverifiedEmail}</span> and click the verification link before signing in.
-                </p>
-                {resendStatus === 'sent' ? (
-                  <p className="text-green-400 text-xs font-medium">✓ New verification email sent</p>
-                ) : resendStatus === 'error' ? (
-                  <p className="text-red-400 text-xs">Failed to resend. Try again in a moment.</p>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleResend}
-                    disabled={resendStatus === 'sending'}
-                    className="self-start text-xs text-brand-purple underline hover:text-violet-400 transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {resendStatus === 'sending' ? 'Sending…' : 'Resend verification email'}
-                  </button>
-                )}
-              </div>
-            )}
-            {error && !unverifiedEmail && (
+            {error && (
               <p className="text-red-400 text-sm px-1">{error}</p>
             )}
             <button

@@ -31,8 +31,24 @@ const useAppStore = create((set, get) => ({
   selectedThot: null,
   setSelectedThot: (selectedThot) => set({ selectedThot }),
 
-  radius: 2000,
+  radius: 625,
   setRadius: (radius) => set({ radius }),
+
+  limit: 100,
+  setLimit: (limit) => set({ limit }),
+
+  // Hyped thot IDs for the current auth user
+  hypedThotIds: new Set(),
+  setHypedThotIds: (ids) => set({ hypedThotIds: new Set(ids) }),
+  toggleHypedThot: (thotId, hyped, hypeCount) => set((s) => {
+    const next = new Set(s.hypedThotIds)
+    if (hyped) next.add(thotId)
+    else next.delete(thotId)
+    return {
+      hypedThotIds: next,
+      thots: s.thots.map(t => t.id === thotId ? { ...t, hype_count: hypeCount } : t),
+    }
+  }),
 
   // Blocked session IDs — their thots are hidden locally only
   blockedSessions: new Set(),

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, ShieldX, ShieldCheck } from 'lucide-react'
+import { X, ShieldX, ShieldCheck, ArrowBigUp } from 'lucide-react'
 import { AnonAvatar } from './ThotPin'
 import useAppStore from '../stores/useAppStore'
 
@@ -14,8 +14,11 @@ function relativeTime(isoString) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
-function ThotCard({ thot, accentColor, highlighted, isAuth }) {
-  const [hyped, setHyped] = useState(false)
+function ThotCard({ thot, accentColor, highlighted, onHype }) {
+  const hyped = useAppStore((s) => s.hypedThotIds.has(thot.id))
+  const hypeCount = useAppStore((s) => s.thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0)
+  const isAuth = useAppStore((s) => s.session?.type === 'user')
+
   return (
     <div
       className="rounded-xl p-3 transition-colors"
@@ -31,28 +34,28 @@ function ThotCard({ thot, accentColor, highlighted, isAuth }) {
       <div className="flex items-center justify-between mt-2">
         <span className="text-slate-500 text-[10px]">{relativeTime(thot.created_at)}</span>
         <button
-          onClick={() => { if (isAuth) setHyped(h => !h) }}
-          title={isAuth ? (hyped ? 'Un-hype' : 'Hype') : 'Sign up to hype'}
+          onClick={() => isAuth ? onHype?.(thot.id) : window.dispatchEvent(new CustomEvent('thots:needs-auth'))}
+          title={isAuth ? (hyped ? 'Remove upvote' : 'Upvote') : 'Sign in to upvote'}
           style={{
+            display: 'flex', alignItems: 'center', gap: '2px',
             fontSize: '11px',
             color: hyped ? accentColor : 'rgba(255,255,255,0.3)',
             background: hyped ? `${accentColor}20` : 'transparent',
-            border: 'none',
-            borderRadius: '6px',
-            padding: '2px 6px',
+            border: 'none', borderRadius: '6px', padding: '2px 5px',
             cursor: isAuth ? 'pointer' : 'default',
-            opacity: isAuth ? 1 : 0.4,
+            opacity: isAuth ? 1 : 0.45,
             transition: 'color 0.15s, background 0.15s',
           }}
         >
-          ⚡ {thot.hype_count ?? 0}
+          <ArrowBigUp size={14} style={{ fill: hyped ? accentColor : 'none', strokeWidth: 1.5 }} />
+          <span>{hypeCount}</span>
         </button>
       </div>
     </div>
   )
 }
 
-export default function ProfileSheet({ thot, session, isYouProfile = false, onCompose, onClose }) {
+export default function ProfileSheet({ thot, session, isYouProfile = false, onCompose, onClose, onHype }) {
   const [history, setHistory] = useState(null)
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
@@ -148,7 +151,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
             thot={t}
             accentColor={accentColor}
             highlighted={!!thot && t.id === thot.id}
-            isAuth={isAuth}
+            onHype={onHype}
           />
         ))}
 
@@ -182,7 +185,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
             <button
               onClick={() => navigate('/', { state: { openSignup: true } })}
               className="text-brand-purple underline hover:text-violet-400 transition-colors cursor-pointer"
-            >Sign up</button> to hype thots
+            >Sign up</button> to upvote thots
           </p>
         )}
       </div>

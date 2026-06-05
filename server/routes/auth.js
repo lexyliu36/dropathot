@@ -3,6 +3,35 @@ import { randomUUID } from 'crypto'
 import { supabase } from '../lib/supabase.js'
 import { sendVerificationEmail } from '../lib/email.js'
 
+// In-memory resend throttle: { email → lastSentAt ms }
+// Max 1 resend per 60s per email, 3 per hour per email
+const resendLog = new Map()
+const RESEND_COOLDOWN_MS = 60_000
+const RESEND_HOUR_MAX = 3
+
+function checkResendAllowed(email) {
+  const now = Date.now()
+  const log = resendLog.get(email) ?? { lastSent: 0, hourCount: 0, hourStart: now }
+  if (now - log.lastSent < RESEND_COOLDOWN_MS) {
+    const wait = Math.ceil((RESEND_COOLDOWN_MS - (now - log.lastSent)) / 1000)
+    return { allowed: false, reason: `Please wait ${wait}s before requesting another email.` }
+  }
+  // Reset hourly counter if >1 hour has passed
+  const hourCount = now - log.hourStart > 3_600_000 ? 0 : log.hourCount
+  if (hourCount >= RESEND_HOUR_MAX) {
+    return { allowed: false, reason: 'Too many verification emails. Try again in an hour.' }
+  }
+  return { allowed: true, log, hourCount }
+}
+
+function recordResend(email) {
+  const now = Date.now()
+  const existing = resendLog.get(email) ?? { hourCount: 0, hourStart: now }
+  const hourCount = now - existing.hourStart > 3_600_000 ? 1 : existing.hourCount + 1
+  const hourStart = now - existing.hourStart > 3_600_000 ? now : existing.hourStart
+  resendLog.set(email, { lastSent: now, hourCount, hourStart })
+}
+
 const router = Router()
 
 const IS_PROD = process.env.NODE_ENV === 'production'
@@ -22,13 +51,7 @@ router.get('/profile', async (req, res) => {
   const { data: { user }, error } = await supabase.auth.getUser(token)
   if (error || !user) return res.status(401).json({ error: 'invalid token' })
 
-  const { data: userData } = await supabase
-    .from('users')
-    .select('pen_name')
-    .eq('id', user.id)
-    .single()
-
-  res.json({ pen_name: userData?.pen_name ?? null })
+  res.json({ pen_name: user.user_metadata?.pen_name ?? null })
 })
 
 // GET /auth/check-email?email= — returns { exists: bool } without revealing sensitive info
@@ -38,14 +61,21 @@ router.get('/check-email', async (req, res) => {
     return res.status(400).json({ error: 'valid email required' })
   }
   try {
-    // listUsers with filter is supported in supabase-js v2.50+
-    const { data, error } = await supabase.auth.admin.listUsers({
-      filter: `email=eq.${email}`,
-      page: 1,
-      perPage: 1,
-    })
-    if (error) throw error
-    res.json({ exists: (data?.users?.length ?? 0) > 0 })
+    // Use the auth admin REST API directly — the JS client's listUsers filter
+    // param is silently ignored in some versions, causing false positives
+    const resp = await fetch(
+      `${process.env.SUPABASE_URL}/auth/v1/admin/users?search=${encodeURIComponent(email)}&per_page=1`,
+      {
+        headers: {
+          apikey: process.env.SUPABASE_SERVICE_KEY,
+          Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}`,
+        },
+      }
+    )
+    if (!resp.ok) throw new Error(`Auth API ${resp.status}`)
+    const data = await resp.json()
+    const exists = data?.users?.some(u => u.email?.toLowerCase() === email) ?? false
+    res.json({ exists })
   } catch {
     res.status(500).json({ error: 'Could not verify email availability' })
   }
@@ -76,11 +106,13 @@ router.post('/signup', async (req, res) => {
     return res.status(400).json({ error: 'Must be 18 or older' })
   }
 
-  // Create user with email_confirm: false so we control the verification email
+  // Create user — store pen_name in user_metadata so it's readable directly from the
+  // auth response without needing a separate users-table query
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email,
     password,
     email_confirm: false,
+    user_metadata: { pen_name, birth_year },
   })
   if (authError) return res.status(400).json({ error: authError.message })
 
@@ -118,6 +150,9 @@ router.post('/resend-verification', async (req, res) => {
   const email = (req.body.email || '').toLowerCase().trim()
   if (!email) return res.status(400).json({ error: 'email required' })
 
+  const throttle = checkResendAllowed(email)
+  if (!throttle.allowed) return res.status(429).json({ error: throttle.reason })
+
   // Only resend if account exists and is unconfirmed
   const { data: listData } = await supabase.auth.admin.listUsers({
     filter: `email=eq.${email}`,
@@ -138,6 +173,7 @@ router.post('/resend-verification', async (req, res) => {
 
   try {
     await sendVerificationEmail(email, linkData.properties.action_link)
+    recordResend(email)
   } catch (emailErr) {
     return res.status(500).json({ error: 'Failed to send email' })
   }
@@ -155,22 +191,20 @@ router.post('/login', async (req, res) => {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
   if (error) return res.status(401).json({ error: error.message })
 
-  // Fetch pen_name from our users table
-  const { data: userData } = await supabase
-    .from('users')
-    .select('pen_name')
-    .eq('id', data.user.id)
-    .single()
+  const pen_name = data.user.user_metadata?.pen_name ?? null
 
-  // Issue httpOnly session cookie used server-side for rate limiting
-  const session_id = randomUUID()
+  // Use the auth user's UUID as the persistent session_id so thots are always
+  // linked to the same identity regardless of which login session created them.
+  // (Anon users still get a random UUID from /auth/anon.)
+  const session_id = data.user.id
   res.cookie('session_id', session_id, SESSION_COOKIE_OPTS)
 
   res.json({
     session_id,
     access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
     user_id: data.user.id,
-    pen_name: userData?.pen_name ?? null,
+    pen_name,
   })
 })
 

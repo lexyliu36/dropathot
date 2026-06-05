@@ -28,7 +28,7 @@ function Leaderboard({ thots }) {
   return (
     <div>
       <p className="text-slate-500 text-[11px] mb-3 leading-relaxed">
-        Most hyped thots in the current area. Post something worth⚡.
+        Top thots in the current view — zooming out surfaces the best from a wider area.
       </p>
       {ranked.length === 0 ? (
         <p className="text-slate-600 text-sm text-center py-10">No thots nearby yet</p>
@@ -50,9 +50,11 @@ function Leaderboard({ thots }) {
                 <span className="text-slate-600 text-[10px]">
                   {relativeTime(thot.created_at)}
                 </span>
-                <span className="text-slate-500 text-[10px] ml-auto flex-shrink-0">
-                  ⚡ {thot.hype_count ?? 0}
-                </span>
+                {(thot.hype_count ?? 0) > 0 && (
+                  <span className="text-slate-500 text-[10px] ml-auto flex-shrink-0">
+                    ↑ {thot.hype_count}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -100,7 +102,7 @@ function ProfileTab({ session, thots }) {
             </div>
             <div className="text-center">
               <p className="text-white text-sm font-bold">{totalHypes}</p>
-              <p className="text-slate-600 text-[10px]">hypes</p>
+              <p className="text-slate-600 text-[10px]">upvotes</p>
             </div>
           </div>
         )}
@@ -111,7 +113,7 @@ function ProfileTab({ session, thots }) {
         <div className="bg-brand-purple/10 border border-brand-purple/20 rounded-xl p-3 mb-4">
           <p className="text-white text-xs font-semibold mb-1">Get a pen name</p>
           <p className="text-slate-400 text-[11px] leading-relaxed mb-3">
-            Sign up to claim a pen name, post 10 thots/hr, and track your hypes across sessions.
+            Sign up to claim a pen name, post 10 thots/hr, and track your upvotes across sessions.
           </p>
           <button
             onClick={() => navigate('/', { state: { openSignup: true } })}
@@ -140,7 +142,7 @@ function ProfileTab({ session, thots }) {
             <p className="text-white text-xs leading-snug line-clamp-2">{thot.content}</p>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
-              <span className="text-slate-500 text-[10px] ml-auto">⚡ {thot.hype_count ?? 0}</span>
+              <span className="text-slate-500 text-[10px] ml-auto">↑ {thot.hype_count ?? 0}</span>
             </div>
           </div>
         ))

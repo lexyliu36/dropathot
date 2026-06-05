@@ -1,6 +1,7 @@
 import 'mapbox-gl/dist/mapbox-gl.css'
 import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { useNavigate } from 'react-router-dom'
 import mapboxgl from 'mapbox-gl'
 import { SlidersHorizontal, MessageSquarePlus, LocateFixed } from 'lucide-react'
 import useAppStore from '../stores/useAppStore'
@@ -11,10 +12,32 @@ import ComposeDrawer from '../components/ComposeDrawer'
 import ToolsPanel from '../components/ToolsPanel'
 import ProfileSheet from '../components/ProfileSheet'
 import { getOrCreateSession, updateSession } from '../lib/identity'
+import { supabase } from '../lib/supabase'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
+// Radius and thot limit scale with zoom level.
+// Zoomed in  → small radius, show everything.
+// Zoomed out → large radius, only show top thots by hype so the map stays readable.
+function applyZoomSettings(map) {
+  const c = map.getCenter()
+  const zoom = map.getZoom()
+  const radius = Math.round(40000 / Math.pow(2, zoom - 10)) // no hard cap — grows naturally
+  const limit =
+    zoom >= 16 ? 100 :
+    zoom >= 14 ? 60  :
+    zoom >= 12 ? 30  :
+    zoom >= 10 ? 20  :
+    zoom >=  8 ? 10  :
+    zoom >=  6 ?  5  : 3
+  const store = useAppStore.getState()
+  store.setMapCenter({ lat: c.lat, lng: c.lng })
+  store.setRadius(radius)
+  store.setLimit(limit)
+}
+
 export default function Map() {
+  const navigate = useNavigate()
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef({})        // { [thotId]: { marker, root } }
@@ -34,6 +57,8 @@ export default function Map() {
   const setSelectedThot = useAppStore((s) => s.setSelectedThot)
   const [showYouProfile, setShowYouProfile] = useState(false)
   const setSession = useAppStore((s) => s.setSession)
+  const setHypedThotIds = useAppStore((s) => s.setHypedThotIds)
+  const toggleHypedThot = useAppStore((s) => s.toggleHypedThot)
 
   // Load session from localStorage and refresh auth user's pen name from the server
   useEffect(() => {
@@ -41,19 +66,49 @@ export default function Map() {
     setSession(localSession)
 
     if (localSession.type === 'user' && localSession.supabaseToken) {
-      // Refresh pen name in case localStorage is stale or penName was never set
-      fetch(`${API_URL}/auth/profile`, {
-        credentials: 'include',
-        headers: { Authorization: `Bearer ${localSession.supabaseToken}` },
-      })
-        .then(r => r.ok ? r.json() : null)
-        .then(data => {
-          if (data?.pen_name) {
-            updateSession({ penName: data.pen_name })
-            setSession({ ...localSession, penName: data.pen_name })
+      // Restore the Supabase session so the client SDK auto-refreshes the token.
+      // setSession() returns immediately with a valid (possibly refreshed) token.
+      const initAuth = async () => {
+        let token = localSession.supabaseToken
+        if (supabase && localSession.supabaseRefreshToken) {
+          const { data } = await supabase.auth.setSession({
+            access_token: localSession.supabaseToken,
+            refresh_token: localSession.supabaseRefreshToken,
+          })
+          if (data?.session) {
+            token = data.session.access_token
+            updateSession({ supabaseToken: token, supabaseRefreshToken: data.session.refresh_token })
+            setSession({ ...localSession, supabaseToken: token })
+          }
+        }
+        const headers = { Authorization: `Bearer ${token}` }
+        fetch(`${API_URL}/auth/profile`, { credentials: 'include', headers })
+          .then(r => r.ok ? r.json() : null)
+          .then(d => {
+            if (d?.pen_name) {
+              updateSession({ penName: d.pen_name })
+              // setSession takes a value, not a functional updater — read current state explicitly
+              setSession({ ...useAppStore.getState().session, penName: d.pen_name })
+            }
+          })
+          .catch(() => {})
+        fetch(`${API_URL}/thots/my-hypes`, { credentials: 'include', headers })
+          .then(r => r.ok ? r.json() : [])
+          .then(ids => setHypedThotIds(ids))
+          .catch(() => {})
+      }
+      initAuth()
+
+      // Keep the stored token fresh whenever the SDK auto-refreshes it
+      if (supabase) {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          if ((event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') && session) {
+            updateSession({ supabaseToken: session.access_token, supabaseRefreshToken: session.refresh_token })
+            useAppStore.getState().setSession({ ...useAppStore.getState().session, supabaseToken: session.access_token })
           }
         })
-        .catch(() => {})
+        return () => subscription.unsubscribe()
+      }
       return
     }
 
@@ -71,6 +126,13 @@ export default function Map() {
   // Request location on mount
   useEffect(() => {
     requestLocation()
+  }, [])
+
+  // Listen for auth-required signals from detached ThotPin React roots
+  useEffect(() => {
+    const handler = () => navigate('/', { state: { openSignup: true } })
+    window.addEventListener('thots:needs-auth', handler)
+    return () => window.removeEventListener('thots:needs-auth', handler)
   }, [])
 
   // Initialize Mapbox
@@ -97,21 +159,16 @@ export default function Map() {
 
     map.addControl(new mapboxgl.AttributionControl({ compact: true }))
 
-    map.on('load', () => setMapReady(true))
+    map.on('load', () => {
+      setMapReady(true)
+      applyZoomSettings(map)
+    })
 
-    // Update fetch center + radius when the user pans or zooms (debounced 400ms)
+    // Update fetch params on every pan/zoom (debounced 400ms)
     let moveTimer
     map.on('moveend', () => {
       clearTimeout(moveTimer)
-      moveTimer = setTimeout(() => {
-        const c = map.getCenter()
-        const zoom = map.getZoom()
-        // Radius scales with zoom: ~600m at z16, ~2.5km at z14, capped at 10km
-        const radius = Math.min(Math.round(40000 / Math.pow(2, zoom - 10)), 10000)
-        const store = useAppStore.getState()
-        store.setMapCenter({ lat: c.lat, lng: c.lng })
-        store.setRadius(radius)
-      }, 400)
+      moveTimer = setTimeout(() => applyZoomSettings(map), 400)
     })
 
     mapInstanceRef.current = map
@@ -205,6 +262,7 @@ export default function Map() {
           thot={thot}
           isYou={isYou}
           session={session}
+          onHype={handleHype}
           onClick={(t) => {
             if (t.session_id === session?.id) {
               setShowYouProfile(true)
@@ -232,6 +290,25 @@ export default function Map() {
     const youEl = youMarkerRef.current?.marker?.getElement()
     if (youEl?.parentElement) youEl.parentElement.appendChild(youEl)
   }, [thots, mapReady, session?.id])
+
+  async function handleHype(thotId) {
+    const s = useAppStore.getState()
+    console.log('[hype] called for', thotId, 'session type:', s.session?.type, 'has token:', !!s.session?.supabaseToken)
+    if (!s.session?.supabaseToken) {
+      window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+      return
+    }
+    const res = await fetch(`${API_URL}/thots/${thotId}/hype`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${s.session.supabaseToken}` },
+    })
+    const data = await res.json().catch(() => ({}))
+    console.log('[hype] server response', res.status, data)
+    if (res.status === 401) { window.dispatchEvent(new CustomEvent('thots:needs-auth')); return }
+    if (!res.ok) return
+    toggleHypedThot(thotId, data.hyped, data.hype_count)
+  }
 
   async function handlePost(content, duration) {
     if (!location) throw new Error('Location required')
@@ -399,6 +476,7 @@ export default function Map() {
         <ProfileSheet
           thot={selectedThot}
           session={session}
+          onHype={handleHype}
           onClose={() => setSelectedThot(null)}
         />
       )}
@@ -409,6 +487,7 @@ export default function Map() {
           thot={thots.find(t => t.session_id === session?.id) ?? null}
           session={session}
           isYouProfile
+          onHype={handleHype}
           onCompose={() => { setShowYouProfile(false); setComposing(true) }}
           onClose={() => setShowYouProfile(false)}
         />

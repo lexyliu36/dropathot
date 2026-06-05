@@ -5,6 +5,7 @@ import "./index.css"
 import Landing from "./pages/Landing"
 import AgeGate from "./pages/AgeGate"
 import Map from "./pages/Map"
+import VerifyEmail from "./pages/VerifyEmail"
 import { getOrCreateSession } from "./lib/identity"
 
 function RequireAuth({ children }) {
@@ -21,6 +22,7 @@ createRoot(document.getElementById("root")).render(
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/age-gate" element={<AgeGate />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
         <Route path="/map" element={<RequireAuth><Map /></RequireAuth>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
