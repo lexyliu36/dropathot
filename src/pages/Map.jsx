@@ -143,6 +143,11 @@ export default function Map() {
       return
     }
 
+    if (!mapboxgl.supported()) {
+      setMapError('WebGL is not supported on this browser/device.')
+      return
+    }
+
     mapboxgl.accessToken = token
 
     const center = location
@@ -161,7 +166,13 @@ export default function Map() {
 
     map.addControl(new mapboxgl.AttributionControl({ compact: true }))
 
+    const loadTimeout = setTimeout(() => {
+      if (!mapInstanceRef.current) return
+      setMapError('Map timed out loading. Check your Mapbox token and network.')
+    }, 12000)
+
     map.on('load', () => {
+      clearTimeout(loadTimeout)
       setMapReady(true)
       applyZoomSettings(map)
     })
