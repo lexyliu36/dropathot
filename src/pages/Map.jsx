@@ -365,19 +365,9 @@ export default function Map() {
 
   return (
     <div style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, overflow: "hidden", background: "#0a0f1e", userSelect: "none" }}>
-      {/* Temporary debug overlay — remove after Chrome iOS diagnosed */}
-      <div style={{ position: 'absolute', top: 60, left: 10, right: 10, zIndex: 9999, background: 'rgba(0,0,0,0.85)', color: '#fff', fontSize: 11, padding: 10, borderRadius: 8, fontFamily: 'monospace', pointerEvents: 'none' }}>
-        <div>supported: {String(mapboxgl.supported())}</div>
-        <div>mapReady: {String(mapReady)}</div>
-        <div>mapError: {String(mapError)}</div>
-        <div>location: {location ? `${location.lat.toFixed(4)},${location.lng.toFixed(4)}` : 'null'}</div>
-        <div>session: {session?.type ?? 'null'}</div>
-        <div>ua: {navigator.userAgent.slice(0, 80)}</div>
-      </div>
-
       {/* Mapbox container — always rendered so ref is available */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div ref={mapRef} className="w-full h-full" />
+      <div className="absolute inset-0 overflow-hidden" style={{ transform: "translateZ(0)" }}>
+        <div ref={mapRef} className="w-full h-full" style={{ transform: "translateZ(0)" }} />
       </div>
 
       {/* Token missing fallback */}
