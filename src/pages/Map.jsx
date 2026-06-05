@@ -164,6 +164,11 @@ export default function Map() {
       applyZoomSettings(map)
     })
 
+    map.on('error', (e) => {
+      console.error('Mapbox error:', e)
+      setMapError(e?.error?.message || e?.message || 'map-error')
+    })
+
     // Update fetch params on every pan/zoom (debounced 400ms)
     let moveTimer
     map.on('moveend', () => {
@@ -338,13 +343,20 @@ export default function Map() {
   }
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-[#0a0f1e] select-none">
+    <div className="relative w-screen overflow-hidden bg-[#0a0f1e] select-none" style={{ height: "100dvh" }}>
       {/* Mapbox container — always rendered so ref is available */}
       <div className="absolute inset-3 rounded-2xl overflow-hidden">
         <div ref={mapRef} className="w-full h-full" />
       </div>
 
       {/* Token missing fallback */}
+      {mapError && mapError !== 'no-token' && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0f1e] z-10 px-8">
+          <p className="text-white font-bold text-lg mb-2">Map failed to load</p>
+          <p className="text-slate-400 text-sm text-center">{mapError}</p>
+        </div>
+      )}
+
       {mapError === 'no-token' && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#0a0f1e] z-10 px-8">
           <div className="w-16 h-16 rounded-2xl bg-brand-red/10 border border-brand-red/30 flex items-center justify-center mb-4">
