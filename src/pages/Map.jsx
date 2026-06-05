@@ -123,11 +123,10 @@ export default function Map() {
       .catch(() => {})
   }, [])
 
-  // Request location only after map is fully loaded — prevents iOS from killing
-  // the WebGL context mid-initialization when the permission dialog appears
+  // Request location on mount
   useEffect(() => {
-    if (mapReady) requestLocation()
-  }, [mapReady])
+    requestLocation()
+  }, [])
 
   // Listen for auth-required signals from detached ThotPin React roots
   useEffect(() => {
