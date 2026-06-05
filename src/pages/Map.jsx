@@ -160,19 +160,11 @@ export default function Map() {
       center,
       zoom: 16,
       attributionControl: false,
-      preserveDrawingBuffer: true,   // prevents iOS Safari from killing the WebGL context
-      fadeDuration: 0,               // skip tile fade-in — helps iOS rendering stability
     })
 
     map.addControl(new mapboxgl.AttributionControl({ compact: true }))
 
-    const loadTimeout = setTimeout(() => {
-      if (!mapInstanceRef.current) return
-      setMapError('Map timed out loading. Check your Mapbox token and network.')
-    }, 12000)
-
     map.on('load', () => {
-      clearTimeout(loadTimeout)
       setMapReady(true)
       applyZoomSettings(map)
     })
@@ -374,7 +366,7 @@ export default function Map() {
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#0a0f1e] select-none">
       {/* Mapbox container — always rendered so ref is available */}
-      <div className="absolute inset-3 rounded-2xl overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden">
         <div ref={mapRef} className="w-full h-full" />
       </div>
 
