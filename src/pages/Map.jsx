@@ -16,24 +16,47 @@ import { supabase } from '../lib/supabase'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
+
+// Grid-based spatial dedupe — divides the screen into cellSizePx cells,
+// keeps up to maxPerCell thots per cell (best hype wins).
+// Grid cells are geographic so Brooklyn cells are always separate from
+// Manhattan cells regardless of zoom level.
+function dedupeThots(thots, map, maxPerCell = 2, cellSizePx = 150) {
+  if (!map) return thots
+  const sorted = [...thots].sort((a, b) => (b.hype_count ?? 0) - (a.hype_count ?? 0))
+  const cells = {}
+  const kept = []
+  for (const thot of sorted) {
+    const pt = map.project([thot.lng, thot.lat])
+    const key = `${Math.floor(pt.x / cellSizePx)},${Math.floor(pt.y / cellSizePx)}`
+    const count = cells[key] ?? 0
+    if (count < maxPerCell) {
+      cells[key] = count + 1
+      kept.push(thot)
+    }
+  }
+  return kept
+}
+
 // Radius and thot limit scale with zoom level.
 // Zoomed in  → small radius, show everything.
 // Zoomed out → large radius, only show top thots by hype so the map stays readable.
 function applyZoomSettings(map) {
   const c = map.getCenter()
-  const zoom = map.getZoom()
-  const radius = Math.round(40000 / Math.pow(2, zoom - 10)) // no hard cap — grows naturally
-  const limit =
-    zoom >= 16 ? 100 :
-    zoom >= 14 ? 60  :
-    zoom >= 12 ? 30  :
-    zoom >= 10 ? 20  :
-    zoom >=  8 ? 10  :
-    zoom >=  6 ?  5  : 3
+  const bounds = map.getBounds()
+  const ne = bounds.getNorthEast()
+  const sw = bounds.getSouthWest()
+  // Radius = half-diagonal of visible viewport in meters (covers entire screen)
+  const latDiff = Math.abs(ne.lat - sw.lat) / 2
+  const lngDiff = Math.abs(ne.lng - sw.lng) / 2
+  const radius = Math.round(Math.sqrt(
+    Math.pow(latDiff * 111320, 2) +
+    Math.pow(lngDiff * 111320 * Math.cos(c.lat * Math.PI / 180), 2)
+  ))
   const store = useAppStore.getState()
   store.setMapCenter({ lat: c.lat, lng: c.lng })
   store.setRadius(radius)
-  store.setLimit(limit)
+  store.setLimit(100)
 }
 
 export default function Map() {
@@ -50,6 +73,7 @@ export default function Map() {
   const { error: thotsError } = useThots()
 
   const thots = useAppStore((s) => s.thots)
+  const [visibleThots, setVisibleThots] = useState([])
   const session = useAppStore((s) => s.session)
   const composing = useAppStore((s) => s.composing)
   const setComposing = useAppStore((s) => s.setComposing)
@@ -192,7 +216,10 @@ export default function Map() {
     let moveTimer
     map.on('moveend', () => {
       clearTimeout(moveTimer)
-      moveTimer = setTimeout(() => applyZoomSettings(map), 400)
+      moveTimer = setTimeout(() => {
+        applyZoomSettings(map)
+        setVisibleThots(dedupeThots(useAppStore.getState().thots, map))
+      }, 400)
     })
 
     mapInstanceRef.current = map
@@ -258,12 +285,19 @@ export default function Map() {
     )
   }, [thots, session?.id])
 
+
+  // Recompute visible (deduped) thots whenever raw thots change
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    setVisibleThots(dedupeThots(thots, map))
+  }, [thots])
+
   // Sync thot markers
   useEffect(() => {
     const map = mapInstanceRef.current
     if (!map || !mapReady) return
 
-    const currentIds = new Set(thots.map((t) => t.id))
+    const currentIds = new Set(visibleThots.map((t) => t.id))
     const existingIds = new Set(Object.keys(markersRef.current))
 
     // Remove stale
@@ -278,7 +312,7 @@ export default function Map() {
 
     // Add new — oldest first so newer pins are later in the DOM and
     // naturally win pointer-event ties without relying solely on z-index
-    const newThots = thots
+    const newThots = visibleThots
       .filter((t) => !existingIds.has(t.id))
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 
@@ -320,7 +354,7 @@ export default function Map() {
     // Re-insert YouPin's element last so it wins click ties by DOM order
     const youEl = youMarkerRef.current?.marker?.getElement()
     if (youEl?.parentElement) youEl.parentElement.appendChild(youEl)
-  }, [thots, mapReady, session?.id])
+  }, [visibleThots, mapReady, session?.id])
 
   async function handleHype(thotId) {
     const s = useAppStore.getState()
@@ -407,7 +441,7 @@ export default function Map() {
 
       {/* Top bar */}
       <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-[#0a0f1e] to-transparent pointer-events-none">
-        <span className="text-white font-black text-xl tracking-tight">Thots.</span>
+        <span className="text-white font-black text-xl tracking-tight">drop-a-thot</span>
         <button
           onClick={() => setToolsOpen(o => !o)}
           className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer pointer-events-auto ${
@@ -514,6 +548,7 @@ export default function Map() {
           onClose={() => setToolsOpen(false)}
           thots={thots}
           session={session}
+          onHype={handleHype}
         />
       )}
 

@@ -150,7 +150,7 @@ export default function Landing() {
       <div className="relative z-10 w-full max-w-sm px-6 flex flex-col items-center gap-6">
         {/* Logo */}
         <div className="flex flex-col items-center gap-1 mb-2">
-          <span className="text-4xl font-black tracking-tight text-white">Thots.</span>
+          <span className="text-4xl font-black tracking-tight text-white">drop-a-thot</span>
           <div className="flex items-center gap-1 text-slate-400 text-sm">
             <MapPin size={14} />
             <span>For the curious</span>

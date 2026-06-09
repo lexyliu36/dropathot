@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
   const lat = parseFloat(req.query.lat)
   const lng = parseFloat(req.query.lng)
   const radius = parseFloat(req.query.radius) || 625
-  const limit = Math.min(parseInt(req.query.limit) || 100, 200) // hard cap at 200
+  const limit = Math.min(parseInt(req.query.limit) || 30, 100) // hard cap at 100
 
   if (isNaN(lat) || isNaN(lng)) {
     return res.status(400).json({ error: 'lat and lng are required' })
@@ -132,17 +132,15 @@ router.post('/', smartRateLimit, moderate, async (req, res) => {
     .digest('hex')
 
   // Compute expires_at from duration_hours
-  // Auth users: null → permanent (100 years), or 1–24 hours
+  // Auth users: default 3 days, max 3 days (72 hours)
   // Anon users: 1–3 hours only (default 3)
   let expires_at
   if (req.user) {
-    if (duration_hours === null || duration_hours === undefined) {
-      expires_at = new Date(Date.now() + 100 * 365.25 * 24 * 3600 * 1000).toISOString()
-    } else {
-      const h = parseInt(duration_hours)
-      if (isNaN(h) || h < 1 || h > 24) return res.status(400).json({ error: 'duration must be 1–24 hours' })
-      expires_at = new Date(Date.now() + h * 3600 * 1000).toISOString()
-    }
+    const h = (duration_hours === null || duration_hours === undefined)
+      ? 72
+      : parseInt(duration_hours)
+    if (isNaN(h) || h < 1 || h > 72) return res.status(400).json({ error: 'duration must be 1–72 hours' })
+    expires_at = new Date(Date.now() + h * 3600 * 1000).toISOString()
   } else {
     const h = parseInt(duration_hours) || 3
     if (![1, 2, 3].includes(h)) return res.status(400).json({ error: 'anonymous posts can stay up for 1–3 hours' })
@@ -181,6 +179,19 @@ router.post('/', smartRateLimit, moderate, async (req, res) => {
   req.io.to(cells).emit('thot:new', newThot)
 
   res.status(201).json(newThot)
+})
+
+// GET /thots/:id — single thot by id (public, for share page)
+router.get('/:id', async (req, res) => {
+  const { id } = req.params
+  if (!/^[0-9a-f-]{36}$/.test(id)) return res.status(400).json({ error: 'invalid id' })
+  const { data, error } = await supabase
+    .from('thots')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (error || !data) return res.status(404).json({ error: 'not found' })
+  res.json(data)
 })
 
 export default router

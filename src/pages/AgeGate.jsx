@@ -180,7 +180,7 @@ export default function AgeGate() {
   function handleAgeContinue() {
     if (!agreed) { setError("You must confirm you meet the age requirements."); return; }
     const age = CURRENT_YEAR - year;
-    if (age < 18) { setError("You must be 18 or older to use Thots."); return; }
+    if (age < 18) { setError("You must be 18 or older to use drop-a-thot."); return; }
     setError("");
     setStep("captcha");
   }

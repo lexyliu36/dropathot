@@ -129,3 +129,45 @@ for each row execute function update_hype_count();
 alter table hypes enable row level security;
 create policy "Users can manage their own hypes"
   on hypes for all using (auth.uid() = user_id);
+
+-- Comments table
+create table if not exists comments (
+  id          uuid primary key default gen_random_uuid(),
+  thot_id     uuid not null references thots(id) on delete cascade,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  pen_name    text not null,
+  content     text not null check (char_length(content) <= 280),
+  hype_count  int not null default 0,
+  created_at  timestamptz default now()
+);
+
+-- Comment hypes table
+create table if not exists comment_hypes (
+  id          uuid primary key default gen_random_uuid(),
+  comment_id  uuid not null references comments(id) on delete cascade,
+  user_id     uuid not null references auth.users(id) on delete cascade,
+  created_at  timestamptz default now(),
+  unique(comment_id, user_id)
+);
+
+-- Keep comment hype_count in sync
+create or replace function update_comment_hype_count()
+returns trigger as $$
+begin
+  if TG_OP = 'INSERT' then
+    update comments set hype_count = hype_count + 1 where id = NEW.comment_id;
+  elsif TG_OP = 'DELETE' then
+    update comments set hype_count = greatest(0, hype_count - 1) where id = OLD.comment_id;
+  end if;
+  return null;
+end;
+$$ language plpgsql;
+
+create trigger comment_hype_count_sync
+after insert or delete on comment_hypes
+for each row execute function update_comment_hype_count();
+
+alter table comments enable row level security;
+alter table comment_hypes enable row level security;
+grant all on public.comments to service_role;
+grant all on public.comment_hypes to service_role;

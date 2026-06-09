@@ -1,14 +1,8 @@
 /**
- * Demo seed — 85 thots spread across NYC neighborhoods.
- * Hell's Kitchen · Central Park · Williamsburg · Queens · LES · FiDi
+ * Demo seed — 85 thots spread across all 5 NYC boroughs + Jersey City / Hoboken.
+ * Coordinates are intentionally spaced so pins don't overlap at city-scale zoom.
  *
- * anonymous thots default to 3 hours visibility.
- * named (auth) thots are permanent.
- *
- * Usage:
- *   node server/seed-demo.js
- *
- * Clears all seed data before inserting.
+ * Usage:  node --env-file=.env seed-demo.js
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -20,120 +14,148 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
-const IP_SALT = process.env.IP_SALT ?? 'dev'
+const IP_SALT    = process.env.IP_SALT ?? 'dev'
 const DEMO_PREFIX = 'b0000000-0000-0000-0000-'
-const PERMANENT = new Date(Date.now() + 100 * 365.25 * 24 * 3600 * 1000).toISOString()
+const SEVEN_DAYS  = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
 
-// 85 thots. pen_name=null → anonymous (3h). pen_name=string → auth (permanent).
 const THOTS = [
-  // ── Hell's Kitchen (42nd–57th St, 8th–12th Ave) ─────────────────────────────────
-  { content: 'the curtain just dropped next door and i could feel the applause through the walls',               pen_name: null,           lat: 40.7578, lng: -73.9942 },
-  { content: '9th avenue at midnight hits different every single time',                                          pen_name: 'NeonEcho',     lat: 40.7663, lng: -73.9974 },
-  { content: '$3 halal cart on 46th just made my entire night',                                                  pen_name: null,           lat: 40.7712, lng: -73.9888 },
-  { content: 'why do tourists always stop in the middle of the sidewalk specifically here',                      pen_name: 'GlitchWalker', lat: 40.7592, lng: -74.0052 },
-  { content: 'just saw two broadway stars arguing at a corner diner and did not look away for a second',         pen_name: null,           lat: 40.7689, lng: -73.9921 },
-  { content: 'this neighborhood is half chaos half magic and i refuse to leave',                                 pen_name: 'PhaseShift',   lat: 40.7623, lng: -73.9903 },
-  { content: 'the bodega on 9th has the best BEC in the city and i will die on this hill',                      pen_name: null,           lat: 40.7641, lng: -74.0009 },
-  { content: 'overheard someone practicing their lines on the fire escape. this city man.',                      pen_name: 'LiminalTrace', lat: 40.7554, lng: -73.9963 },
-  { content: 'a taxi honked at me and i nodded like we both understood something profound',                     pen_name: null,           lat: 40.7731, lng: -73.9947 },
-  { content: 'three tour buses and zero cabs. classic hells kitchen.',                                          pen_name: 'VoidDrifter',  lat: 40.7608, lng: -73.9876 },
-  { content: 'it smells like rain and garlic and ambition out here tonight',                                    pen_name: null,           lat: 40.7667, lng: -74.0041 },
-  { content: 'diner at 2am is the only honest institution left in this city',                                   pen_name: null,           lat: 40.7574, lng: -74.0018 },
-  { content: 'someone left a playbill on this bench and i am keeping it forever',                               pen_name: 'CrypticTide',  lat: 40.7699, lng: -73.9895 },
-  { content: 'the gym across the street has been full at every hour i have checked. who are these people.',     pen_name: null,           lat: 40.7618, lng: -73.9982 },
-  { content: 'walked past the same delivery guy four times tonight. we are friends now. we have history.',      pen_name: null,           lat: 40.7745, lng: -73.9956 },
+  // ── Manhattan: Upper West Side ──────────────────────────────────────────────────
+  { content: 'riverside park at sunset and the hudson goes completely gold',                                    pen_name: 'NeonEcho',      lat: 40.8014, lng: -73.9717 },
+  { content: 'the 1 train skips logic sometimes and i have made peace with that',                              pen_name: 'LiminalTrace',  lat: 40.7876, lng: -73.9802 },
+  { content: 'zabar\'s on a saturday morning is the closest thing this city has to a town square',             pen_name: 'GlitchWalker',  lat: 40.7834, lng: -73.9831 },
 
-  // ── Central Park ─────────────────────────────────────────────────────────────────
-  { content: 'the reservoir at golden hour made me forget i have 47 unread emails',                             pen_name: 'NeonEcho',     lat: 40.7876, lng: -73.9602 },
-  { content: 'watched a guy do tai chi while a tourist asked him for directions. he did not break form.',       pen_name: null,           lat: 40.7719, lng: -73.9714 },
-  { content: 'the park at 6am belongs to runners and raccoons and absolutely nobody else',                     pen_name: 'ObsidianNomad',lat: 40.7801, lng: -73.9723 },
-  { content: 'a duck stared at my sandwich for four straight minutes. total standoff.',                         pen_name: null,           lat: 40.7696, lng: -73.9804 },
-  { content: 'a string quartet just appeared near the fountain for no reason. just new york things.',          pen_name: null,           lat: 40.7773, lng: -73.9682 },
-  { content: 'this bench has seen everything. you can feel it.',                                                pen_name: 'WiredSpecter', lat: 40.7841, lng: -73.9749 },
-  { content: 'a dog sprinted at a pigeon full speed and the pigeon did not even flinch. legends only.',        pen_name: null,           lat: 40.7677, lng: -73.9786 },
-  { content: 'bethesda fountain is the one place in manhattan that forgets it is manhattan',                    pen_name: 'FaintSignal',  lat: 40.7740, lng: -73.9749 },
-  { content: 'old man feeding pigeons in the rain. living his absolute best life honestly.',                    pen_name: null,           lat: 40.7831, lng: -73.9661 },
-  { content: 'found a quiet clearing by the lake. sharing the coordinates with no one.',                        pen_name: 'GhostFreq',    lat: 40.7862, lng: -73.9647 },
-  { content: 'every time i come here i forget the city exists for about six minutes',                           pen_name: null,           lat: 40.7908, lng: -73.9578 },
-  { content: 'kids chasing a kite across the great lawn like they own the whole sky',                           pen_name: null,           lat: 40.7928, lng: -73.9527 },
+  // ── Manhattan: Harlem ────────────────────────────────────────────────────────────
+  { content: 'marcus garvey park at noon. chess, drums, and the best jerk chicken smell in the city.',        pen_name: 'VoidDrifter',   lat: 40.8060, lng: -73.9446 },
+  { content: 'the apollo theater marquee still hits different every single time i walk past it',               pen_name: 'PhaseShift',    lat: 40.8100, lng: -73.9499 },
+  { content: '125th on a friday afternoon is the realest block in manhattan. no debate.',                     pen_name: 'CrypticTide',   lat: 40.8084, lng: -73.9478 },
 
-  // ── Williamsburg ──────────────────────────────────────────────────────────────────
-  { content: 'this coffee is $9 and i will pay it every single day until i die',                                pen_name: null,           lat: 40.7143, lng: -73.9626 },
-  { content: 'every building here was a warehouse once. that is literally the whole vibe.',                     pen_name: 'VoidDrifter',  lat: 40.7219, lng: -73.9501 },
-  { content: 'watched a guy try to parallel park a cargo bike for eight minutes straight',                      pen_name: null,           lat: 40.7168, lng: -73.9563 },
-  { content: 'the mural on bedford just changed again. still excellent.',                                       pen_name: 'NeonEcho',     lat: 40.7189, lng: -73.9602 },
-  { content: 'somehow found a show that starts at midnight that is also a farmers market',                      pen_name: null,           lat: 40.7232, lng: -73.9476 },
-  { content: 'three people in this coffee shop are writing screenplays. you can feel it in the air.',          pen_name: 'GlitchWalker', lat: 40.7151, lng: -73.9587 },
-  { content: 'moving to brooklyn was simultaneously the best and worst decision i ever made',                   pen_name: null,           lat: 40.7208, lng: -73.9533 },
-  { content: 'the williamsburg bridge at sunset is a protected cultural experience change my mind',             pen_name: 'LiminalTrace', lat: 40.7171, lng: -73.9649 },
-  { content: 'a cat is sitting outside the bodega like it owns the door. and honestly it does.',               pen_name: null,           lat: 40.7244, lng: -73.9518 },
-  { content: 'the vintage shop on north 7th has a jacket that contains my entire personality',                  pen_name: 'PhaseShift',   lat: 40.7163, lng: -73.9571 },
-  { content: 'overheard "this used to be so authentic" for the third time today alone',                        pen_name: null,           lat: 40.7198, lng: -73.9624 },
-  { content: 'rooftop party down the block, did not get invited, the music is great from here honestly',       pen_name: null,           lat: 40.7134, lng: -73.9601 },
-  { content: 'the pizza place with no yelp page is always always always the right call',                        pen_name: 'VoidDrifter',  lat: 40.7223, lng: -73.9487 },
-  { content: 'found graffiti that said be here now. still working on it.',                                     pen_name: null,           lat: 40.7180, lng: -73.9543 },
-  { content: 'this neighborhood smells like oat milk and ambition and a little bit of regret',                 pen_name: 'CrypticTide',  lat: 40.7257, lng: -73.9462 },
+  // ── Manhattan: Washington Heights ───────────────────────────────────────────────
+  { content: 'fort tryon park hides the best view of the hudson and nobody tells tourists',                    pen_name: 'WiredSpecter',  lat: 40.8597, lng: -73.9321 },
+  { content: 'dominican spot on 181st that has existed since forever. long may it run.',                      pen_name: 'ObsidianNomad', lat: 40.8490, lng: -73.9393 },
 
-  // ── Queens (Astoria / LIC / Flushing) ────────────────────────────────────────────
-  { content: 'astoria park at sunset makes me feel like everything is going to be okay',                        pen_name: null,           lat: 40.7793, lng: -73.9271 },
-  { content: 'the gyro place on ditmars is better than anything in manhattan and i said what i said',          pen_name: 'ObsidianNomad',lat: 40.7716, lng: -73.9346 },
-  { content: 'outer borough loyalty is a different kind of love. quiet but total.',                             pen_name: null,           lat: 40.7658, lng: -73.9413 },
-  { content: 'a yia yia just handed me spanakopita through her window. this is why i live here.',              pen_name: null,           lat: 40.7684, lng: -73.9373 },
-  { content: 'queens has food from every country on earth and midtown has $22 salads',                         pen_name: 'WiredSpecter', lat: 40.7742, lng: -73.9286 },
-  { content: 'the N train gets you where you need to go and i will not hear anything against it',              pen_name: null,           lat: 40.7728, lng: -73.9352 },
-  { content: 'astoria pool is closed for the season but the view from outside still hits',                     pen_name: null,           lat: 40.7673, lng: -73.9419 },
-  { content: 'waited an hour for this dumpling. would do it again without hesitation.',                        pen_name: 'FaintSignal',  lat: 40.7751, lng: -73.9311 },
-  { content: 'this block has been the same since 1989 and that is a feature not a bug',                        pen_name: null,           lat: 40.7703, lng: -73.9384 },
-  { content: 'LIC is all glass towers now but the water views are still free and still perfect',               pen_name: null,           lat: 40.7465, lng: -73.9548 },
-  { content: 'met someone who has lived on this street for 40 years. asked if the city felt different. it does.', pen_name: 'GhostFreq', lat: 40.7491, lng: -73.9502 },
-  { content: 'the 7 train at rush hour is a full cultural immersion experience i recommend to everyone',       pen_name: 'NeonEcho',     lat: 40.7448, lng: -73.9478 },
-  { content: 'flushing main street at night is the most alive place on earth i am completely convinced',       pen_name: null,           lat: 40.7596, lng: -73.8328 },
+  // ── Manhattan: Upper East Side ───────────────────────────────────────────────────
+  { content: 'museum mile on a friday evening when it\'s free and everyone suddenly has culture',              pen_name: 'GhostFreq',     lat: 40.7794, lng: -73.9632 },
+  { content: 'carl schurz park is quieter than central park and 10x better for that exact reason',            pen_name: 'FaintSignal',   lat: 40.7762, lng: -73.9452 },
 
-  // ── Lower East Side ───────────────────────────────────────────────────────────────
-  { content: 'this street smells like 2007 and a very questionable decision',                                   pen_name: null,           lat: 40.7229, lng: -73.9832 },
-  { content: 'the last real dive bar on orchard just announced it is closing and i am not okay',               pen_name: 'VoidDrifter',  lat: 40.7198, lng: -73.9901 },
-  { content: 'found a jazz club two blocks from my apartment that i somehow never knew existed',               pen_name: null,           lat: 40.7172, lng: -73.9863 },
-  { content: 'gentrification is loud tonight. still hear the old neighborhood underneath if you listen.',      pen_name: 'GlitchWalker', lat: 40.7218, lng: -73.9853 },
-  { content: 'whoever runs the dumpling counter on eldridge — thank you. genuinely from the heart.',          pen_name: null,           lat: 40.7149, lng: -73.9882 },
-  { content: 'this whole neighborhood used to be something else and is still becoming something new',          pen_name: 'LiminalTrace', lat: 40.7203, lng: -73.9921 },
-  { content: '3am and the noodle shop is completely packed. as it should be.',                                 pen_name: null,           lat: 40.7181, lng: -73.9843 },
-  { content: 'the street art in this alley changes every week. it is a living timeline.',                      pen_name: null,           lat: 40.7234, lng: -73.9876 },
-  { content: 'someone spray painted stay weird on this wall and i took it personally in the best way',         pen_name: 'PhaseShift',   lat: 40.7163, lng: -73.9912 },
-  { content: 'Essex Market is genuinely the best thing to happen to this block in years',                      pen_name: null,           lat: 40.7192, lng: -73.9867 },
-  { content: 'old punk venue is a juice bar now. the feelings i have about this are complicated.',             pen_name: 'ObsidianNomad',lat: 40.7210, lng: -73.9894 },
-  { content: 'found the most beautiful fire escape garden. made eye contact with the gardener. kept walking.', pen_name: null,           lat: 40.7155, lng: -73.9938 },
-  { content: 'the energy on delancey at midnight is genuinely unclassifiable',                                 pen_name: null,           lat: 40.7223, lng: -73.9844 },
-  { content: 'every block down here has a story from a different decade all layered on top of each other',    pen_name: 'WiredSpecter', lat: 40.7177, lng: -73.9924 },
-  { content: 'someone is blasting salsa from their window and the whole street is better for it',             pen_name: null,           lat: 40.7196, lng: -73.9849 },
+  // ── Manhattan: Midtown ───────────────────────────────────────────────────────────
+  { content: 'grand central at rush hour is a ballet that nobody rehearsed',                                   pen_name: 'NeonEcho',      lat: 40.7527, lng: -73.9772 },
+  { content: 'the top of the rock at 9pm with no clouds. i owe this city an apology for every bad thing i said.', pen_name: 'LiminalTrace', lat: 40.7588, lng: -73.9798 },
+  { content: 'bryant park in december is corny as hell and i love every second of it',                         pen_name: 'GlitchWalker',  lat: 40.7536, lng: -73.9832 },
 
-  // ── Financial District ────────────────────────────────────────────────────────────
-  { content: 'the charging bull is smaller than i imagined and surrounded by tourists at all hours',           pen_name: null,           lat: 40.7069, lng: -74.0089 },
-  { content: 'wall street at 9pm is quieter than prospect park at noon. genuinely unsettling.',               pen_name: 'VoidDrifter',  lat: 40.7088, lng: -74.0062 },
-  { content: 'found a deli down here that feels like it exists completely outside of time',                    pen_name: null,           lat: 40.7041, lng: -74.0121 },
-  { content: 'the subway violinist at fulton has been playing the same song for two hours. he is winning.',   pen_name: null,           lat: 40.7082, lng: -74.0036 },
-  { content: 'every suit i see down here looks like a costume and then i remember i am wearing one too',      pen_name: 'WiredSpecter', lat: 40.7075, lng: -74.0141 },
-  { content: 'stone street happy hour and everyone slowly remembers they are a person',                       pen_name: null,           lat: 40.7055, lng: -74.0095 },
-  { content: 'the freedom tower lobby has a gift shop and i have a lot of feelings about that',               pen_name: null,           lat: 40.7096, lng: -74.0108 },
-  { content: 'broadway down here at noon is chaos and i am completely here for every second of it',           pen_name: 'LiminalTrace', lat: 40.7063, lng: -74.0072 },
-  { content: 'found a tiny park wedged between two buildings that nobody else seems to know exists',           pen_name: null,           lat: 40.7110, lng: -74.0079 },
-  { content: 'watching the ferries from the waterfront. this is the only pace of life that makes sense.',    pen_name: null,           lat: 40.7093, lng: -74.0157 },
+  // ── Manhattan: Chelsea / Hell's Kitchen ─────────────────────────────────────────
+  { content: 'the high line at dusk. slow down. this is what cities are for.',                                 pen_name: 'VoidDrifter',   lat: 40.7480, lng: -74.0048 },
+  { content: 'chelsea market on a tuesday when the crowds thin out is actually great',                         pen_name: 'PhaseShift',    lat: 40.7423, lng: -74.0059 },
 
-  // ── Scattered ─────────────────────────────────────────────────────────────────────
-  { content: 'the brooklyn bridge pedestrian lane at sunrise is the best free thing in new york',              pen_name: null,           lat: 40.7061, lng: -73.9969 },
-  { content: 'times square at 4am is peaceful and genuinely surreal. i recommend it exactly once.',           pen_name: 'FaintSignal',  lat: 40.7580, lng: -73.9855 },
-  { content: 'the high line at dusk. nothing else needs to happen today. this is enough.',                    pen_name: null,           lat: 40.7480, lng: -74.0048 },
-  { content: 'chinatown on a sunday afternoon is the most alive corner of manhattan fight me',                pen_name: 'CrypticTide',  lat: 40.7157, lng: -73.9970 },
-  { content: 'staten island ferry is free and the skyline from the water is priceless. do it.',              pen_name: null,           lat: 40.6989, lng: -74.0158 },
+  // ── Manhattan: Greenwich Village / West Village ──────────────────────────────────
+  { content: 'the corner of bleecker and perry looks like a film set at all times. they know.',               pen_name: 'CrypticTide',   lat: 40.7339, lng: -74.0047 },
+  { content: 'smalls jazz club at midnight. three tourists, forty regulars, one god.',                        pen_name: 'WiredSpecter',  lat: 40.7317, lng: -74.0023 },
+  { content: 'washington square park at every hour is a completely different park',                            pen_name: 'ObsidianNomad', lat: 40.7308, lng: -73.9973 },
+
+  // ── Manhattan: East Village / Lower East Side ────────────────────────────────────
+  { content: 'tompkins square park at 8am. pigeons, dogs, ghosts of the 80s.',                               pen_name: 'GhostFreq',     lat: 40.7264, lng: -73.9815 },
+  { content: 'the old punk venue is a juice bar now. i have complicated feelings about this.',                pen_name: 'FaintSignal',   lat: 40.7210, lng: -73.9894 },
+  { content: 'found a jazz club two blocks from my apartment that i never knew existed',                      pen_name: 'NeonEcho',      lat: 40.7172, lng: -73.9863 },
+
+  // ── Manhattan: Chinatown / Tribeca ───────────────────────────────────────────────
+  { content: 'chinatown on a sunday morning before 9am belongs to people who are actually from here',         pen_name: 'LiminalTrace',  lat: 40.7157, lng: -73.9970 },
+  { content: 'the canal street fish market smell is unbearable and somehow nostalgic',                        pen_name: 'GlitchWalker',  lat: 40.7185, lng: -74.0007 },
+  { content: 'tribeca loft party energy at 11pm. everyone looks like money smells like secrets.',             pen_name: 'VoidDrifter',   lat: 40.7163, lng: -74.0086 },
+
+  // ── Manhattan: Financial District ────────────────────────────────────────────────
+  { content: 'wall street at 9pm is quieter than prospect park at noon. unsettling.',                        pen_name: 'PhaseShift',    lat: 40.7074, lng: -74.0113 },
+  { content: 'the 9/11 pools at sunrise. just go alone. bring nothing.',                                     pen_name: 'CrypticTide',   lat: 40.7115, lng: -74.0132 },
+  { content: 'staten island ferry is free and the skyline view from the water is priceless. do the thing.',  pen_name: 'WiredSpecter',  lat: 40.6996, lng: -74.0172 },
+
+  // ── Brooklyn: DUMBO / Brooklyn Heights ───────────────────────────────────────────
+  { content: 'the view from brooklyn bridge park pier 1 is why people move here and never leave',             pen_name: 'ObsidianNomad', lat: 40.6996, lng: -73.9968 },
+  { content: 'dumbo on a weekday morning before the instagrammers arrive is genuinely magical',               pen_name: 'GhostFreq',     lat: 40.7033, lng: -73.9884 },
+  { content: 'brooklyn heights promenade at golden hour. manhattan across the water. nothing else needed.',   pen_name: 'FaintSignal',   lat: 40.6960, lng: -73.9974 },
+
+  // ── Brooklyn: Williamsburg ───────────────────────────────────────────────────────
+  { content: 'the mural on bedford changed again. still excellent. every time.',                              pen_name: 'NeonEcho',      lat: 40.7143, lng: -73.9626 },
+  { content: 'rooftop party down the block. did not get invited. the music is great from here honestly.',    pen_name: 'LiminalTrace',  lat: 40.7188, lng: -73.9556 },
+  { content: 'vintage shop on north 7th has a jacket that contains my entire personality',                    pen_name: 'GlitchWalker',  lat: 40.7225, lng: -73.9508 },
+
+  // ── Brooklyn: Bushwick ───────────────────────────────────────────────────────────
+  { content: 'the bushwick collective walls just got updated. every block is a gallery now.',                 pen_name: 'VoidDrifter',   lat: 40.6940, lng: -73.9160 },
+  { content: 'warehouse show at midnight. four rooms, three genres, zero VIP sections. perfect.',            pen_name: 'PhaseShift',    lat: 40.6970, lng: -73.9089 },
+
+  // ── Brooklyn: Park Slope / Prospect Park ─────────────────────────────────────────
+  { content: 'prospect park lake at 7am. only dogs and the extremely committed.',                             pen_name: 'CrypticTide',   lat: 40.6602, lng: -73.9690 },
+  { content: 'fifth avenue park slope is the most functional block in brooklyn and i stand by that',         pen_name: 'WiredSpecter',  lat: 40.6728, lng: -73.9775 },
+  { content: 'the botanic garden in april makes you believe in something again',                              pen_name: 'ObsidianNomad', lat: 40.6694, lng: -73.9629 },
+
+  // ── Brooklyn: Crown Heights / Bed-Stuy ───────────────────────────────────────────
+  { content: 'bed stuy brownstones on a summer evening with every stoop occupied. the best.',                pen_name: 'GhostFreq',     lat: 40.6872, lng: -73.9418 },
+  { content: 'crown heights carnival energy even on a random tuesday. this neighborhood does not stop.',     pen_name: 'FaintSignal',   lat: 40.6707, lng: -73.9432 },
+
+  // ── Brooklyn: Flatbush / Midwood ─────────────────────────────────────────────────
+  { content: 'flatbush ave at noon is a world unto itself. everyone is somewhere important.',                 pen_name: 'NeonEcho',      lat: 40.6449, lng: -73.9583 },
+  { content: 'di fara pizza is a 45 minute wait and the correct answer is yes every time',                   pen_name: 'LiminalTrace',  lat: 40.6251, lng: -73.9614 },
+
+  // ── Brooklyn: Sunset Park / Bay Ridge ────────────────────────────────────────────
+  { content: 'sunset park actually has the best sunset views in brooklyn and nobody talks about it enough',  pen_name: 'GlitchWalker',  lat: 40.6508, lng: -74.0035 },
+  { content: 'bay ridge on a sunday feels like a different city. slower. better somehow.',                   pen_name: 'VoidDrifter',   lat: 40.6350, lng: -74.0280 },
+
+  // ── Brooklyn: Coney Island / Brighton Beach ───────────────────────────────────────
+  { content: 'coney island boardwalk off season is the most poetic place in new york city',                  pen_name: 'PhaseShift',    lat: 40.5749, lng: -73.9850 },
+  { content: 'brighton beach. russian grandmas, the ocean, borscht. all in one block. stunning.',            pen_name: 'CrypticTide',   lat: 40.5772, lng: -73.9614 },
+
+  // ── Queens: Long Island City ──────────────────────────────────────────────────────
+  { content: 'MoMA PS1 courtyard on a summer weekend. culture is alive out here.',                           pen_name: 'WiredSpecter',  lat: 40.7447, lng: -73.9485 },
+  { content: 'LIC waterfront at dusk. manhattan across the water. everything feels possible.',               pen_name: 'ObsidianNomad', lat: 40.7465, lng: -73.9548 },
+
+  // ── Queens: Astoria ──────────────────────────────────────────────────────────────
+  { content: 'astoria park at sunrise belongs to swimmers and the extremely optimistic',                      pen_name: 'GhostFreq',     lat: 40.7793, lng: -73.9271 },
+  { content: 'the gyro place on ditmars has been perfect for 20 years and will be perfect for 20 more',     pen_name: 'FaintSignal',   lat: 40.7716, lng: -73.9346 },
+  { content: 'a yia yia just handed me spanakopita through her window. this is why i live here.',            pen_name: 'NeonEcho',      lat: 40.7684, lng: -73.9373 },
+
+  // ── Queens: Jackson Heights / Flushing ────────────────────────────────────────────
+  { content: 'jackson heights has food from every country and costs a fraction of manhattan. just saying.',  pen_name: 'LiminalTrace',  lat: 40.7498, lng: -73.8912 },
+  { content: 'the 7 train is a cultural immersion experience i recommend to absolutely everyone',            pen_name: 'GlitchWalker',  lat: 40.7448, lng: -73.9478 },
+  { content: 'flushing main street at night is the most alive corner of this entire city. full stop.',      pen_name: 'VoidDrifter',   lat: 40.7596, lng: -73.8328 },
+
+  // ── Queens: Forest Hills / Jamaica ────────────────────────────────────────────────
+  { content: 'forest hills gardens looks like someone imported an english village and forgot to tell anyone', pen_name: 'PhaseShift',   lat: 40.7186, lng: -73.8458 },
+  { content: 'airtrain at 5am. everyone going somewhere. nobody talking. perfect collective silence.',       pen_name: 'CrypticTide',   lat: 40.6921, lng: -73.8057 },
+
+  // ── Queens: Rockaway Beach ────────────────────────────────────────────────────────
+  { content: 'rockaway beach in september when the summer people leave. the locals get their beach back.',   pen_name: 'WiredSpecter',  lat: 40.5848, lng: -73.8459 },
+
+  // ── The Bronx ────────────────────────────────────────────────────────────────────
+  { content: 'the new york botanical garden in may is quietly one of the top five places in this city',     pen_name: 'ObsidianNomad', lat: 40.8620, lng: -73.8772 },
+  { content: 'yankee stadium before a night game. the whole neighborhood hums.',                             pen_name: 'GhostFreq',     lat: 40.8296, lng: -73.9262 },
+  { content: 'arthur avenue is the real little italy. the manhattan one is for tourists.',                   pen_name: 'FaintSignal',   lat: 40.8506, lng: -73.8820 },
+  { content: 'pelham bay park is bigger than central park and somehow almost nobody goes. good.',            pen_name: 'NeonEcho',      lat: 40.8690, lng: -73.8072 },
+  { content: 'the bronx zoo on a random wednesday. barely anyone there. just you and the animals.',         pen_name: 'LiminalTrace',  lat: 40.8506, lng: -73.8778 },
+
+  // ── Staten Island ────────────────────────────────────────────────────────────────
+  { content: 'snug harbor botanical garden. free. stunning. completely unknown to the rest of the city.',   pen_name: 'GlitchWalker',  lat: 40.6441, lng: -74.1012 },
+  { content: 'the verrazano at night from the staten island side. that bridge is something else.',           pen_name: 'VoidDrifter',   lat: 40.6065, lng: -74.0514 },
+  { content: 'tottenville beach is the end of new york city. stands here long enough and you feel it.',     pen_name: 'PhaseShift',    lat: 40.5122, lng: -74.2513 },
+
+  // ── Jersey City / Hoboken ──────────────────────────────────────────────────────
+  { content: 'liberty state park view of manhattan from jersey. honestly might be better from here.',       pen_name: 'CrypticTide',   lat: 40.7112, lng: -74.0550 },
+  { content: 'hoboken waterfront at 7am. the skyline across the river. coffee. everything is okay.',        pen_name: 'WiredSpecter',  lat: 40.7359, lng: -74.0289 },
+  { content: 'grove street PATH station energy is unmatched. commuters with stories.',                      pen_name: 'ObsidianNomad', lat: 40.7196, lng: -74.0431 },
+
+  // ── Scattered: bridges, airports, edge cases ──────────────────────────────────
+  { content: 'walking across the brooklyn bridge at sunrise. worth doing at least once a year.',             pen_name: 'GhostFreq',     lat: 40.7061, lng: -73.9969 },
+  { content: 'JFK terminal 4 at 3am. the city within the city. completely different laws apply.',           pen_name: 'FaintSignal',   lat: 40.6413, lng: -73.7781 },
+  { content: 'the RFK bridge walkway at dusk. queens on one side, the bronx on the other. the whole thing.', pen_name: 'NeonEcho',    lat: 40.7943, lng: -73.9196 },
+  { content: 'pelham parkway at 6am. the bronx waking up before anyone gives it credit for it.',            pen_name: 'LiminalTrace',  lat: 40.8556, lng: -73.8680 },
+  { content: 'dead horse bay is a real place in brooklyn and it has a beach made of old bottles. go.',      pen_name: 'GlitchWalker',  lat: 40.5885, lng: -73.9068 },
 ]
 
-const NEIGHBORHOODS = [
-  { name: "Hell's Kitchen", count: 15 },
-  { name: 'Central Park',   count: 12 },
-  { name: 'Williamsburg',   count: 15 },
-  { name: 'Queens',         count: 13 },
-  { name: 'LES',            count: 15 },
-  { name: 'FiDi',           count: 10 },
-  { name: 'Scattered',      count:  5 },
+const AREAS = [
+  { name: 'Manhattan (Upper)',    count: 10 },
+  { name: 'Manhattan (Mid/Lower)',count: 16 },
+  { name: 'Brooklyn (North)',     count: 9  },
+  { name: 'Brooklyn (South)',     count: 8  },
+  { name: 'Queens',               count: 10 },
+  { name: 'The Bronx',            count: 5  },
+  { name: 'Staten Island',        count: 3  },
+  { name: 'NJ + Scattered',       count: 8  },
 ]
 
 async function seed() {
@@ -142,44 +164,35 @@ async function seed() {
   if (delErr) console.warn('Warning — could not clear seed data:', delErr.message)
   else console.log('✓ Cleared\n')
 
-  console.log(`Seeding ${THOTS.length} demo thots across NYC…\n`)
+  console.log(`Seeding ${THOTS.length} demo thots across NYC + NJ…\n`)
 
   const now = Date.now()
 
   const rows = THOTS.map((t, i) => {
     const session_id = `${DEMO_PREFIX}${String(i).padStart(12, '0')}`
-    const ip_hash = createHash('sha256').update(`demo-${i}${IP_SALT}`).digest('hex')
-    // Spread created_at across the last ~2 hours (96s apart)
-    const createdAt = new Date(now - i * 96 * 1000)
-    // Auth users (pen_name) → permanent; anon → 3h from creation
-    const expiresAt = t.pen_name
-      ? PERMANENT
-      : new Date(createdAt.getTime() + 3 * 3600 * 1000).toISOString()
+    const ip_hash    = createHash('sha256').update(`demo-${i}${IP_SALT}`).digest('hex')
+    const createdAt  = new Date(now - i * 90 * 1000) // 90s apart
     return {
-      content: t.content,
-      pen_name: t.pen_name,
+      content:    t.content,
+      pen_name:   t.pen_name,
       session_id,
       ip_hash,
-      location: `SRID=4326;POINT(${t.lng} ${t.lat})`,
+      location:   `SRID=4326;POINT(${t.lng} ${t.lat})`,
       created_at: createdAt.toISOString(),
-      expires_at: expiresAt,
+      expires_at: SEVEN_DAYS,
     }
   })
 
-  const { data, error } = await supabase.from('thots').insert(rows).select('id, content, pen_name')
+  const { data, error } = await supabase.from('thots').insert(rows).select('id')
 
   if (error) {
     console.error('Seed failed:', error.message)
     process.exit(1)
   }
 
-  let offset = 0
   console.log(`✓ Inserted ${data.length} thots:\n`)
-  NEIGHBORHOODS.forEach(({ name, count }) => {
-    const slice = data.slice(offset, offset + count)
-    const named = slice.filter(t => t.pen_name).length
-    console.log(`  ${name.padEnd(16)} ${count} thots  (${named} named, ${count - named} anon)`)
-    offset += count
+  AREAS.forEach(({ name, count }) => {
+    console.log(`  ${name.padEnd(24)} ${count} thots`)
   })
 }
 

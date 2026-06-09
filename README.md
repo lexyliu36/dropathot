@@ -1,8 +1,8 @@
-# Thots.
+# drop-a-thot
 
-> Anonymous location-based social network. Twitter-length posts appear as pins on a live map, tied to where they were posted.
+> Anonymous location-based social network. Drop a thought onto the map — it appears as a pin wherever you are. Think YikYak meets Sniffies, text only.
 
-**Live:** [thots-beta.vercel.app](https://thots-beta.vercel.app) · API: [thots-production.up.railway.app](https://thots-production.up.railway.app/health)
+**Live:** [dropathot.com](https://dropathot.com) · API: [thots-production.up.railway.app](https://thots-production.up.railway.app/health)
 
 **Stack:** React + Vite · Mapbox GL JS · Supabase (Postgres + PostGIS) · Express · Socket.io · Zustand · Tailwind CSS
 
@@ -97,6 +97,47 @@ Both commands clear all previous seed data before inserting, so re-running is al
 ---
 
 ## Changelog
+
+### `v0.6` — drop-a-thot: Rebrand, Comments & Map Intelligence
+
+#### Rebrand
+- **Renamed to drop-a-thot** — updated app title, page titles, all in-app copy, `package.json`, and meta tags across Landing, AgeGate, Map, and share pages
+- **Live at [dropathot.com](https://dropathot.com)** — CORS origin updated to accept comma-separated `FRONTEND_ORIGIN` env var so both the old Vercel URL and the new domain work simultaneously
+
+#### Threads-style ThotCard UI
+- **New card layout** — avatar pin icon + pen name + relative timestamp header; content body; action row with heart, comment bubble, and share icons
+- **Heart icon** replaces the upvote arrow everywhere: map pins, Top Thots leaderboard, Profile tab, and the `ThotPin` bubble; count hidden when zero
+- **Outline heart when not liked, filled red when liked** — leaderboard and profile cards connect to the Zustand `hypedThotIds` store so state is consistent across all surfaces
+- **Share and like on Top Thots and Profile** — both panels now show the full action row, not just the count
+
+#### Share & Public Pages
+- **`ShareSheet` component** — centered modal (not a bottom sheet) with Copy link and native Share via buttons; copy button turns green on success
+- **`/t/:id` public thot page** — every thot has a permanent shareable URL; reverse-geocoded neighbourhood + city shown in subtle text via Nominatim; works even for thots hidden from the map (replaced by a newer post); "Open drop-a-thot" CTA
+- **`/c/:id` public comment page** — comments are independently shareable; shows the parent thot dimmed above for context, then the comment card highlighted with a branded border
+
+#### Comment System
+- **`CommentThread` component** — flat comment list that opens under any thot when the bubble icon is tapped; renders inside ProfileSheet and the map detail sheet
+- **Reply without nesting** — clicking Reply on a comment pre-fills `@penname ` in the compose box and shows a "Replying to" pill; `reply_to_pen_name` stored on the row so the mention renders in accent colour inline; replying at the same level (YouTube-style, no nesting)
+- **Comment likes** — each comment has its own heart button; `comment_hypes` table with a trigger keeping `hype_count` in sync; auth-only, count hidden when zero
+- **Comment share** — `Upload` icon on every comment opens the ShareSheet with the `/c/:id` URL
+- **`comment_count` on thots** — DB trigger keeps `thots.comment_count` in sync; comment bubble shows live count
+- **`GET /comments/:id`** — new server endpoint powering the `/c/:id` page; no auth or hidden filter so shared comments are always accessible
+
+#### Map & Fetch Intelligence
+- **Viewport-based fetch radius** — replaced fixed `40000 / 2^(zoom-10)` formula with the actual half-diagonal of the visible map bounds in metres, guaranteeing that everything on screen is always within the fetch radius regardless of zoom or aspect ratio
+- **Fetch limit raised to 100** — prevents Manhattan thots from consuming the entire limit when the map center is on the Brooklyn waterfront; spatial dedupe (max 2 pins per 150 px grid cell) controls what actually renders
+- **Distance-ordered `get_thots_nearby`** — migration `002` drops old signatures and recreates the function ordering by `ST_Distance ASC, created_at DESC` so the thots closest to wherever you're looking always appear first
+- **NYC demo seed spread across all 5 boroughs** — 85 thots with pen names covering all five boroughs plus NJ; seed pen names are on the `thots` table only and do not block real user registration
+
+#### Auth & Expiry
+- **No rate limiting for logged-in users** — `smartRateLimit` middleware validates the Supabase JWT and calls `next()` immediately for authenticated requests; anon cap stays at 3/hr
+- **Auth thot expiry capped at 72 hours** — "Forever" option removed from ComposeDrawer; max duration is 3 days regardless of input; default is 72h
+
+#### Database (`supabase/migrations/`)
+- `002_distance_ordering.sql` — updated `get_thots_nearby` with distance-first ordering and `max_results` parameter
+- `003_comments_reply.sql` — creates `comments` and `comment_hypes` tables (idempotent), adds `reply_to_pen_name` and `comment_count` columns, installs count-sync triggers, and sets RLS policies + grants for anon/authenticated read
+
+---
 
 ### `v0.5` — Production Launch 🚀
 

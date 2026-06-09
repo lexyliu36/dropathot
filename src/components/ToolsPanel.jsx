@@ -1,7 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Trophy, User, Settings, LogOut } from 'lucide-react'
+import { X, Trophy, User, Settings, LogOut, Heart, Upload } from 'lucide-react'
 import { clearSession } from '../lib/identity'
+import ShareSheet from './ShareSheet'
+import useAppStore from '../stores/useAppStore'
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
 const TABS = [
   { id: 'leaderboard', icon: Trophy, label: 'Top Thots' },
@@ -17,7 +21,44 @@ function relativeTime(isoString) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
-function Leaderboard({ thots }) {
+function LeaderboardHeart({ thot, session, onHype }) {
+  const hyped = useAppStore((s) => s.hypedThotIds.has(thot.id))
+  const hypeCount = useAppStore((s) => s.thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0)
+  return (
+    <button
+      onClick={() => session?.type === 'user'
+        ? onHype?.(thot.id)
+        : window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+      }
+      className="flex items-center gap-0.5 transition-colors cursor-pointer"
+      style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b' }}
+    >
+      <Heart size={11} style={{ fill: hyped ? '#e11d48' : 'none', color: hyped ? '#e11d48' : '#64748b' }} />
+      {hypeCount > 0 && <span className="text-[10px]">{hypeCount}</span>}
+    </button>
+  )
+}
+
+function ProfileHeart({ thot, onHype, session }) {
+  const hyped = useAppStore((s) => s.hypedThotIds.has(thot.id))
+  const hypeCount = useAppStore((s) => s.thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0)
+  return (
+    <button
+      onClick={() => session?.type === 'user'
+        ? onHype?.(thot.id)
+        : window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+      }
+      className="flex items-center gap-0.5 transition-colors cursor-pointer"
+      style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b' }}
+    >
+      <Heart size={10} style={{ fill: hyped ? '#e11d48' : 'none', color: hyped ? '#e11d48' : '#64748b' }} />
+      {hypeCount > 0 && <span className="text-[10px]">{hypeCount}</span>}
+    </button>
+  )
+}
+
+function Leaderboard({ thots, session, onHype }) {
+  const [shareThot, setShareThot] = useState(null)
   const ranked = [...thots]
     .sort((a, b) =>
       (b.hype_count ?? 0) - (a.hype_count ?? 0) ||
@@ -30,8 +71,9 @@ function Leaderboard({ thots }) {
       <p className="text-slate-500 text-[11px] mb-3 leading-relaxed">
         Top thots in the current view — zooming out surfaces the best from a wider area.
       </p>
+      {shareThot && <ShareSheet thot={shareThot} onClose={() => setShareThot(null)} />}
       {ranked.length === 0 ? (
-        <p className="text-slate-600 text-sm text-center py-10">No thots nearby yet</p>
+        <p className="text-slate-600 text-sm text-center py-10">No drops nearby yet</p>
       ) : (
         ranked.map((thot, i) => (
           <div key={thot.id} className="flex items-start gap-3 py-3 border-b border-white/5 last:border-0">
@@ -50,11 +92,25 @@ function Leaderboard({ thots }) {
                 <span className="text-slate-600 text-[10px]">
                   {relativeTime(thot.created_at)}
                 </span>
-                {(thot.hype_count ?? 0) > 0 && (
-                  <span className="text-slate-500 text-[10px] ml-auto flex-shrink-0">
-                    ↑ {thot.hype_count}
-                  </span>
-                )}
+                <div className="ml-auto flex items-center gap-3 flex-shrink-0">
+                  <button
+                    onClick={() => session?.type === 'user'
+                      ? onHype?.(thot.id)
+                      : window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+                    }
+                    className="flex items-center gap-0.5 transition-colors cursor-pointer"
+                    style={{ background: 'none', border: 'none', padding: 0 }}
+                  >
+                    <LeaderboardHeart thot={thot} session={session} onHype={onHype} />
+                  </button>
+                  <button
+                    onClick={() => setShareThot(thot)}
+                    className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
+                    style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+                  >
+                    <Upload size={11} />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -64,10 +120,22 @@ function Leaderboard({ thots }) {
   )
 }
 
-function ProfileTab({ session, thots }) {
+function ProfileTab({ session, thots, onHype }) {
   const navigate = useNavigate()
   const isAuth = session?.type === 'user'
-  const myThots = (thots ?? []).filter(t => t.session_id === session?.id)
+  const [myThots, setMyThots] = useState([])
+  const [shareThot, setShareThot] = useState(null)
+
+  // Fetch all session thots from API (not just nearby ones on the map)
+  useEffect(() => {
+    const id = session?.id
+    if (!id) return
+    fetch(`${API_URL}/thots?session_id=${id}`)
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setMyThots(data))
+      .catch(() => {})
+  }, [session?.id])
+
   const totalHypes = myThots.reduce((sum, t) => sum + (t.hype_count ?? 0), 0)
 
   return (
@@ -102,7 +170,7 @@ function ProfileTab({ session, thots }) {
             </div>
             <div className="text-center">
               <p className="text-white text-sm font-bold">{totalHypes}</p>
-              <p className="text-slate-600 text-[10px]">upvotes</p>
+              <p className="text-slate-600 text-[10px]">likes</p>
             </div>
           </div>
         )}
@@ -130,9 +198,11 @@ function ProfileTab({ session, thots }) {
         </div>
       )}
 
+      {shareThot && <ShareSheet thot={shareThot} onClose={() => setShareThot(null)} />}
+
       {/* My thots */}
       <p className="text-slate-500 text-[11px] mb-2">
-        Your thots nearby ({myThots.length})
+        Your drops nearby ({myThots.length})
       </p>
       {myThots.length === 0 ? (
         <p className="text-slate-600 text-xs text-center py-8">Nothing posted yet</p>
@@ -140,9 +210,16 @@ function ProfileTab({ session, thots }) {
         myThots.map(thot => (
           <div key={thot.id} className="py-2.5 border-b border-white/5 last:border-0">
             <p className="text-white text-xs leading-snug line-clamp-2">{thot.content}</p>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1.5">
               <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
-              <span className="text-slate-500 text-[10px] ml-auto">↑ {thot.hype_count ?? 0}</span>
+              <ProfileHeart thot={thot} onHype={onHype} session={session} />
+              <button
+                onClick={() => setShareThot(thot)}
+                className="ml-auto text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
+                style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+              >
+                <Upload size={11} />
+              </button>
             </div>
           </div>
         ))
@@ -211,7 +288,7 @@ function SettingsPane({ session }) {
   )
 }
 
-export default function ToolsPanel({ onClose, thots, session }) {
+export default function ToolsPanel({ onClose, thots, session, onHype }) {
   const [activeTab, setActiveTab] = useState('leaderboard')
 
   return (
@@ -247,8 +324,8 @@ export default function ToolsPanel({ onClose, thots, session }) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        {activeTab === 'leaderboard' && <Leaderboard thots={thots} />}
-        {activeTab === 'profile'     && <ProfileTab session={session} thots={thots} />}
+        {activeTab === 'leaderboard' && <Leaderboard thots={thots} session={session} onHype={onHype} />}
+        {activeTab === 'profile'     && <ProfileTab session={session} thots={thots} onHype={onHype} />}
         {activeTab === 'settings'    && <SettingsPane session={session} />}
       </div>
     </div>

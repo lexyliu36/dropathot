@@ -8,11 +8,12 @@ import cookieParser from 'cookie-parser'
 import { latLngToH3 } from './lib/geo.js'
 import thotsRouter from './routes/thots.js'
 import authRouter from './routes/auth.js'
+import commentsRouter from './routes/comments.js'
 
 const app = express()
 const httpServer = createServer(app)
 
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN || 'http://localhost:5173'
+const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN?.split(',').map(s => s.trim()) || ['http://localhost:5173']
 
 const io = new Server(httpServer, {
   cors: { origin: FRONTEND_ORIGIN, methods: ['GET', 'POST'] },
@@ -34,6 +35,7 @@ app.use((req, _res, next) => {
 
 app.use('/thots', thotsRouter)
 app.use('/auth', authRouter)
+app.use('/comments', commentsRouter)
 
 app.get('/health', (_req, res) => res.json({ ok: true }))
 

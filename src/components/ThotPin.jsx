@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowBigUp } from 'lucide-react'
+import { Heart } from 'lucide-react'
 import useAppStore from '../stores/useAppStore'
 
 export function AnonAvatar({ size = 44, color = '#7c3aed', active = false }) {
@@ -161,8 +161,8 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
               transition: 'color 0.15s, background 0.15s', lineHeight: 1,
             }}
           >
-            <ArrowBigUp size={14} style={{ fill: hyped ? accentColor : 'none', strokeWidth: 1.5 }} />
-            <span>{hypeCount}</span>
+            <Heart size={14} style={{ fill: hyped ? accentColor : 'none', strokeWidth: 1.5 }} />
+            {hypeCount > 0 && <span>{hypeCount}</span>}
           </button>
         </div>
 
