@@ -8,6 +8,9 @@ import Map from "./pages/Map"
 import VerifyEmail from "./pages/VerifyEmail"
 import ThotPage from "./pages/ThotPage"
 import CommentPage from "./pages/CommentPage"
+import TermsPage from "./pages/legal/TermsPage"
+import PrivacyPage from "./pages/legal/PrivacyPage"
+import SafetyPage from "./pages/legal/SafetyPage"
 import { getOrCreateSession } from "./lib/identity"
 
 function RequireAuth({ children }) {
@@ -28,6 +31,9 @@ createRoot(document.getElementById("root")).render(
         <Route path="/map" element={<RequireAuth><Map /></RequireAuth>} />
         <Route path="/t/:id" element={<ThotPage />} />
         <Route path="/c/:id" element={<CommentPage />} />
+        <Route path="/legal/terms" element={<TermsPage />} />
+        <Route path="/legal/privacy" element={<PrivacyPage />} />
+        <Route path="/legal/safety" element={<SafetyPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

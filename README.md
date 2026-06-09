@@ -98,6 +98,21 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.7` — Compliance: Reporting, Moderation Logging & Legal Pages
+
+#### Policy Compliance Fixes
+- **Report button** — Flag icon added to every thot's action row (hidden on your own thots). Tapping sends `POST /reports`; button turns orange and shows "reported" on success
+- **`POST /reports` server route** — inserts into the existing `reports` table; the DB trigger auto-hides thots with 3+ reports from different sessions
+- **Blocked attempt logging** — `moderate.js` now logs every flagged post to a new `moderation_logs` table (session_id, hashed IP, content preview, reason) before returning 422. Retained 3 years per Privacy Policy
+- **Comment moderation** — `POST /comments` now runs through the same Perspective + OpenAI moderation middleware as thots
+- **Migration 004** — `moderation_logs` table with RLS (service_role only; anon/authenticated have zero access)
+
+#### Legal Pages
+- **Terms of Service** (`/legal/terms`) — 16 sections: eligibility, UGC license, prohibited conduct, Section 230, DMCA, law enforcement cooperation, arbitration/class action waiver
+- **Privacy Policy** (`/legal/privacy`) — data collected (session ID, hashed IP, coordinates), sub-processors, 3-year moderation log retention, CCPA rights
+- **Safety Policy** (`/legal/safety`) — CSAM/NCMEC reporting, violence, harassment, doxxing, self-harm resources (988/Crisis Text Line), moderation flow, law enforcement cooperation
+- **Landing links** — footer links wired to `/legal/terms`, `/legal/privacy`, `/legal/safety`
+
 ### `v0.6` — drop-a-thot: Rebrand, Comments & Map Intelligence
 
 #### Rebrand

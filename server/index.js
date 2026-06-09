@@ -9,6 +9,7 @@ import { latLngToH3 } from './lib/geo.js'
 import thotsRouter from './routes/thots.js'
 import authRouter from './routes/auth.js'
 import commentsRouter from './routes/comments.js'
+import reportsRouter from './routes/reports.js'
 
 const app = express()
 const httpServer = createServer(app)
@@ -36,6 +37,7 @@ app.use((req, _res, next) => {
 app.use('/thots', thotsRouter)
 app.use('/auth', authRouter)
 app.use('/comments', commentsRouter)
+app.use('/reports', reportsRouter)
 
 app.get('/health', (_req, res) => res.json({ ok: true }))
 

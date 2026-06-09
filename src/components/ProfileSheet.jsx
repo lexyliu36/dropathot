@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, ShieldX, ShieldCheck, Heart, MessageCircle, Upload } from 'lucide-react'
+import { X, ShieldX, ShieldCheck, Heart, MessageCircle, Upload, Flag } from 'lucide-react'
 import { AnonAvatar } from './ThotPin'
 import CommentThread from './CommentThread'
 import ShareSheet from './ShareSheet'
@@ -22,7 +22,24 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session }) {
   const isAuth = useAppStore((s) => s.session?.type === 'user')
   const [showComments, setShowComments] = useState(false)
   const [showShare, setShowShare] = useState(false)
+  const [reported, setReported] = useState(false)
   const commentCount = thot.comment_count ?? 0
+  const isOwn = thot.session_id === session?.id
+
+  async function handleReport() {
+    if (reported) return
+    try {
+      await fetch(`${API_URL}/reports`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thot_id: thot.id, reason: 'user_report' }),
+      })
+      setReported(true)
+    } catch (err) {
+      console.error('Report failed:', err)
+    }
+  }
 
   return (
     <>
@@ -89,7 +106,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session }) {
                 {commentCount > 0 && <span className="text-[11px]">{commentCount}</span>}
               </button>
 
-              {/* Share — Twitter-style upload arrow */}
+              {/* Share */}
               <button
                 onClick={() => setShowShare(true)}
                 className="flex items-center gap-1 transition-colors cursor-pointer"
@@ -97,6 +114,22 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session }) {
               >
                 <Upload size={15} />
               </button>
+
+              {/* Report — only for other people's thots */}
+              {!isOwn && (
+                <button
+                  onClick={handleReport}
+                  title={reported ? 'Reported' : 'Report this thot'}
+                  className="flex items-center gap-1 transition-colors cursor-pointer ml-auto"
+                  style={{
+                    background: 'none', border: 'none', padding: 0,
+                    color: reported ? '#f97316' : '#3f4b5b',
+                  }}
+                >
+                  <Flag size={13} style={{ fill: reported ? '#f97316' : 'none' }} />
+                  {reported && <span className="text-[10px]" style={{ color: '#f97316' }}>reported</span>}
+                </button>
+              )}
             </div>
           </div>
         </div>
