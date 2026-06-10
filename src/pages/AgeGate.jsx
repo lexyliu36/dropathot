@@ -89,74 +89,102 @@ function DragCaptcha({ onVerified }) {
   const [dragging, setDragging]   = useState(false);
   const [pos, setPos]             = useState(() => ({ ...challenge.start }));
   const [solved, setSolved]       = useState(false);
-  const [offset, setOffset]       = useState({ x: 0, y: 0 });
-  const containerRef = useRef(null);
+  const offsetRef      = useRef({ x: 0, y: 0 });
+  const containerRef   = useRef(null);
+  const draggingRef    = useRef(false);
   const dragStartTime  = useRef(null);
   const dragTravelPx   = useRef(0);
   const lastDragPos    = useRef(null);
+  const posRef         = useRef({ ...challenge.start });
+  const targetRef      = useRef(challenge.target);
 
-  const TARGET    = challenge.target;
   const TOLERANCE = 20;
 
-  function onMouseDown(e) {
-    if (solved) return;
-    e.preventDefault();
-    dragStartTime.current  = Date.now();
-    dragTravelPx.current   = 0;
-    lastDragPos.current    = { x: e.clientX, y: e.clientY };
-    setDragging(true);
-    setOffset({ x: e.clientX - pos.x, y: e.clientY - pos.y });
+  // Keep posRef in sync so document listeners can read current pos without stale closure
+  function updatePos(p) {
+    posRef.current = p;
+    setPos(p);
   }
-  function onTouchStart(e) {
+
+  function startDrag(clientX, clientY) {
     if (solved) return;
-    e.preventDefault();
-    const t = e.touches[0];
-    dragStartTime.current  = Date.now();
-    dragTravelPx.current   = 0;
-    lastDragPos.current    = { x: t.clientX, y: t.clientY };
+    draggingRef.current   = true;
     setDragging(true);
-    setOffset({ x: t.clientX - pos.x, y: t.clientY - pos.y });
+    dragStartTime.current = Date.now();
+    dragTravelPx.current  = 0;
+    lastDragPos.current   = { x: clientX, y: clientY };
+    offsetRef.current     = { x: clientX - posRef.current.x, y: clientY - posRef.current.y };
   }
-  function onMove(clientX, clientY) {
-    if (!dragging) return;
+
+  function moveDrag(clientX, clientY) {
+    if (!draggingRef.current) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    // Accumulate real pointer travel
     if (lastDragPos.current) {
       dragTravelPx.current += Math.hypot(
         clientX - lastDragPos.current.x,
-        clientY - lastDragPos.current.y
+        clientY - lastDragPos.current.y,
       );
     }
     lastDragPos.current = { x: clientX, y: clientY };
-    const nx = Math.max(0, Math.min(clientX - offset.x, rect.width  - 52));
-    const ny = Math.max(0, Math.min(clientY - offset.y, rect.height - 52));
-    setPos({ x: nx, y: ny });
+    const nx = Math.max(0, Math.min(clientX - offsetRef.current.x, rect.width  - 52));
+    const ny = Math.max(0, Math.min(clientY - offsetRef.current.y, rect.height - 52));
+    updatePos({ x: nx, y: ny });
   }
-  function onUp() {
-    if (!dragging) return;
+
+  function endDrag() {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
     setDragging(false);
     const elapsed = Date.now() - (dragStartTime.current ?? 0);
-    const dist    = Math.hypot(pos.x - TARGET.x, pos.y - TARGET.y);
+    const TARGET  = targetRef.current;
+    const dist    = Math.hypot(posRef.current.x - TARGET.x, posRef.current.y - TARGET.y);
     const passed  =
-      dist                  < TOLERANCE &&
-      elapsed               >= 400      &&  // must take ≥400 ms
-      dragTravelPx.current  >= 50;          // must actually move ≥50 px
+      dist < TOLERANCE &&
+      elapsed >= 400 &&
+      dragTravelPx.current >= 50;
     if (passed) {
-      setPos(TARGET);
+      updatePos(TARGET);
       setSolved(true);
       setTimeout(onVerified, 400);
     }
   }
 
+  // Attach global listeners so drag works anywhere on screen (not just inside box)
+  useEffect(() => {
+    function onMouseMove(e) { moveDrag(e.clientX, e.clientY) }
+    function onMouseUp()    { endDrag() }
+    function onTouchMove(e) {
+      if (!draggingRef.current) return;
+      e.preventDefault();
+      moveDrag(e.touches[0].clientX, e.touches[0].clientY);
+    }
+    function onTouchEnd()   { endDrag() }
+
+    document.addEventListener('mousemove',  onMouseMove)
+    document.addEventListener('mouseup',    onMouseUp)
+    document.addEventListener('touchmove',  onTouchMove, { passive: false })
+    document.addEventListener('touchend',   onTouchEnd)
+    return () => {
+      document.removeEventListener('mousemove',  onMouseMove)
+      document.removeEventListener('mouseup',    onMouseUp)
+      document.removeEventListener('touchmove',  onTouchMove)
+      document.removeEventListener('touchend',   onTouchEnd)
+    }
+  }, [solved])  // re-bind when solved changes so endDrag sees fresh solved state
+
   function reset() {
     const next = makeChallengePositions();
     setSolved(false);
     setChallenge(next);
-    setPos({ ...next.start });
+    targetRef.current = next.target;
+    updatePos({ ...next.start });
+    draggingRef.current   = false;
     dragTravelPx.current  = 0;
     dragStartTime.current = null;
   }
+
+  const TARGET = challenge.target;
 
   return (
     <div className="w-full flex flex-col gap-3">
@@ -167,10 +195,6 @@ function DragCaptcha({ onVerified }) {
         ref={containerRef}
         className="relative w-full rounded-xl overflow-hidden border border-white/10 bg-[#0e1020] select-none"
         style={{ height: 180, touchAction: 'none' }}
-        onMouseMove={e => onMove(e.clientX, e.clientY)}
-        onMouseUp={onUp}
-        onTouchMove={e => { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY) }}
-        onTouchEnd={onUp}
       >
         {/* Target outline — dashed triangle SVG */}
         <svg
@@ -191,8 +215,8 @@ function DragCaptcha({ onVerified }) {
 
         {/* Draggable solid triangle */}
         <svg
-          onMouseDown={onMouseDown}
-          onTouchStart={onTouchStart}
+          onMouseDown={e => { e.preventDefault(); startDrag(e.clientX, e.clientY) }}
+          onTouchStart={e => { e.preventDefault(); startDrag(e.touches[0].clientX, e.touches[0].clientY) }}
           className={`absolute cursor-grab active:cursor-grabbing`}
           style={{ left: pos.x - 26, top: pos.y - 26, width: 52, height: 52, userSelect: 'none', touchAction: 'none' }}
           viewBox="0 0 52 52"
