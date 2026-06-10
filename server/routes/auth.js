@@ -1,7 +1,7 @@
 import { Router } from 'express'
-import { randomUUID } from 'crypto'
+import { randomUUID, createHash } from 'crypto'
 import { supabase } from '../lib/supabase.js'
-import { sendVerificationEmail } from '../lib/email.js'
+import { sendVerificationEmail, alertSupport } from '../lib/email.js'
 
 // In-memory resend throttle: { email → lastSentAt ms }
 // Max 1 resend per 60s per email, 3 per hour per email
@@ -51,7 +51,7 @@ router.get('/profile', async (req, res) => {
   const { data: { user }, error } = await supabase.auth.getUser(token)
   if (error || !user) return res.status(401).json({ error: 'invalid token' })
 
-  res.json({ pen_name: user.user_metadata?.pen_name ?? null })
+  res.json({ pen_name: user.user_metadata?.pen_name ?? null, email: user.email ?? null })
 })
 
 // GET /auth/check-email?email= — returns { exists: bool } without revealing sensitive info
@@ -223,6 +223,7 @@ router.post('/login', async (req, res) => {
     refresh_token: data.session.refresh_token,
     user_id: data.user.id,
     pen_name,
+    email: data.user.email,
   })
 })
 
@@ -236,5 +237,252 @@ router.post('/logout', (req, res) => {
   })
   res.json({ ok: true })
 })
+
+// ── Account deletion (30-day soft delete, Twitter model) ──────────────────────
+
+function requireAuth(req, res) {
+  const token = req.headers.authorization?.replace('Bearer ', '').trim()
+  if (!token) { res.status(401).json({ error: 'unauthorized' }); return null }
+  return token
+}
+
+// DELETE /auth/account — schedule deletion in 30 days
+router.delete('/account', async (req, res) => {
+  const token = requireAuth(req, res)
+  if (!token) return
+
+  const { data: { user }, error } = await supabase.auth.getUser(token)
+  if (error || !user) return res.status(401).json({ error: 'unauthorized' })
+
+  const { error: updateErr } = await supabase
+    .from('users')
+    .update({ deletion_requested_at: new Date().toISOString() })
+    .eq('id', user.id)
+
+  if (updateErr) return res.status(500).json({ error: 'Failed to schedule deletion' })
+
+  const deletionDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+
+  // Email confirmation
+  try {
+    await alertSupport({
+      type: 'account-deletion',
+      subject: `Account deletion scheduled: ${user.email}`,
+      key: user.id,
+      cooldownMs: 0,
+      fields: {
+        'User ID': user.id,
+        'Email': user.email,
+        'Pen name': user.user_metadata?.pen_name ?? 'unknown',
+        'Hard delete on': deletionDate,
+      },
+    })
+  } catch {}
+
+  res.json({ ok: true, deletion_date: deletionDate })
+})
+
+// POST /auth/account/cancel-deletion — reactivate within 30-day window
+router.post('/account/cancel-deletion', async (req, res) => {
+  const token = requireAuth(req, res)
+  if (!token) return
+
+  const { data: { user }, error } = await supabase.auth.getUser(token)
+  if (error || !user) return res.status(401).json({ error: 'unauthorized' })
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('deletion_requested_at')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.deletion_requested_at) {
+    return res.status(400).json({ error: 'No pending deletion found' })
+  }
+
+  const { error: updateErr } = await supabase
+    .from('users')
+    .update({ deletion_requested_at: null })
+    .eq('id', user.id)
+
+  if (updateErr) return res.status(500).json({ error: 'Failed to cancel deletion' })
+
+  res.json({ ok: true })
+})
+
+// GET /auth/account/deletion-status — returns pending deletion info if scheduled
+router.get('/account/deletion-status', async (req, res) => {
+  const token = requireAuth(req, res)
+  if (!token) return
+
+  const { data: { user }, error } = await supabase.auth.getUser(token)
+  if (error || !user) return res.status(401).json({ error: 'unauthorized' })
+
+  const { data: profile } = await supabase
+    .from('users')
+    .select('deletion_requested_at')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile?.deletion_requested_at) return res.json({ pending: false })
+
+  const scheduledAt = new Date(profile.deletion_requested_at)
+  const hardDeleteAt = new Date(scheduledAt.getTime() + 30 * 24 * 60 * 60 * 1000)
+  const daysLeft = Math.max(0, Math.ceil((hardDeleteAt - Date.now()) / (1000 * 60 * 60 * 24)))
+
+  res.json({ pending: true, hard_delete_at: hardDeleteAt.toISOString(), days_left: daysLeft })
+})
+
+
+// ── Audit log helper ─────────────────────────────────────────────────────────
+
+function sha256(val) {
+  return val ? createHash('sha256').update(String(val)).digest('hex') : null
+}
+
+function getIp(req) {
+  return req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket?.remoteAddress || null
+}
+
+async function writeAuditLog({ userId, eventType, oldValueHash, newValueHash, req, metadata = {} }) {
+  const ip = getIp(req)
+  await supabase.from('account_audit_log').insert({
+    user_id: userId,
+    event_type: eventType,
+    old_value_hash: oldValueHash ?? null,
+    new_value_hash: newValueHash ?? null,
+    ip_hash: sha256(ip),
+    user_agent_hash: sha256(req.headers['user-agent']),
+    metadata,
+  })
+}
+
+// PUT /auth/email — change email address (requires current password verification)
+router.put('/email', async (req, res) => {
+  const token = requireAuth(req, res)
+  if (!token) return
+
+  const { current_password, new_email } = req.body
+  if (!current_password || !new_email) {
+    return res.status(400).json({ error: 'current_password and new_email are required' })
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(new_email)) {
+    return res.status(400).json({ error: 'Invalid email address' })
+  }
+
+  const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
+  if (authErr || !user) return res.status(401).json({ error: 'unauthorized' })
+
+  // Verify current password
+  const { error: signInErr } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: current_password,
+  })
+  if (signInErr) return res.status(403).json({ error: 'Current password is incorrect' })
+
+  // Check new email not already taken
+  const checkResp = await fetch(
+    `${process.env.SUPABASE_URL}/auth/v1/admin/users?search=${encodeURIComponent(new_email)}&per_page=1`,
+    { headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
+  )
+  if (checkResp.ok) {
+    const checkData = await checkResp.json()
+    const existing = checkData?.users?.find(u => u.email?.toLowerCase() === new_email.toLowerCase())
+    if (existing && existing.id !== user.id) {
+      return res.status(409).json({ error: 'That email is already in use' })
+    }
+  }
+
+  // Update email
+  const { error: updateErr } = await supabase.auth.admin.updateUserById(user.id, { email: new_email })
+  if (updateErr) return res.status(500).json({ error: updateErr.message })
+
+  // Audit log
+  await writeAuditLog({
+    userId: user.id,
+    eventType: 'email_change',
+    oldValueHash: sha256(user.email),
+    newValueHash: sha256(new_email),
+    req,
+    metadata: {
+      pen_name: user.user_metadata?.pen_name ?? null,
+      old_domain: user.email?.split('@')[1] ?? null,
+      new_domain: new_email.split('@')[1] ?? null,
+    },
+  })
+
+  await alertSupport({
+    type: 'email-change',
+    subject: `Email changed: ${user.user_metadata?.pen_name ?? user.id}`,
+    key: user.id,
+    cooldownMs: 0,
+    fields: {
+      'User ID': user.id,
+      'Pen name': user.user_metadata?.pen_name ?? 'unknown',
+      'Old email (hashed)': sha256(user.email),
+      'New email (hashed)': sha256(new_email),
+      'New domain': new_email.split('@')[1],
+    },
+  }).catch(() => {})
+
+  res.json({ ok: true, message: 'Email updated. A confirmation email may be sent to your new address.' })
+})
+
+// PUT /auth/password — change password (requires current password verification)
+router.put('/password', async (req, res) => {
+  const token = requireAuth(req, res)
+  if (!token) return
+
+  const { current_password, new_password } = req.body
+  if (!current_password || !new_password) {
+    return res.status(400).json({ error: 'current_password and new_password are required' })
+  }
+  if (new_password.length < 8) {
+    return res.status(400).json({ error: 'New password must be at least 8 characters' })
+  }
+  if (current_password === new_password) {
+    return res.status(400).json({ error: 'New password must be different from current password' })
+  }
+
+  const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
+  if (authErr || !user) return res.status(401).json({ error: 'unauthorized' })
+
+  // Verify current password
+  const { error: signInErr } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: current_password,
+  })
+  if (signInErr) return res.status(403).json({ error: 'Current password is incorrect' })
+
+  // Update password
+  const { error: updateErr } = await supabase.auth.admin.updateUserById(user.id, { password: new_password })
+  if (updateErr) return res.status(500).json({ error: updateErr.message })
+
+  // Audit log (never store passwords — just that it changed)
+  await writeAuditLog({
+    userId: user.id,
+    eventType: 'password_change',
+    oldValueHash: null,
+    newValueHash: null,
+    req,
+    metadata: { pen_name: user.user_metadata?.pen_name ?? null },
+  })
+
+  await alertSupport({
+    type: 'password-change',
+    subject: `Password changed: ${user.user_metadata?.pen_name ?? user.id}`,
+    key: user.id,
+    cooldownMs: 0,
+    fields: {
+      'User ID': user.id,
+      'Email (hashed)': sha256(user.email),
+      'Pen name': user.user_metadata?.pen_name ?? 'unknown',
+    },
+  }).catch(() => {})
+
+  res.json({ ok: true, message: 'Password updated successfully.' })
+})
+
 
 export default router

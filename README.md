@@ -98,6 +98,30 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.11` — Account Management, Animations & Share Sheet
+
+#### Account Settings (Tools Panel → Settings)
+- **Change email** — members can update their email address; requires current password verification before any change is applied; current email shown read-only at top of form; fetched live from `/auth/profile` so it works for all existing sessions
+- **Change password** — three-field form (current, new, confirm) with client-side match and length validation; requires current password verification server-side
+- **Account deletion (30-day soft delete)** — "Delete account" button in Danger zone with two-step confirmation, plain-English consequences shown before any action; pending deletion shows countdown + cancel; daily cron job at 02:00 UTC hard-deletes expired accounts (anonymises thots/comments, removes hypes, deletes user record + auth entry, releases email for re-use)
+- **Audit log** (`supabase/migrations/008_account_audit_log.sql`) — every email and password change is recorded with `event_type`, SHA-256-hashed old/new email, hashed IP, hashed User-Agent, pen name, email domain, and timestamp; service-role only RLS; indexed by user + event type for support queries
+- **Support alerts** — email sent to support on every email change, password change, and account deletion request/hard-delete failure
+- **DB migration** (`supabase/migrations/007_account_deletion.sql`) — adds `deletion_requested_at` column to `users` table
+
+#### Animations
+- **Slide-in panels** — Tools Panel, Profile Sheet, Top Thots all slide in from the right on mount using `cubic-bezier(0.22, 1, 0.36, 1)` (iOS spring curve); Compose Drawer slides up from below
+- **Search bar expand** — clicking the search icon animates the bar sliding in from the right with the input fading in 80ms after the bar lands, consistent spring easing throughout
+
+#### Share Sheet
+- **Centered modal via React portal** — ShareSheet now renders via `createPortal` into `document.body`, escaping the ToolsPanel's `overflow-hidden` stacking context so it always centres on the full screen
+- **Thot card preview** — replaced the raw URL box with a proper card showing avatar, pen name (purple for named users, grey for anon), relative time, bold content, hype/comment counts, and city; Copy link + Share via buttons remain below
+- **Consistent accent colour** — matches the rest of the app: named users are always `#7c3aed`, anonymous `#64748b`
+
+#### UI Polish
+- **Delete account UX** — "Danger zone" renamed to "Delete account" section header; one-liner below explains 30-day grace before user even clicks
+- **Settings forms** — Change email and Change password expand inline as collapsible forms; only one open at a time; success message auto-collapses after 2 seconds
+
+
 ### `v0.10` — Map UX Polish & CAPTCHA Hardening
 
 #### Map — 2D Lock

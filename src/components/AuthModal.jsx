@@ -70,6 +70,7 @@ export default function AuthModal({ initialMode = 'login', onClose, onSuccess })
         ageVerified: true,
         penName: data.pen_name,
         userId: data.user_id,
+        email: data.email,
         supabaseToken: data.access_token,
         supabaseRefreshToken: data.refresh_token,
       })

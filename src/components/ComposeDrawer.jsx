@@ -46,7 +46,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
 
   return (
     <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none" onClick={(e) => e.target === e.currentTarget && onClose()}>
-    <div className="w-full mx-5 sm:mx-0 sm:max-w-[550px] bg-[#0e0e1a] border border-white/10 rounded-3xl p-5 flex flex-col gap-4 shadow-2xl pointer-events-auto">
+    <div className="w-full mx-5 sm:mx-0 sm:max-w-[550px] bg-[#0e0e1a] border border-white/10 rounded-3xl p-5 flex flex-col gap-4 shadow-2xl pointer-events-auto panel-slide-up">
       <div className="flex items-center justify-between">
         <span className="text-white font-semibold text-base">Drop a thot</span>
         <button onClick={onClose} className="text-slate-500 hover:text-white cursor-pointer">

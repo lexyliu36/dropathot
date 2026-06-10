@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, User, Settings, LogOut, Heart, Upload } from 'lucide-react'
+import { X, User, Settings, LogOut, Heart, Upload, Trash2, Mail, KeyRound } from 'lucide-react'
 import { clearSession } from '../lib/identity'
 import ShareSheet from './ShareSheet'
 import useAppStore from '../stores/useAppStore'
@@ -219,10 +219,137 @@ function SettingsPane({ session }) {
   const navigate = useNavigate()
   const isAuth = session?.type === 'user'
   const [confirming, setConfirming] = useState(false)
+  // fetch current email from server (session may not have it if logged in before this change)
+  const [currentEmail, setCurrentEmail] = useState(session?.email ?? null)
+  useEffect(() => {
+    if (!isAuth || !session?.supabaseToken) return
+    fetch(`${API_URL}/auth/profile`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${session.supabaseToken}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.email) setCurrentEmail(d.email) })
+      .catch(() => {})
+  }, [session?.id])
+
+  // email change
+  const [emailForm, setEmailForm] = useState('idle') // 'idle' | 'open'
+  const [emailFields, setEmailFields] = useState({ currentPassword: '', newEmail: '' })
+  const [emailMsg, setEmailMsg] = useState(null) // { ok, text }
+  const [emailBusy, setEmailBusy] = useState(false)
+  // password change
+  const [passwordForm, setPasswordForm] = useState('idle') // 'idle' | 'open'
+  const [passwordFields, setPasswordFields] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [passwordMsg, setPasswordMsg] = useState(null)
+  const [passwordBusy, setPasswordBusy] = useState(false)
+  // deletion state
+  const [deletionStatus, setDeletionStatus] = useState(null) // { pending, hard_delete_at, days_left }
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteStep, setDeleteStep] = useState(1) // 1 = warn, 2 = final confirm
+  const [deleteBusy, setDeleteBusy] = useState(false)
+
+  useEffect(() => {
+    if (!isAuth || !session?.supabaseToken) return
+    fetch(`${API_URL}/auth/account/deletion-status`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${session.supabaseToken}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => setDeletionStatus(data))
+      .catch(() => {})
+  }, [session?.id])
+
+  async function handleEmailChange() {
+    if (!session?.supabaseToken) return
+    setEmailBusy(true)
+    setEmailMsg(null)
+    try {
+      const r = await fetch(`${API_URL}/auth/email`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.supabaseToken}` },
+        body: JSON.stringify({ current_password: emailFields.currentPassword, new_email: emailFields.newEmail }),
+      })
+      const data = await r.json()
+      if (r.ok) {
+        setEmailMsg({ ok: true, text: data.message ?? 'Email updated.' })
+        setCurrentEmail(emailFields.newEmail)
+        setEmailFields({ currentPassword: '', newEmail: '' })
+        setTimeout(() => setEmailForm('idle'), 2000)
+      } else {
+        setEmailMsg({ ok: false, text: data.error ?? 'Failed to update email.' })
+      }
+    } catch { setEmailMsg({ ok: false, text: 'Network error.' }) }
+    setEmailBusy(false)
+  }
+
+  async function handlePasswordChange() {
+    if (!session?.supabaseToken) return
+    if (passwordFields.newPassword !== passwordFields.confirmPassword) {
+      setPasswordMsg({ ok: false, text: 'Passwords do not match.' })
+      return
+    }
+    if (passwordFields.newPassword.length < 8) {
+      setPasswordMsg({ ok: false, text: 'New password must be at least 8 characters.' })
+      return
+    }
+    setPasswordBusy(true)
+    setPasswordMsg(null)
+    try {
+      const r = await fetch(`${API_URL}/auth/password`, {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.supabaseToken}` },
+        body: JSON.stringify({ current_password: passwordFields.currentPassword, new_password: passwordFields.newPassword }),
+      })
+      const data = await r.json()
+      if (r.ok) {
+        setPasswordMsg({ ok: true, text: data.message ?? 'Password updated.' })
+        setPasswordFields({ currentPassword: '', newPassword: '', confirmPassword: '' })
+        setTimeout(() => setPasswordForm('idle'), 2000)
+      } else {
+        setPasswordMsg({ ok: false, text: data.error ?? 'Failed to update password.' })
+      }
+    } catch { setPasswordMsg({ ok: false, text: 'Network error.' }) }
+    setPasswordBusy(false)
+  }
 
   function handleLogout() {
     clearSession()
     navigate('/', { replace: true })
+  }
+
+  async function handleRequestDeletion() {
+    if (!session?.supabaseToken) return
+    setDeleteBusy(true)
+    try {
+      const r = await fetch(`${API_URL}/auth/account`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${session.supabaseToken}` },
+      })
+      if (r.ok) {
+        const data = await r.json()
+        setDeletionStatus({ pending: true, hard_delete_at: data.hard_delete_at, days_left: 30 })
+        setShowDeleteConfirm(false)
+        setDeleteStep(1)
+      }
+    } catch {}
+    setDeleteBusy(false)
+  }
+
+  async function handleCancelDeletion() {
+    if (!session?.supabaseToken) return
+    setDeleteBusy(true)
+    try {
+      const r = await fetch(`${API_URL}/auth/account/cancel-deletion`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${session.supabaseToken}` },
+      })
+      if (r.ok) setDeletionStatus({ pending: false })
+    } catch {}
+    setDeleteBusy(false)
   }
 
   return (
@@ -241,6 +368,116 @@ function SettingsPane({ session }) {
             Signed in as <span className="text-brand-purple font-semibold">{session.penName}</span>
           </p>
         )}
+
+        {/* Change email */}
+        {isAuth && (
+          <div className="mb-2">
+            {emailForm === 'idle' ? (
+              <button
+                onClick={() => { setEmailForm('open'); setPasswordForm('idle') }}
+                className="w-full text-left py-2 px-2.5 rounded-lg text-slate-400 text-[11px] hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-2"
+                style={{ background: 'none', border: '1px solid rgba(255,255,255,0.06)' }}
+              >
+                <Mail size={11} className="flex-shrink-0" />
+                Change email
+              </button>
+            ) : (
+              <div className="flex flex-col gap-2 p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="text-white text-[11px] font-semibold">Change email</p>
+                {currentEmail && (
+                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <Mail size={10} className="text-slate-600 flex-shrink-0" />
+                    <span className="text-slate-500 text-[11px] truncate">{currentEmail}</span>
+                  </div>
+                )}
+                <input
+                  type="password"
+                  placeholder="Current password"
+                  value={emailFields.currentPassword}
+                  onChange={e => setEmailFields(f => ({ ...f, currentPassword: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-[11px] placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
+                />
+                <input
+                  type="email"
+                  placeholder="New email address"
+                  value={emailFields.newEmail}
+                  onChange={e => setEmailFields(f => ({ ...f, newEmail: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-[11px] placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
+                />
+                {emailMsg && (
+                  <p className={`text-[10px] ${emailMsg.ok ? 'text-green-400' : 'text-red-400'}`}>{emailMsg.text}</p>
+                )}
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => { setEmailForm('idle'); setEmailFields({ currentPassword: '', newEmail: '' }); setEmailMsg(null) }}
+                    className="flex-1 py-1.5 rounded-lg border border-white/10 text-slate-400 text-[11px] hover:bg-white/5 transition-colors cursor-pointer"
+                  >Cancel</button>
+                  <button
+                    onClick={handleEmailChange}
+                    disabled={emailBusy || !emailFields.currentPassword || !emailFields.newEmail}
+                    className="flex-1 py-1.5 rounded-lg bg-brand-purple/20 border border-brand-purple/30 text-brand-purple text-[11px] font-semibold hover:bg-brand-purple/30 transition-colors cursor-pointer disabled:opacity-40"
+                  >{emailBusy ? 'Saving…' : 'Update email'}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Change password */}
+        {isAuth && (
+          <div className="mb-3">
+            {passwordForm === 'idle' ? (
+              <button
+                onClick={() => { setPasswordForm('open'); setEmailForm('idle') }}
+                className="w-full text-left py-2 px-2.5 rounded-lg text-slate-400 text-[11px] hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-2"
+                style={{ background: 'none', border: '1px solid rgba(255,255,255,0.06)' }}
+              >
+                <KeyRound size={11} className="flex-shrink-0" />
+                Change password
+              </button>
+            ) : (
+              <div className="flex flex-col gap-2 p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <p className="text-white text-[11px] font-semibold">Change password</p>
+                <input
+                  type="password"
+                  placeholder="Current password"
+                  value={passwordFields.currentPassword}
+                  onChange={e => setPasswordFields(f => ({ ...f, currentPassword: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-[11px] placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
+                />
+                <input
+                  type="password"
+                  placeholder="New password (min 8 chars)"
+                  value={passwordFields.newPassword}
+                  onChange={e => setPasswordFields(f => ({ ...f, newPassword: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-[11px] placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
+                />
+                <input
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={passwordFields.confirmPassword}
+                  onChange={e => setPasswordFields(f => ({ ...f, confirmPassword: e.target.value }))}
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-[11px] placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
+                />
+                {passwordMsg && (
+                  <p className={`text-[10px] ${passwordMsg.ok ? 'text-green-400' : 'text-red-400'}`}>{passwordMsg.text}</p>
+                )}
+                <div className="flex gap-1.5">
+                  <button
+                    onClick={() => { setPasswordForm('idle'); setPasswordFields({ currentPassword: '', newPassword: '', confirmPassword: '' }); setPasswordMsg(null) }}
+                    className="flex-1 py-1.5 rounded-lg border border-white/10 text-slate-400 text-[11px] hover:bg-white/5 transition-colors cursor-pointer"
+                  >Cancel</button>
+                  <button
+                    onClick={handlePasswordChange}
+                    disabled={passwordBusy || !passwordFields.currentPassword || !passwordFields.newPassword || !passwordFields.confirmPassword}
+                    className="flex-1 py-1.5 rounded-lg bg-brand-purple/20 border border-brand-purple/30 text-brand-purple text-[11px] font-semibold hover:bg-brand-purple/30 transition-colors cursor-pointer disabled:opacity-40"
+                  >{passwordBusy ? 'Saving…' : 'Update password'}</button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {!confirming ? (
           <button
             onClick={() => setConfirming(true)}
@@ -271,6 +508,94 @@ function SettingsPane({ session }) {
           </div>
         )}
       </div>
+
+      {/* Delete account — members only */}
+      {isAuth && (
+        <div className="bg-white/3 border border-white/6 rounded-xl p-3">
+          <p className="text-slate-500 text-xs font-medium mb-1">Delete account</p>
+          {!deletionStatus?.pending && !showDeleteConfirm && (
+            <p className="text-slate-600 text-[10px] leading-relaxed mb-3">
+              You'll have 30 days to change your mind. After that your pen name is released and your thots become anonymous.
+            </p>
+          )}
+
+          {deletionStatus?.pending ? (
+            /* Pending deletion banner */
+            <div className="flex flex-col gap-2">
+              <div className="bg-red-500/10 border border-red-500/25 rounded-lg p-2.5">
+                <p className="text-red-400 text-[11px] font-semibold mb-0.5">Deletion scheduled</p>
+                <p className="text-slate-400 text-[10px] leading-relaxed">
+                  Your account will be permanently deleted in{' '}
+                  <span className="text-white font-semibold">{deletionStatus.days_left ?? 30} day{(deletionStatus.days_left ?? 30) !== 1 ? 's' : ''}</span>.
+                  Your thots will be anonymised and remain on the map until they expire.
+                </p>
+              </div>
+              <button
+                onClick={handleCancelDeletion}
+                disabled={deleteBusy}
+                className="w-full py-2 rounded-xl border border-white/10 text-slate-300 text-xs font-semibold hover:bg-white/5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {deleteBusy ? 'Cancelling…' : 'Cancel deletion'}
+              </button>
+            </div>
+          ) : !showDeleteConfirm ? (
+            /* Delete button */
+            <button
+              onClick={() => { setShowDeleteConfirm(true); setDeleteStep(1) }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-red-500/20 text-red-500/60 text-xs font-semibold hover:bg-red-500/8 hover:text-red-400 transition-colors cursor-pointer"
+            >
+              <Trash2 size={12} />
+              Delete my account
+            </button>
+          ) : deleteStep === 1 ? (
+            /* Step 1 — consequences warning */
+            <div className="flex flex-col gap-2">
+              <p className="text-white text-[11px] font-semibold">Before you go…</p>
+              <p className="text-slate-400 text-[10px] leading-relaxed">
+                Your account will enter a <span className="text-white">30-day grace period</span>. Sign back in at any time to cancel.
+                After 30 days your pen name is released, your hypes are deleted, and your thots are anonymised (they stay on the map until they naturally expire).
+              </p>
+              <div className="flex gap-2 mt-1">
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteStep(1) }}
+                  className="flex-1 py-2 rounded-xl border border-white/10 text-slate-400 text-xs hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  Keep account
+                </button>
+                <button
+                  onClick={() => setDeleteStep(2)}
+                  className="flex-1 py-2 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 text-xs font-semibold hover:bg-red-500/25 transition-colors cursor-pointer"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Step 2 — final confirm */
+            <div className="flex flex-col gap-2">
+              <p className="text-slate-400 text-[11px] text-center">
+                Schedule deletion of{' '}
+                <span className="text-brand-purple font-semibold">{session.penName}</span>?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteStep(1) }}
+                  className="flex-1 py-2 rounded-xl border border-white/10 text-slate-400 text-xs hover:bg-white/5 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRequestDeletion}
+                  disabled={deleteBusy}
+                  className="flex-1 py-2 rounded-xl bg-red-600/20 border border-red-600/40 text-red-400 text-xs font-semibold hover:bg-red-600/30 transition-colors cursor-pointer disabled:opacity-50"
+                >
+                  {deleteBusy ? 'Scheduling…' : 'Delete account'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -279,7 +604,7 @@ export default function ToolsPanel({ onClose, thots, session, onHype, onOpenProf
   const [activeTab, setActiveTab] = useState('profile')
 
   return (
-    <div className="absolute top-3 right-3 bottom-3 z-30 w-72 flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+    <div className="absolute top-3 right-3 bottom-3 z-30 w-72 flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden panel-slide-right">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 flex-shrink-0">
         <span className="text-white font-bold text-sm tracking-tight">Tools</span>

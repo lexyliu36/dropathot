@@ -1,10 +1,25 @@
 import { useState } from 'react'
-import { X, Link2, Share2 } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { X, Link2, Share2, Heart, MessageCircle, MapPin } from 'lucide-react'
+import { AnonAvatar } from './ThotPin'
+
+function relativeTime(iso) {
+  const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
+  if (diff < 60) return 'just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
+function accentFor(penName) {
+  return penName ? '#7c3aed' : '#64748b'
+}
 
 export default function ShareSheet({ thot, onClose, urlOverride, titleOverride }) {
   const [copied, setCopied] = useState(false)
   const url = urlOverride ?? `${window.location.origin}/t/${thot.id}`
   const title = titleOverride ?? 'Share this thot'
+  const accent = accentFor(thot.pen_name)
 
   function copyLink() {
     navigator.clipboard.writeText(url).then(() => {
@@ -21,17 +36,17 @@ export default function ShareSheet({ thot, onClose, urlOverride, titleOverride }
     }
   }
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-50 flex items-center justify-center px-4"
-        style={{ background: 'rgba(0,0,0,0.6)' }}
+        className="fixed inset-0 z-[200] flex items-center justify-center px-4"
+        style={{ background: 'rgba(0,0,0,0.65)' }}
         onClick={onClose}
       >
-        {/* Modal — stop clicks bubbling to backdrop */}
+        {/* Modal */}
         <div
-          className="w-full max-w-sm rounded-2xl px-5 pt-5 pb-6"
+          className="w-full max-w-sm rounded-2xl px-5 pt-5 pb-6 panel-slide-up"
           style={{ background: '#0e0e1a', border: '1px solid rgba(255,255,255,0.1)' }}
           onClick={e => e.stopPropagation()}
         >
@@ -47,13 +62,42 @@ export default function ShareSheet({ thot, onClose, urlOverride, titleOverride }
             </button>
           </div>
 
-          {/* Thot preview */}
+          {/* Thot card preview */}
           <div
-            className="rounded-xl px-4 py-3 mb-5"
-            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+            className="rounded-xl px-4 py-3.5 mb-5"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
           >
-            <p className="text-white/75 text-xs leading-relaxed line-clamp-3">{thot.content}</p>
-            <p className="text-slate-600 text-[10px] mt-1.5 break-all font-mono">{url}</p>
+            {/* Author row */}
+            <div className="flex items-center gap-2.5 mb-2.5">
+              <AnonAvatar size={28} color={accent} />
+              <div>
+                <span className="text-sm font-semibold leading-tight" style={{ color: accent }}>
+                  {thot.pen_name || 'Anonymous'}
+                </span>
+                <p className="text-slate-500 text-[10px]">{relativeTime(thot.created_at)}</p>
+              </div>
+            </div>
+
+            {/* Content */}
+            <p className="text-white text-sm font-semibold leading-snug line-clamp-4 mb-3">
+              {thot.content}
+            </p>
+
+            {/* Stats row */}
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1 text-slate-500 text-[11px]">
+                <Heart size={11} /> {thot.hype_count ?? 0}
+              </span>
+              <span className="flex items-center gap-1 text-slate-500 text-[11px]">
+                <MessageCircle size={11} /> {thot.comment_count ?? 0}
+              </span>
+              {thot.city && (
+                <span className="flex items-center gap-1 text-slate-600 text-[10px] ml-auto">
+                  <MapPin size={9} />
+                  {thot.city}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Actions */}
@@ -85,6 +129,7 @@ export default function ShareSheet({ thot, onClose, urlOverride, titleOverride }
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body
   )
 }

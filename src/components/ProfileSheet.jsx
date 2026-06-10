@@ -186,7 +186,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
     : (thot ? [thot] : [])
 
   return (
-    <div className="absolute top-3 right-3 bottom-3 z-30 w-72 flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+    <div className="absolute top-3 right-3 bottom-3 z-30 w-72 flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden panel-slide-right">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 flex-shrink-0">
         <div className="flex items-center gap-2.5">

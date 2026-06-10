@@ -471,7 +471,7 @@ export default function Map() {
       <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
         {searchOpen ? (
           /* Search mode */
-          <div className="flex flex-col pointer-events-auto mx-3 mt-3">
+          <div className="flex flex-col pointer-events-auto mx-3 mt-3 search-bar-expand">
             <div className="flex items-center gap-2 rounded-2xl px-3 py-2.5 shadow-2xl" style={{ background: '#0e0e1a', border: '1px solid rgba(255,255,255,0.18)' }}>
               <Search size={15} className="text-slate-400 flex-shrink-0" />
               <input
@@ -504,7 +504,7 @@ export default function Map() {
                   finally { setSearchFetching(false) }
                 }}
                 placeholder="Search any place…"
-                className="flex-1 bg-transparent text-white placeholder:text-slate-500 focus:outline-none"
+                className="flex-1 bg-transparent text-white placeholder:text-slate-500 focus:outline-none search-input-fadein"
                 style={{ fontSize: '16px' }}
                 autoFocus
               />

@@ -10,6 +10,7 @@ import thotsRouter from './routes/thots.js'
 import authRouter from './routes/auth.js'
 import commentsRouter from './routes/comments.js'
 import reportsRouter from './routes/reports.js'
+import { startDeletionCron } from './lib/deletionCron.js'
 
 const app = express()
 const httpServer = createServer(app)
@@ -59,6 +60,8 @@ io.on('connection', (socket) => {
 })
 
 const PORT = process.env.PORT || 4000
+startDeletionCron()
+
 httpServer.listen(PORT, () => {
   console.log(`Thots server running on port ${PORT}`)
 })
