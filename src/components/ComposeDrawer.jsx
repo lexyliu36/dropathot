@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { X, Send, User } from 'lucide-react'
 
 const MAX = 280
@@ -25,7 +24,6 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState(null)
 
-  const navigate = useNavigate()
   const isAuth = session?.type === 'user'
   const identity = isAuth ? (session?.penName || 'member') : 'anonymous'
   const rateNote = isAuth ? 'no rate limit' : '3 thots/hr'
@@ -73,7 +71,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
         </span>
         {!isAuth && (
           <button
-            onClick={() => navigate('/', { state: { openSignup: true } })}
+            onClick={() => window.dispatchEvent(new CustomEvent('thots:open-auth', { detail: 'signup' }))}
             className="ml-auto text-[10px] text-brand-purple underline cursor-pointer hover:text-violet-400 transition-colors"
           >
             Sign up for more
@@ -125,7 +123,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
             {!isAuth && (
               <span className="text-[10px] text-slate-600 flex-shrink-0">
                 <button
-                  onClick={() => navigate('/', { state: { openSignup: true } })}
+                  onClick={() => window.dispatchEvent(new CustomEvent('thots:open-auth', { detail: 'signup' }))}
                   className="text-brand-purple underline hover:text-violet-400 transition-colors cursor-pointer"
                 >Sign up</button> for permanent thots
               </span>

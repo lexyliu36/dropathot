@@ -4,7 +4,7 @@ const resend = process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null
 
-const FROM = process.env.EMAIL_FROM || 'Thots. <noreply@thots.app>'
+const FROM = process.env.EMAIL_FROM || 'drop-a-thot <noreply@dropathot.com>'
 
 function verifyTemplate(actionLink) {
   return `<!DOCTYPE html>
@@ -18,7 +18,7 @@ function verifyTemplate(actionLink) {
         <tr><td style="height:4px;background:linear-gradient(90deg,#7c3aed,#e11d48)"></td></tr>
         <!-- body -->
         <tr><td style="padding:40px 40px 32px">
-          <h1 style="margin:0 0 4px;font-size:28px;font-weight:900;letter-spacing:-0.5px;color:#0a0a0f">Thots.</h1>
+          <h1 style="margin:0 0 4px;font-size:28px;font-weight:900;letter-spacing:-0.5px;color:#0a0a0f">drop-a-thot</h1>
           <p style="margin:0 0 32px;font-size:13px;color:#94a3b8">Verify your email to continue</p>
 
           <p style="margin:0 0 8px;font-size:15px;color:#1e293b;line-height:1.6">
@@ -35,7 +35,7 @@ function verifyTemplate(actionLink) {
 
           <hr style="margin:40px 0 24px;border:none;border-top:1px solid #f1f5f9">
           <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.6">
-            If you didn't create an account on Thots., you can safely ignore this email.
+            If you didn't create an account on drop-a-thot, you can safely ignore this email.
             Your address was not added to any mailing list.
           </p>
         </td></tr>
@@ -46,26 +46,25 @@ function verifyTemplate(actionLink) {
 </html>`
 }
 
-const DEV_OVERRIDE_EMAIL = 'dev.lexliu@gmail.com'
-const IS_PROD = process.env.NODE_ENV === 'production'
+const DEV_EMAIL = 'dev.lexliu@gmail.com'
+const IS_DEV = process.env.NODE_ENV === 'development'
 
 export async function sendVerificationEmail(to, actionLink) {
   if (!resend) {
+    // No API key — log the link so dev can click it manually
     console.log(`\n[EMAIL] Verification link for ${to}:\n${actionLink}\n`)
     return
   }
 
-  const recipient = IS_PROD ? to : DEV_OVERRIDE_EMAIL
-  if (!IS_PROD) {
-    console.log(`[EMAIL:dev] Redirecting email for ${to} → ${DEV_OVERRIDE_EMAIL}`)
-  }
+  const recipient = IS_DEV ? DEV_EMAIL : to
+  if (IS_DEV) console.log(`[EMAIL:dev] Redirecting email for ${to} → ${DEV_EMAIL}`)
 
   const { error } = await resend.emails.send({
     from: FROM,
     to: recipient,
-    subject: IS_PROD
-      ? 'Verify your Thots. account'
-      : `[DEV] Verify Thots. account (originally for ${to})`,
+    subject: IS_DEV
+      ? `[DEV] Verify drop-a-thot account (for ${to})`
+      : 'Verify your drop-a-thot account',
     html: verifyTemplate(actionLink),
   })
   if (error) throw new Error(`Failed to send email: ${error.message}`)
@@ -117,7 +116,7 @@ export async function alertSupport({ type, subject, key, cooldownMs = 30 * 60 * 
           <h2 style="margin:0 0 24px;font-size:20px;font-weight:800;color:#0a0a0f">${subject}</h2>
           <table width="100%" cellpadding="0" cellspacing="0">${rows}</table>
           <hr style="margin:24px 0;border:none;border-top:1px solid #f1f5f9">
-          <p style="margin:0;font-size:12px;color:#94a3b8">Thots. automated alert · ${new Date().toUTCString()}</p>
+          <p style="margin:0;font-size:12px;color:#94a3b8">drop-a-thot automated alert · ${new Date().toUTCString()}</p>
         </td></tr>
       </table>
     </td></tr>
@@ -134,7 +133,7 @@ export async function alertSupport({ type, subject, key, cooldownMs = 30 * 60 * 
     await resend.emails.send({
       from: FROM,
       to: SUPPORT_EMAIL,
-      subject: `[Thots. Alert] ${subject}`,
+      subject: `[drop-a-thot Alert] ${subject}`,
       html,
     })
   } catch (err) {
