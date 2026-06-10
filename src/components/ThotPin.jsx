@@ -50,6 +50,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
   const isAuth = useAppStore((s) => s.session?.type === 'user')
 
   const accentColor = isYou ? '#e11d48' : thot.pen_name ? '#7c3aed' : '#64748b'
+  const isNew = thot._isNew || (Date.now() - new Date(thot.created_at).getTime()) < 15_000
 
   return (
     <div
@@ -68,6 +69,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
         onMouseEnter={() => !dismissed && setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onClick={() => !dismissed && onClick(thot)}
+        className={`thot-bubble${isNew ? ' thot-bubble-pop' : ''}`}
         style={{
           position: 'absolute',
           bottom: `${bubbleBottom}px`,

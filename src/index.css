@@ -44,3 +44,34 @@ body { background: #0a0a0f; color: #f1f5f9; font-family: 'Inter', sans-serif; ov
 .search-input-fadein {
   animation: searchFadeIn 160ms cubic-bezier(0.22, 1, 0.36, 1) 80ms both;
 }
+
+/* ── Thot bubble entrance ──────────────────────────────────────────────────── */
+/* Grows from the tail point (bottom-left) with a spring bounce + shake.       */
+@keyframes thotBubblePop {
+  0%   { transform: scale(0.08);                          opacity: 0; }
+  28%  { transform: scale(1.13) rotate(-2.5deg);          opacity: 1; }
+  42%  { transform: scale(0.88) rotate(2deg);                         }
+  56%  { transform: scale(1.07) rotate(-1.5deg);                      }
+  68%  { transform: scale(0.95) rotate(1deg);                         }
+  78%  { transform: scale(1.03) rotate(-0.5deg);                      }
+  87%  { transform: scale(0.98) rotate(0.3deg);                       }
+  100% { transform: scale(1)    rotate(0deg);             opacity: 1; }
+}
+
+.thot-bubble-pop {
+  animation: thotBubblePop 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+  transform-origin: 14px 100%; /* tail attachment point */
+}
+
+/* ── Thot bubble exit ──────────────────────────────────────────────────────── */
+@keyframes thotBubblePopOut {
+  0%   { transform: scale(1)    rotate(0deg);    opacity: 1; }
+  18%  { transform: scale(1.1)  rotate(2deg);               }
+  100% { transform: scale(0.05) rotate(-4deg);   opacity: 0; }
+}
+
+.thot-bubble-pop-out {
+  animation: thotBubblePopOut 0.28s cubic-bezier(0.55, 0, 1, 0.45) forwards;
+  transform-origin: 14px 100%;
+}
+

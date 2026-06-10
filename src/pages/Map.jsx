@@ -14,6 +14,7 @@ import TopThots from '../components/TopThots'
 import ProfileSheet from '../components/ProfileSheet'
 import AuthModal from '../components/AuthModal'
 import { getOrCreateSession, updateSession } from '../lib/identity'
+import { explodeMarker } from '../lib/animations'
 import { supabase } from '../lib/supabase'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
@@ -326,13 +327,12 @@ export default function Map() {
     const currentIds = new Set(visibleThots.map((t) => t.id))
     const existingIds = new Set(Object.keys(markersRef.current))
 
-    // Remove stale
+    // Remove stale — particle-explode at the marker's screen position, then destroy
     existingIds.forEach((id) => {
       if (!currentIds.has(id)) {
         const { marker, root } = markersRef.current[id]
-        root.unmount()
-        marker.remove()
         delete markersRef.current[id]
+        explodeMarker(marker, map, () => { root.unmount(); marker.remove() })
       }
     })
 

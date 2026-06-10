@@ -71,22 +71,30 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
     if (!window.confirm('Hide this thot? It will be removed from the map and your history.')) return
     setDeletingId(thotId)
     try {
+      const s = useAppStore.getState()
+      const headers = {}
+      if (s.session?.supabaseToken) headers['Authorization'] = `Bearer ${s.session.supabaseToken}`
       const r = await fetch(`${API_URL}/thots/${thotId}`, {
         method: 'DELETE',
         credentials: 'include',
+        headers,
       })
       if (r.ok) {
         const data = await r.json()
         setMyThots(prev => prev.filter(t => t.id !== thotId))
-        // Remove from live map
-        useAppStore.getState().removeThot(thotId)
-        // If a previously hidden thot was restored, surface it on the map
+        s.removeThot(thotId)
         if (data.restored) {
-          useAppStore.getState().addThot(data.restored)
-          setMyThots(prev => [data.restored, ...prev.filter(t => t.id !== data.restored.id)])
+          const restored = { ...data.restored, _isNew: true }
+          s.addThot(restored)
+          setMyThots(prev => [restored, ...prev.filter(t => t.id !== restored.id)])
         }
+      } else {
+        const err = await r.json().catch(() => ({}))
+        console.error('[delete thot] server error:', r.status, err)
       }
-    } catch {}
+    } catch (err) {
+      console.error('[delete thot] network error:', err)
+    }
     setDeletingId(null)
   }
 

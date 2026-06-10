@@ -16,13 +16,14 @@ function relativeTime(isoString) {
   return `${Math.floor(diff / 86400)}d`
 }
 
-function ThotCard({ thot, accentColor, highlighted, onHype, session }) {
+function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete }) {
   const hyped = useAppStore((s) => s.hypedThotIds.has(thot.id))
   const hypeCount = useAppStore((s) => s.thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0)
   const isAuth = useAppStore((s) => s.session?.type === 'user')
   const [showComments, setShowComments] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [deleted, setDeleted] = useState(false)
+  const [deleteError, setDeleteError] = useState(null)
   const commentCount = thot.comment_count ?? 0
   const isOwn = thot.session_id === session?.id
   const reported = useAppStore((s) => s.reportedThotIds.has(thot.id))
@@ -60,21 +61,31 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session }) {
 
   async function handleDelete() {
     if (!window.confirm('Hide this thot? It will be removed from the map and your history.')) return
+    setDeleteError(null)
     try {
+      const s = useAppStore.getState()
+      const headers = {}
+      if (s.session?.supabaseToken) headers['Authorization'] = `Bearer ${s.session.supabaseToken}`
       const r = await fetch(`${API_URL}/thots/${thot.id}`, {
         method: 'DELETE',
         credentials: 'include',
+        headers,
       })
       if (r.ok) {
         const data = await r.json()
-        // Remove from live map immediately
-        useAppStore.getState().removeThot(thot.id)
-        // If a previously hidden thot was restored, surface it on the map
-        if (data.restored) useAppStore.getState().addThot(data.restored)
+        // removeThot also clears selectedThot, collapsing the ProfileSheet
+        s.removeThot(thot.id)
+        if (data.restored) s.addThot({ ...data.restored, _isNew: true })
+        onDelete?.(thot.id)
         setDeleted(true)
+      } else {
+        const err = await r.json().catch(() => ({}))
+        console.error('[delete thot] server error:', r.status, err)
+        setDeleteError(err.error ?? `Error ${r.status}`)
       }
     } catch (err) {
-      console.error('Delete failed:', err)
+      console.error('[delete thot] network error:', err)
+      setDeleteError('Network error — try again')
     }
   }
 
@@ -156,14 +167,19 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session }) {
 
               {/* Delete — only for own thots */}
               {isOwn && (
-                <button
-                  onClick={handleDelete}
-                  title="Hide this thot"
-                  className="flex items-center gap-1 transition-colors cursor-pointer ml-auto text-slate-700 hover:text-red-400"
-                  style={{ background: 'none', border: 'none', padding: 0 }}
-                >
-                  <Trash2 size={13} />
-                </button>
+                <div className="flex flex-col items-end ml-auto gap-1">
+                  <button
+                    onClick={handleDelete}
+                    title="Hide this thot"
+                    className="flex items-center gap-1 transition-colors cursor-pointer text-slate-700 hover:text-red-400"
+                    style={{ background: 'none', border: 'none', padding: 0 }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                  {deleteError && (
+                    <span className="text-[10px]" style={{ color: '#f87171' }}>{deleteError}</span>
+                  )}
+                </div>
               )}
 
               {/* Report — only for other people's thots */}
@@ -298,6 +314,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
             highlighted={!!thot && t.id === thot.id}
             onHype={onHype}
             session={session}
+            onDelete={(id) => setHistory(prev => prev.filter(h => h.id !== id))}
           />
         ))}
 

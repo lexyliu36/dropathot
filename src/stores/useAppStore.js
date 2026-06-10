@@ -52,6 +52,8 @@ const useAppStore = create((set, get) => ({
 
   removeThot: (thotId) => set((s) => ({
     thots: s.thots.filter(t => t.id !== thotId),
+    // Close the ProfileSheet if the deleted thot is currently selected
+    selectedThot: s.selectedThot?.id === thotId ? null : s.selectedThot,
   })),
 
   // Reported thot IDs — persisted in localStorage so you can't re-report after refresh

@@ -98,6 +98,39 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.12` — Thot Deletion, Animations & Session Security
+
+#### Thot Deletion
+- **Trash icon on own thots** — delete button visible on your thots in both the ProfileSheet and the Tools Panel "Your Drops" list; requires confirmation before acting
+- **Soft delete with restore** — deleting your current (visible) thot sets `hidden=true, user_deleted=true` and restores the most recent auto-hidden prior thot back to the map, provided it hasn't expired and wasn't itself user-deleted
+- **`user_deleted` column** (`supabase/migrations/010_user_deleted_flag.sql`) — distinguishes manually deleted thots (`user_deleted=true`) from auto-hidden ones (replaced by a newer post); auto-hidden thots remain visible in profile history, user-deleted ones are hidden everywhere
+- **Profile history filtering** — `GET /thots?session_id=` now excludes `user_deleted=true` thots; falls back to `hidden=false` if the migration hasn't run yet (graceful degradation)
+- **Instant UI removal** — `onDelete` callback threads from ThotCard up through ProfileSheet, removing the card from the history list immediately without a re-fetch; `removeThot` in Zustand also clears `selectedThot` so the ProfileSheet closes automatically
+- **Reports toggle** — flag icon on other users' thots now persists across refreshes via a `localStorage`-backed `reportedThotIds` Set in Zustand; toggling off sends `DELETE /reports/:thotId`; duplicate reports return 409 and are silently treated as reported
+- **`supabase/migrations/009_reports_unique.sql`** — unique constraint on `(thot_id, reporter_session)` prevents duplicate report rows
+
+#### Session Security — Delete Auth Fix
+- **JWT fallback on DELETE** — `DELETE /thots/:id` previously only accepted the `session_id` cookie, causing silent 401 failures in cross-origin setups where `SameSite=Lax` cookies aren't forwarded for non-GET methods; server now verifies the `Authorization: Bearer <token>` JWT first (same pattern as hype routes) and falls back to cookie for anonymous users
+- **Client sends JWT header** — both ProfileSheet and ToolsPanel now include `Authorization: Bearer <supabaseToken>` on all delete fetches when the user is logged in
+- **Error feedback** — deletion failures now surface a red error message next to the trash icon instead of silently doing nothing
+
+#### Bubble Animations
+- **Pop-in on new thots** — any thot created in the last 15 seconds mounts with a spring pop + shake: starts at 8% scale, overshoots to 113%, bounces through 4 dampening oscillations, and settles at 100%; `transform-origin` anchored at the tail attachment point so the bubble grows from the avatar upward
+- **Restored thot animation** — when a deleted thot restores a prior one, the restored thot is flagged `_isNew: true` so it plays the full pop-in animation even though its `created_at` is old
+- **Particle explosion on delete** — when any thot marker is removed from the map, `explodeMarker()` projects the marker's lat/lng to screen coordinates via `map.project()`, instantly hides the bubble, then spawns 22 particles (mix of circles and rounded squares in brand red, pink, white, and purple) that burst outward using the Web Animations API; DOM cleaned up after 800ms
+
+#### Account Management
+- **Change email** — members can update their email from Settings; current email shown read-only; requires current password verification; audit log entry written; support alert sent
+- **Change password** — three-field form (current + new + confirm); server-side current-password verification; audit log entry; support alert
+- **Account deletion (30-day soft delete)** — two-step confirmation with plain-English explanation; pending deletion shows countdown + cancel option; daily cron at 02:00 UTC hard-deletes expired accounts
+- **`supabase/migrations/007_account_deletion.sql`** — `deletion_requested_at` column on `users`
+- **`supabase/migrations/008_account_audit_log.sql`** — audit log table (service-role only RLS)
+
+#### Email & Verification
+- **Production email links** — `SITE_URL` env var on Railway ensures verification and password-reset emails link to `dropathot.com` instead of `localhost`
+- **Verified toast on landing** — returning from an email verification link shows a green "✓ Email verified — you're good to go" banner with slide-up animation; hash cleaned from the URL
+- **Verify-email loop fix** — `resend-verification` endpoint now uses the Supabase Admin REST API with `per_page=50` and exact `.find()` match instead of `listUsers` (whose `filter` param is silently ignored), preventing "already verified" false positives
+
 ### `v0.11` — Account Management, Animations & Share Sheet
 
 #### Account Settings (Tools Panel → Settings)

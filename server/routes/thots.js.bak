@@ -47,24 +47,12 @@ router.get('/', async (req, res) => {
     if (!/^[0-9a-f-]{36}$/.test(sessionId)) {
       return res.status(400).json({ error: 'invalid session_id' })
     }
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from('thots')
       .select('*')
       .eq('session_id', sessionId)
-      .eq('user_deleted', false)
       .order('created_at', { ascending: false })
       .limit(50)
-    // Graceful fallback: if user_deleted column doesn't exist yet (migration pending),
-    // fall back to hiding all hidden thots from history
-    if (error?.message?.includes('user_deleted')) {
-      ;({ data, error } = await supabase
-        .from('thots')
-        .select('*')
-        .eq('session_id', sessionId)
-        .eq('hidden', false)
-        .order('created_at', { ascending: false })
-        .limit(50))
-    }
     if (error) return res.status(500).json({ error: 'Failed to fetch thots' })
     return res.json(data)
   }
@@ -292,46 +280,26 @@ router.delete('/:id', async (req, res) => {
   const { id } = req.params
   if (!/^[0-9a-f-]{36}$/.test(id)) return res.status(400).json({ error: 'invalid id' })
 
-  // Prefer JWT (auth users); fall back to session cookie (anon users).
-  // This mirrors the hype route and fixes cases where the cookie is not forwarded
-  // for DELETE requests in cross-origin setups.
-  let session_id = req.cookies?.session_id
-  const token = req.headers.authorization?.replace('Bearer ', '').trim()
-  if (token) {
-    const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
-    if (!authErr && user) session_id = user.id
-  }
+  // Cookie is authoritative — same pattern as POST
+  const session_id = req.cookies?.session_id
   if (!session_id) return res.status(401).json({ error: 'no session' })
 
   // Verify the thot belongs to this session before hiding
   const { data: thot, error: fetchErr } = await supabase
     .from('thots')
-    .select('id, session_id, hidden, user_deleted')
+    .select('id, session_id, hidden')
     .eq('id', id)
     .single()
 
   if (fetchErr || !thot) return res.status(404).json({ error: 'not found' })
   if (thot.session_id !== session_id) return res.status(403).json({ error: 'not yours' })
-  if (thot.hidden) {
-    // Stamp user_deleted even if hidden was set before the column existed
-    if (!thot.user_deleted) {
-      await supabase.from('thots').update({ user_deleted: true }).eq('id', id)
-    }
-    return res.json({ ok: true, restored: null })
-  }
+  if (thot.hidden) return res.json({ ok: true }) // already hidden — idempotent
 
-  let { error: updateErr } = await supabase
+  const { error: updateErr } = await supabase
     .from('thots')
-    .update({ hidden: true, user_deleted: true })
+    .update({ hidden: true })
     .eq('id', id)
 
-  // Fallback: if user_deleted column doesn't exist yet, just set hidden
-  if (updateErr?.message?.includes('user_deleted')) {
-    ;({ error: updateErr } = await supabase
-      .from('thots')
-      .update({ hidden: true })
-      .eq('id', id))
-  }
   if (updateErr) return res.status(500).json({ error: updateErr.message })
 
   // Restore the most recent prior thot from the same session that was auto-hidden
@@ -341,7 +309,6 @@ router.delete('/:id', async (req, res) => {
     .select('*')
     .eq('session_id', session_id)
     .eq('hidden', true)
-    .eq('user_deleted', false)
     .neq('id', id)
     .gt('expires_at', new Date().toISOString())
     .order('created_at', { ascending: false })
