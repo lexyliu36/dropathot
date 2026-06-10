@@ -38,19 +38,31 @@ function ProfileHeart({ thot, onHype, session }) {
   )
 }
 
-function ProfileTab({ session, thots, onHype }) {
+function ProfileTab({ session, thots, onHype, onOpenProfile }) {
   const navigate = useNavigate()
   const isAuth = session?.type === 'user'
   const [myThots, setMyThots] = useState([])
+  const [likedThots, setLikedThots] = useState([])
   const [shareThot, setShareThot] = useState(null)
+  const [view, setView] = useState('thots') // 'thots' | 'likes'
 
-  // Fetch all session thots from API (not just nearby ones on the map)
   useEffect(() => {
     const id = session?.id
     if (!id) return
     fetch(`${API_URL}/thots?session_id=${id}`)
       .then(r => r.ok ? r.json() : [])
       .then(data => setMyThots(data))
+      .catch(() => {})
+  }, [session?.id])
+
+  useEffect(() => {
+    if (!isAuth || !session?.supabaseToken) return
+    fetch(`${API_URL}/thots/liked`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${session.supabaseToken}` },
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setLikedThots(data))
       .catch(() => {})
   }, [session?.id])
 
@@ -71,25 +83,43 @@ function ProfileTab({ session, thots, onHype }) {
             <User size={15} className={isAuth ? 'text-brand-purple' : 'text-slate-500'} />
           </div>
           <div>
-            <p className="text-white text-sm font-semibold leading-tight" style={{ color: isAuth ? '#7c3aed' : undefined }}>
-              {isAuth ? (session.penName || session.userId ? (session.penName || '…') : 'Member') : 'Anonymous'}
-            </p>
+            {isAuth && session.penName ? (
+              <button
+                onClick={() => onOpenProfile?.({ pen_name: session.penName, session_id: session.id })}
+                className="text-sm font-semibold leading-tight transition-colors cursor-pointer hover:opacity-80"
+                style={{ background: 'none', border: 'none', padding: 0, color: '#7c3aed' }}
+              >
+                {session.penName}
+              </button>
+            ) : (
+              <p className="text-white text-sm font-semibold leading-tight">
+                {isAuth ? 'Member' : 'Anonymous'}
+              </p>
+            )}
             <p className="text-slate-500 text-[10px] mt-0.5">
-              {isAuth ? '10 thots/hr · member' : 'Guest · 3 thots/hr'}
+              {isAuth ? 'member · no rate limit' : 'guest · 3 thots/hr'}
             </p>
           </div>
         </div>
 
         {isAuth && (
           <div className="flex gap-4 mt-3 pt-3 border-t border-white/8">
-            <div className="text-center">
+            <button
+              onClick={() => setView('thots')}
+              className="text-center cursor-pointer transition-opacity hover:opacity-80"
+              style={{ background: 'none', border: 'none', padding: 0 }}
+            >
               <p className="text-white text-sm font-bold">{myThots.length}</p>
-              <p className="text-slate-600 text-[10px]">thots</p>
-            </div>
-            <div className="text-center">
-              <p className="text-white text-sm font-bold">{totalHypes}</p>
-              <p className="text-slate-600 text-[10px]">likes</p>
-            </div>
+              <p className="text-[10px]" style={{ color: view === 'thots' ? '#7c3aed' : '#475569' }}>thots</p>
+            </button>
+            <button
+              onClick={() => setView('likes')}
+              className="text-center cursor-pointer transition-opacity hover:opacity-80"
+              style={{ background: 'none', border: 'none', padding: 0 }}
+            >
+              <p className="text-white text-sm font-bold">{likedThots.length}</p>
+              <p className="text-[10px]" style={{ color: view === 'likes' ? '#e11d48' : '#475569' }}>liked</p>
+            </button>
           </div>
         )}
       </div>
@@ -99,7 +129,7 @@ function ProfileTab({ session, thots, onHype }) {
         <div className="bg-brand-purple/10 border border-brand-purple/20 rounded-xl p-3 mb-4">
           <p className="text-white text-xs font-semibold mb-1">Get a pen name</p>
           <p className="text-slate-400 text-[11px] leading-relaxed mb-3">
-            Sign up to claim a pen name, post 10 thots/hr, and track your upvotes across sessions.
+            Sign up to claim a pen name and track your likes across sessions.
           </p>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('thots:open-auth', { detail: 'signup' }))}
@@ -118,29 +148,68 @@ function ProfileTab({ session, thots, onHype }) {
 
       {shareThot && <ShareSheet thot={shareThot} onClose={() => setShareThot(null)} />}
 
-      {/* My thots */}
-      <p className="text-slate-500 text-[11px] mb-2">
-        Your drops nearby ({myThots.length})
-      </p>
-      {myThots.length === 0 ? (
-        <p className="text-slate-600 text-xs text-center py-8">Nothing posted yet</p>
-      ) : (
-        myThots.map(thot => (
-          <div key={thot.id} className="py-2.5 border-b border-white/5 last:border-0">
-            <p className="text-white text-xs leading-snug line-clamp-2">{thot.content}</p>
-            <div className="flex items-center gap-2 mt-1.5">
-              <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
-              <ProfileHeart thot={thot} onHype={onHype} session={session} />
-              <button
-                onClick={() => setShareThot(thot)}
-                className="ml-auto text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
-                style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
-              >
-                <Upload size={11} />
-              </button>
-            </div>
-          </div>
-        ))
+      {/* Thots list */}
+      {view === 'thots' && (
+        <>
+          <p className="text-slate-500 text-[11px] mb-2">Your drops ({myThots.length})</p>
+          {myThots.length === 0 ? (
+            <p className="text-slate-600 text-xs text-center py-8">Nothing posted yet</p>
+          ) : (
+            myThots.map(thot => (
+              <div key={thot.id} className="py-2.5 border-b border-white/5 last:border-0">
+                <p className="text-white text-xs leading-snug line-clamp-2">{thot.content}</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
+                  <ProfileHeart thot={thot} onHype={onHype} session={session} />
+                  <button
+                    onClick={() => setShareThot(thot)}
+                    className="ml-auto text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
+                    style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+                  >
+                    <Upload size={11} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </>
+      )}
+
+      {/* Liked thots list */}
+      {view === 'likes' && (
+        <>
+          <p className="text-slate-500 text-[11px] mb-2">Thots you liked ({likedThots.length})</p>
+          {likedThots.length === 0 ? (
+            <p className="text-slate-600 text-xs text-center py-8">No liked thots yet</p>
+          ) : (
+            likedThots.map(thot => (
+              <div key={thot.id} className="py-2.5 border-b border-white/5 last:border-0">
+                <p className="text-white text-xs leading-snug line-clamp-2">{thot.content}</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  {thot.pen_name ? (
+                    <button
+                      onClick={() => onOpenProfile?.(thot)}
+                      className="text-[10px] font-semibold cursor-pointer hover:opacity-80 transition-opacity"
+                      style={{ background: 'none', border: 'none', padding: 0, color: '#7c3aed' }}
+                    >
+                      {thot.pen_name}
+                    </button>
+                  ) : (
+                    <span className="text-slate-600 text-[10px]">anon</span>
+                  )}
+                  <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
+                  <button
+                    onClick={() => setShareThot(thot)}
+                    className="ml-auto text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
+                    style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+                  >
+                    <Upload size={11} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </>
       )}
     </div>
   )
@@ -206,7 +275,7 @@ function SettingsPane({ session }) {
   )
 }
 
-export default function ToolsPanel({ onClose, thots, session, onHype }) {
+export default function ToolsPanel({ onClose, thots, session, onHype, onOpenProfile }) {
   const [activeTab, setActiveTab] = useState('profile')
 
   return (
@@ -242,7 +311,7 @@ export default function ToolsPanel({ onClose, thots, session, onHype }) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        {activeTab === 'profile'     && <ProfileTab session={session} thots={thots} onHype={onHype} />}
+        {activeTab === 'profile'     && <ProfileTab session={session} thots={thots} onHype={onHype} onOpenProfile={onOpenProfile} />}
         {activeTab === 'settings'    && <SettingsPane session={session} />}
       </div>
     </div>

@@ -416,7 +416,9 @@ export default function Map() {
     })
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
-      throw new Error(data.error || `Server error ${res.status}`)
+      const err = new Error(data.error || `Server error ${res.status}`)
+      err.code = data.code ?? null
+      throw err
     }
     const newThot = await res.json()
     useAppStore.getState().addThot(newThot)
@@ -699,6 +701,10 @@ export default function Map() {
           thots={visibleThots}
           session={session}
           onHype={handleHype}
+          onOpenProfile={(thot) => {
+            useAppStore.getState().setSelectedThot(thot)
+            setToolsOpen(false)
+          }}
         />
       )}
 

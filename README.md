@@ -98,6 +98,35 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.9` — Anti-Abuse: Profile Tab, Subnet Limits & Alert Emails
+
+#### Profile Tab (Tools Panel)
+- **Clickable stats** — thots count toggles your post history; liked count toggles thots you've hyped (fetched from `GET /thots/liked` with Bearer token)
+- **Pen name opens ProfileSheet** — tapping your pen name in the profile tab opens your own profile sheet and closes the panel; liked-thots list also has clickable pen names
+- **Fixed rate limit label** — was incorrectly showing "10 thots/hr" for auth users; now shows "no rate limit" for members and "3 thots/hr" for guests
+- **Sign-up nudge for anon users** — purple card with "Get a pen name" CTA dispatches the auth modal instead of navigating away
+
+#### Subnet Rate Limiting
+- **`server/middleware/subnetLimit.js`** — new middleware that caps posts from the same `/24` IP subnet to the same H3 geo tile at 3 unique sessions per hour
+- **In-memory store** — no DB required; map is pruned every 5 minutes; resets on server restart (fail-open by design)
+- **Private IPs exempt** — localhost and RFC-1918 ranges are never blocked (dev + Railway health checks)
+- **Proper 429 UI** — subnet limit errors show an orange "Network limit reached" card in the compose drawer with an explanation and reset time, distinct from generic red error cards
+
+#### Velocity Spike Detection
+- **Post-insert async check** — after every successful thot, counts posts in the same H3 tile over the last 10 minutes; if >15, flags it
+- **`velocity_flags` table** (`supabase/migrations/006_velocity_flags.sql`) — stores h3 tile, count, coordinates, timestamp, and `reviewed` boolean for admin triage
+- **In-process cooldown** — same tile is not re-flagged within a 10-minute window to prevent table flooding
+- **Admin socket event** — emits `velocity:spike` to the `admin` Socket.io room for real-time monitoring
+
+#### Alert Emails (support)
+- **`alertSupport()` utility** in `server/lib/email.js` — sends a formatted HTML alert to `dev.lexliu@gmail.com` for every important server-side detection, using the existing Resend integration
+- **Per-type cooldowns** — suppresses repeat alerts for the same key within a configurable window; logs to console when `RESEND_API_KEY` is absent
+- **Wired to all detections:**
+  - Subnet rate limit trigger (cooldown: 1 hr per subnet+tile)
+  - Velocity spike (cooldown: 10 min per tile)
+  - Location spoof attempt (cooldown: 10 min per session)
+  - Moderation block (cooldown: 5 min per session)
+
 ### `v0.8` — Map UX, Auth Modal & Location Integrity
 
 #### Top Thots Panel

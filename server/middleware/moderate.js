@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase.js'
+import { alertSupport } from '../lib/email.js'
 import crypto from 'crypto'
 
 async function checkPerspective(content, apiKey) {
@@ -71,6 +72,19 @@ export function makeModerate(context = 'thot') {
         const sessionId = req.cookies?.thots_session || req.body?.session_id || null
 
         await logBlocked({ sessionId, ipHash, content, reason, context })
+
+        alertSupport({
+          type: 'moderation-block',
+          subject: `Content blocked by moderation (${reason})`,
+          key: sessionId,
+          cooldownMs: 5 * 60 * 1000,
+          fields: {
+            'Reason': reason,
+            'Context': context,
+            'Session ID': sessionId,
+            'Content (truncated)': content?.slice(0, 120) + (content?.length > 120 ? '…' : ''),
+          },
+        }).catch(() => {})
 
         return res.status(422).json({ error: 'Content flagged by moderation.' })
       }

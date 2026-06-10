@@ -1,9 +1,11 @@
 import { Router } from 'express'
 import { createHash } from 'crypto'
 import { supabase } from '../lib/supabase.js'
-import { neighborCells } from '../lib/geo.js'
+import { neighborCells, latLngToH3 } from '../lib/geo.js'
+import { subnetLimit } from '../middleware/subnetLimit.js'
 import { smartRateLimit } from '../middleware/rateLimit.js'
 import { moderate } from '../middleware/moderate.js'
+import { alertSupport } from '../lib/email.js'
 
 const router = Router()
 
@@ -93,6 +95,21 @@ router.get('/', async (req, res) => {
   res.json(data)
 })
 
+
+// GET /thots/liked — returns full thot objects the current auth user has hyped
+router.get('/liked', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '').trim()
+  if (!token) return res.json([])
+  const { data: { user }, error } = await supabase.auth.getUser(token)
+  if (error || !user) return res.json([])
+  const { data } = await supabase
+    .from('hypes')
+    .select('thot_id, thots(*)')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+  res.json(data?.map(h => h.thots).filter(Boolean) ?? [])
+})
+
 // GET /thots/my-hypes — returns thot IDs the current auth user has hyped
 router.get('/my-hypes', async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '').trim()
@@ -134,7 +151,7 @@ router.post('/:id/hype', async (req, res) => {
 })
 
 // POST /thots
-router.post('/', smartRateLimit, moderate, async (req, res) => {
+router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
   const { content, lat, lng, duration_hours } = req.body
   // Cookie is authoritative — prevents session_id spoofing from the client body
   const session_id = req.cookies?.session_id ?? req.body.session_id
@@ -170,6 +187,19 @@ router.post('/', smartRateLimit, moderate, async (req, res) => {
     const distKm = haversineKm(claimedLat, claimedLng, ipGeo.lat, ipGeo.lng)
     if (distKm > MAX_DISTANCE_KM) {
       console.warn(`[location-spoof] session=${session_id} claimed=(${claimedLat},${claimedLng}) ip_geo=(${ipGeo.lat},${ipGeo.lng}) dist=${Math.round(distKm)}km`)
+      alertSupport({
+        type: 'location-spoof',
+        subject: 'Location spoof attempt detected',
+        key: session_id,
+        cooldownMs: 10 * 60 * 1000,
+        fields: {
+          'Session ID': session_id,
+          'Claimed coords': `${claimedLat}, ${claimedLng}`,
+          'IP geolocation': `${ipGeo.lat}, ${ipGeo.lng}`,
+          'Distance': `${Math.round(distKm)} km`,
+          'Client IP (partial)': clientIp?.slice(0, 8) + '…',
+        },
+      }).catch(() => {})
       return res.status(422).json({ error: 'Your claimed location is too far from your actual location.' })
     }
   }
@@ -225,6 +255,9 @@ router.post('/', smartRateLimit, moderate, async (req, res) => {
   const cells = neighborCells(parseFloat(lat), parseFloat(lng))
   req.io.to(cells).emit('thot:new', newThot)
 
+  // Velocity spike detection — async, never blocks the response
+  checkVelocitySpike(parseFloat(lat), parseFloat(lng), req.io).catch(() => {})
+
   res.status(201).json(newThot)
 })
 
@@ -240,5 +273,66 @@ router.get('/:id', async (req, res) => {
   if (error || !data) return res.status(404).json({ error: 'not found' })
   res.json(data)
 })
+
+// ---------------------------------------------------------------------------
+// Velocity spike detection
+// If >15 thots appear in the same H3 tile within 10 minutes, log a flag.
+// A cooldown prevents flooding the flags table with repeat entries for the
+// same ongoing spike (one flag per tile per 10-minute window).
+// ---------------------------------------------------------------------------
+const VELOCITY_THRESHOLD = 15
+const VELOCITY_WINDOW_MINS = 10
+const flagCooldown = new Map() // h3tile → timestamp of last flag
+
+async function checkVelocitySpike(lat, lng, io) {
+  const h3tile = latLngToH3(lat, lng)
+
+  // Cooldown: skip if we already flagged this tile in the current window
+  const lastFlagged = flagCooldown.get(h3tile) ?? 0
+  if (Date.now() - lastFlagged < VELOCITY_WINDOW_MINS * 60 * 1000) return
+
+  const windowStart = new Date(Date.now() - VELOCITY_WINDOW_MINS * 60 * 1000).toISOString()
+
+  // Count thots in this tile posted in the last VELOCITY_WINDOW_MINS minutes
+  // Using ST_DWithin with a ~600m radius (approximate H3 res-7 hex radius)
+  const { count, error } = await supabase
+    .from('thots')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', windowStart)
+    .eq('hidden', false)
+    .filter('location', 'st.dwithin', `SRID=4326;POINT(${lng} ${lat}),0.006`) // ~600m in degrees
+
+  if (error || count === null) return
+  if (count < VELOCITY_THRESHOLD) return
+
+  // Log the flag
+  flagCooldown.set(h3tile, Date.now())
+  console.warn(\`[velocity] spike detected: tile=\${h3tile} count=\${count} in \${VELOCITY_WINDOW_MINS}min\`)
+
+  await supabase.from('velocity_flags').insert({
+    h3_tile: h3tile,
+    thot_count: count,
+    window_mins: VELOCITY_WINDOW_MINS,
+    lat,
+    lng,
+  })
+
+  // Email support
+  alertSupport({
+    type: 'velocity-spike',
+    subject: `Velocity spike: ${count} posts in ${VELOCITY_WINDOW_MINS}min`,
+    key: h3tile,
+    cooldownMs: VELOCITY_WINDOW_MINS * 60 * 1000,
+    fields: {
+      'H3 Tile': h3tile,
+      'Post count': `${count} in last ${VELOCITY_WINDOW_MINS} minutes`,
+      'Coordinates': `${lat}, ${lng}`,
+      'Threshold': String(VELOCITY_THRESHOLD),
+    },
+  }).catch(() => {})
+
+  // Notify any connected admin clients
+  io.to('admin').emit('velocity:spike', { h3tile, count, lat, lng, at: new Date().toISOString() })
+}
 
 export default router

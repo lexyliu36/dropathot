@@ -28,7 +28,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
   const navigate = useNavigate()
   const isAuth = session?.type === 'user'
   const identity = isAuth ? (session?.penName || 'member') : 'anonymous'
-  const rateNote = isAuth ? '10 thots/hr' : '3 thots/hr'
+  const rateNote = isAuth ? 'no rate limit' : '3 thots/hr'
   const durationOptions = isAuth ? AUTH_OPTIONS : ANON_OPTIONS
   const [duration, setDuration] = useState(durationOptions[0].value)
 
@@ -40,7 +40,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
       await onPost(text.trim(), duration)
       onClose()
     } catch (err) {
-      setError(err.message || 'Failed to post. Try again.')
+      setError({ message: err.message || 'Failed to post. Try again.', code: err.code ?? null })
     } finally {
       setPosting(false)
     }
@@ -94,7 +94,19 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
             className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 text-white placeholder:text-slate-600 resize-none focus:outline-none focus:border-brand-purple transition-colors text-sm"
             style={{ fontSize: '16px' }}
           />
-          {error && <p className="text-red-400 text-xs">{error}</p>}
+          {error && (
+            error.code === 'SUBNET_LIMIT' ? (
+              <div className="rounded-xl border border-orange-500/30 bg-orange-500/10 p-3">
+                <p className="text-orange-300 text-xs font-semibold mb-1">Network limit reached</p>
+                <p className="text-orange-200/80 text-[11px] leading-relaxed">{error.message}</p>
+                <p className="text-orange-200/50 text-[10px] mt-1.5">This prevents one network from flooding a location. Limit resets after 1 hour.</p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3">
+                <p className="text-red-300 text-xs">{error.message}</p>
+              </div>
+            )
+          )}
 
           {/* Duration picker */}
           <div className="flex items-center gap-2">
