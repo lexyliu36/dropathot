@@ -3,14 +3,16 @@ import { useEffect, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import { useNavigate } from 'react-router-dom'
 import mapboxgl from 'mapbox-gl'
-import { SlidersHorizontal, MessageSquarePlus, LocateFixed } from 'lucide-react'
+import { SlidersHorizontal, MessageSquarePlus, LocateFixed, Star, Search, X } from 'lucide-react'
 import useAppStore from '../stores/useAppStore'
 import useLocation from '../hooks/useLocation'
 import useThots from '../hooks/useThots'
 import ThotPin, { AnonAvatar, YouPin, pinAgeHours } from '../components/ThotPin'
 import ComposeDrawer from '../components/ComposeDrawer'
 import ToolsPanel from '../components/ToolsPanel'
+import TopThots from '../components/TopThots'
 import ProfileSheet from '../components/ProfileSheet'
+import AuthModal from '../components/AuthModal'
 import { getOrCreateSession, updateSession } from '../lib/identity'
 import { supabase } from '../lib/supabase'
 
@@ -23,11 +25,16 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 // Manhattan cells regardless of zoom level.
 function dedupeThots(thots, map, maxPerCell = 2, cellSizePx = 150) {
   if (!map) return thots
+  const canvas = map.getCanvas()
+  const w = canvas.width
+  const h = canvas.height
   const sorted = [...thots].sort((a, b) => (b.hype_count ?? 0) - (a.hype_count ?? 0))
   const cells = {}
   const kept = []
   for (const thot of sorted) {
     const pt = map.project([thot.lng, thot.lat])
+    // Drop thots projected outside the visible canvas
+    if (pt.x < 0 || pt.y < 0 || pt.x > w || pt.y > h) continue
     const key = `${Math.floor(pt.x / cellSizePx)},${Math.floor(pt.y / cellSizePx)}`
     const count = cells[key] ?? 0
     if (count < maxPerCell) {
@@ -68,6 +75,14 @@ export default function Map() {
   const [mapReady, setMapReady] = useState(false)
   const [mapError, setMapError] = useState(null)
   const [toolsOpen, setToolsOpen] = useState(false)
+  const [leaderboardOpen, setLeaderboardOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [authModal, setAuthModal] = useState(null) // null | 'login' | 'signup'
+  const [searchFetching, setSearchFetching] = useState(false)
+  const searchInputRef = useRef(null)
+  const searchSessionToken = useRef(crypto.randomUUID())
 
   const { location, error: locationError, request: requestLocation, retry } = useLocation()
   const { error: thotsError } = useThots()
@@ -159,9 +174,14 @@ export default function Map() {
 
   // Listen for auth-required signals from detached ThotPin React roots
   useEffect(() => {
-    const handler = () => navigate('/', { state: { openSignup: true } })
+    const handler = () => setAuthModal('signup')
+    const authHandler = (e) => setAuthModal(e.detail ?? 'login')
     window.addEventListener('thots:needs-auth', handler)
-    return () => window.removeEventListener('thots:needs-auth', handler)
+    window.addEventListener('thots:open-auth', authHandler)
+    return () => {
+      window.removeEventListener('thots:needs-auth', handler)
+      window.removeEventListener('thots:open-auth', authHandler)
+    }
   }, [])
 
   // Initialize Mapbox
@@ -440,18 +460,138 @@ export default function Map() {
       )}
 
       {/* Top bar */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 py-3 bg-gradient-to-b from-[#0a0f1e] to-transparent pointer-events-none">
-        <span className="text-white font-black text-xl tracking-tight">drop-a-thot</span>
-        <button
-          onClick={() => setToolsOpen(o => !o)}
-          className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer pointer-events-auto ${
-            toolsOpen
-              ? 'bg-brand-purple/20 border-brand-purple/50 text-brand-purple'
-              : 'bg-white/10 border-white/15 text-slate-300 hover:bg-white/20'
-          }`}
-        >
-          <SlidersHorizontal size={15} />
-        </button>
+      <div className="absolute top-0 left-0 right-0 z-20 pointer-events-none">
+        {searchOpen ? (
+          /* Search mode */
+          <div className="flex flex-col pointer-events-auto mx-3 mt-3">
+            <div className="flex items-center gap-2 rounded-2xl px-3 py-2.5 shadow-2xl" style={{ background: '#0e0e1a', border: '1px solid rgba(255,255,255,0.18)' }}>
+              <Search size={15} className="text-slate-400 flex-shrink-0" />
+              <input
+                ref={searchInputRef}
+                value={searchQuery}
+                onChange={async (e) => {
+                  const q = e.target.value
+                  setSearchQuery(q)
+                  if (!q.trim()) { setSearchResults([]); return }
+                  setSearchFetching(true)
+                  try {
+                    const token = import.meta.env.VITE_MAPBOX_TOKEN
+                    const map = mapInstanceRef.current
+                    const center = map?.getCenter()
+                    const proximity = center ? `${center.lng},${center.lat}` : ''
+                    const params = new URLSearchParams({
+                      q,
+                      access_token: token,
+                      session_token: searchSessionToken.current,
+                      limit: '6',
+                      language: 'en',
+                      ...(proximity ? { proximity } : {}),
+                    })
+                    const r = await fetch(
+                      `https://api.mapbox.com/search/searchbox/v1/suggest?${params}`
+                    )
+                    const data = await r.json()
+                    setSearchResults(data.suggestions ?? [])
+                  } catch { setSearchResults([]) }
+                  finally { setSearchFetching(false) }
+                }}
+                placeholder="Search any place…"
+                className="flex-1 bg-transparent text-white placeholder:text-slate-500 focus:outline-none"
+                style={{ fontSize: '16px' }}
+                autoFocus
+              />
+              {searchFetching && (
+                <div className="w-3.5 h-3.5 border border-white/20 border-t-white/60 rounded-full animate-spin flex-shrink-0" />
+              )}
+              <button
+                onClick={() => { setSearchOpen(false); setSearchQuery(''); setSearchResults([]) }}
+                className="text-slate-400 hover:text-white transition-colors cursor-pointer flex-shrink-0"
+                style={{ background: 'none', border: 'none', padding: 0 }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {searchResults.length > 0 && (
+              <div className="mt-1.5 rounded-2xl overflow-hidden shadow-2xl" style={{ background: '#0e0e1a', border: '1px solid rgba(255,255,255,0.12)' }}>
+                {searchResults.map((suggestion, i) => {
+                  const primary = suggestion.name
+                  const secondary = suggestion.place_formatted ?? suggestion.full_address ?? ''
+                  return (
+                    <button
+                      key={suggestion.mapbox_id}
+                      onClick={async () => {
+                        try {
+                          const token = import.meta.env.VITE_MAPBOX_TOKEN
+                          const params = new URLSearchParams({
+                            access_token: token,
+                            session_token: searchSessionToken.current,
+                          })
+                          const r = await fetch(
+                            `https://api.mapbox.com/search/searchbox/v1/retrieve/${suggestion.mapbox_id}?${params}`
+                          )
+                          const data = await r.json()
+                          const coords = data.features?.[0]?.geometry?.coordinates
+                          if (coords) {
+                            mapInstanceRef.current?.flyTo({ center: coords, zoom: 15, duration: 800 })
+                            searchSessionToken.current = crypto.randomUUID()
+                          }
+                        } catch (e) { console.error(e) }
+                        setSearchOpen(false)
+                        setSearchQuery('')
+                        setSearchResults([])
+                      }}
+                      className="w-full text-left px-4 py-3 flex items-center gap-3 transition-colors cursor-pointer"
+                      style={{ background: 'none', borderBottom: i < searchResults.length - 1 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}
+                      onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                        <Search size={12} className="text-slate-400" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-white text-sm font-medium leading-tight truncate">{primary}</p>
+                        {secondary && <p className="text-slate-400 text-xs mt-0.5 truncate">{secondary}</p>}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        ) : (
+          /* Normal mode */
+          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-b from-[#0a0f1e] to-transparent pointer-events-none">
+            <span className="text-white font-black text-xl tracking-tight">drop-a-thot</span>
+            <div className="flex items-center gap-2 pointer-events-auto">
+              <button
+                onClick={() => { setSearchOpen(true); setLeaderboardOpen(false); setToolsOpen(false) }}
+                className="w-9 h-9 rounded-full border border-white/15 bg-white/10 flex items-center justify-center text-slate-300 hover:bg-white/20 transition-colors cursor-pointer"
+              >
+                <Search size={15} />
+              </button>
+              <button
+                onClick={() => { setLeaderboardOpen(o => !o); setToolsOpen(false) }}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
+                  leaderboardOpen
+                    ? 'bg-amber-500/20 border-amber-500/50'
+                    : 'bg-white/10 border-white/15 hover:bg-white/20'
+                }`}
+              >
+                <Star size={15} style={{ fill: '#f59e0b', color: '#f59e0b' }} />
+              </button>
+              <button
+                onClick={() => { setToolsOpen(o => !o); setLeaderboardOpen(false) }}
+                className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
+                  toolsOpen
+                    ? 'bg-brand-purple/20 border-brand-purple/50 text-brand-purple'
+                    : 'bg-white/10 border-white/15 text-slate-300 hover:bg-white/20'
+                }`}
+              >
+                <SlidersHorizontal size={15} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Location error banner */}
@@ -477,7 +617,8 @@ export default function Map() {
         {location && (
           <button
             onClick={() => mapInstanceRef.current?.flyTo({ center: [location.lng, location.lat], zoom: 16, duration: 600 })}
-            className="w-9 h-9 rounded-xl bg-[#0e0e1a]/90 border border-white/10 shadow-lg text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center transition-colors cursor-pointer"
+            className="w-9 h-9 rounded-xl bg-[#0e0e1a]/90 border border-white/10 shadow-lg flex items-center justify-center transition-colors cursor-pointer"
+            style={{ color: '#e11d48' }}
             aria-label="Recenter on me"
           >
             <LocateFixed size={15} />
@@ -543,10 +684,19 @@ export default function Map() {
       )}
 
       {/* Tools panel */}
+      {leaderboardOpen && (
+        <TopThots
+          thots={visibleThots}
+          session={session}
+          onHype={handleHype}
+          onClose={() => setLeaderboardOpen(false)}
+        />
+      )}
+
       {toolsOpen && (
         <ToolsPanel
           onClose={() => setToolsOpen(false)}
-          thots={thots}
+          thots={visibleThots}
           session={session}
           onHype={handleHype}
         />
@@ -571,6 +721,15 @@ export default function Map() {
           onHype={handleHype}
           onCompose={() => { setShowYouProfile(false); setComposing(true) }}
           onClose={() => setShowYouProfile(false)}
+        />
+      )}
+
+      {/* Auth modal */}
+      {authModal && (
+        <AuthModal
+          initialMode={authModal}
+          onClose={() => setAuthModal(null)}
+          onSuccess={() => setAuthModal(null)}
         />
       )}
     </div>

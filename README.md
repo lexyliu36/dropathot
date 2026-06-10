@@ -98,6 +98,32 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.8` — Map UX, Auth Modal & Location Integrity
+
+#### Top Thots Panel
+- **Moved to standalone gold star button** — Top Thots is now its own panel opened via a ⭐ button in the top bar, separate from the Tools panel
+- **Synced to visible map pins** — `dedupeThots` now filters out thots projected outside the canvas viewport, so Top Thots always exactly matches what's on screen
+- **Star always gold, recenter always red** — consistent icon colors regardless of panel state
+
+#### Location Search
+- **Search bar** — tap the 🔍 icon in the top bar to expand a full search input; closes back to normal with ✕
+- **Mapbox Search Box API** — switched from legacy geocoding to the Search Box API (`/suggest` + `/retrieve` two-step) for Google-quality POI and business results
+- **Proximity bias** — results ranked by distance from current map center; flying to a result triggers a normal `moveend` thot fetch for that area
+
+#### Auth Modal
+- **Sign in / Sign up modal on the map** — tapping any auth prompt now opens an inline modal overlay instead of navigating away to the landing page
+- **`AuthModal` component** — full email/password forms with validation, pen name field for signup, show/hide password toggle, error handling
+- **Sign in completes on the map** — session updates in place and modal closes; Sign up still routes to `/age-gate` for age verification
+- **Close to cancel** — tap the ✕ or backdrop to dismiss without leaving the map
+
+#### Bug Fixes & Security
+- **Fix: named user thots showing as "you" after logout** — `POST /auth/logout` endpoint clears the httpOnly `session_id` cookie; `clearSession()` now calls it so the next anonymous session gets a fresh UUID
+- **Fix: anon default duration changed to 6 hours** — was defaulting to 3 hours; options are now 6h / 3h / 2h / 1h
+- **Fix: iOS keyboard zoom on compose** — textarea `fontSize` set to `16px` to prevent Safari auto-zoom on focus
+- **Server-side location verification** — `POST /thots` now checks claimed coordinates against IP geolocation (via `ipwho.is`); posts more than 500 km from the IP's location are rejected. Fails open if the lookup times out. Skipped for local/private IPs in dev
+- **Fix: Node 18 WebSocket crash** — `server/routes/reports.js` and `server/middleware/moderate.js` now import the shared Supabase client from `lib/supabase.js` instead of calling `createClient()` directly
+- **Migration 005** — fixes report auto-hide trigger to count `distinct reporter_session` (prevents a single user from filing 3 reports to remove a post)
+
 ### `v0.7` — Compliance: Reporting, Moderation Logging & Legal Pages
 
 #### Policy Compliance Fixes

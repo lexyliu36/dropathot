@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Trophy, User, Settings, LogOut, Heart, Upload } from 'lucide-react'
+import { X, User, Settings, LogOut, Heart, Upload } from 'lucide-react'
 import { clearSession } from '../lib/identity'
 import ShareSheet from './ShareSheet'
 import useAppStore from '../stores/useAppStore'
@@ -8,9 +8,8 @@ import useAppStore from '../stores/useAppStore'
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
 const TABS = [
-  { id: 'leaderboard', icon: Trophy, label: 'Top Thots' },
-  { id: 'profile',     icon: User,    label: 'Profile'   },
-  { id: 'settings',    icon: Settings, label: 'Settings' },
+  { id: 'profile',  icon: User,     label: 'Profile'  },
+  { id: 'settings', icon: Settings, label: 'Settings' },
 ]
 
 function relativeTime(isoString) {
@@ -19,24 +18,6 @@ function relativeTime(isoString) {
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
   return `${Math.floor(diff / 86400)}d ago`
-}
-
-function LeaderboardHeart({ thot, session, onHype }) {
-  const hyped = useAppStore((s) => s.hypedThotIds.has(thot.id))
-  const hypeCount = useAppStore((s) => s.thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0)
-  return (
-    <button
-      onClick={() => session?.type === 'user'
-        ? onHype?.(thot.id)
-        : window.dispatchEvent(new CustomEvent('thots:needs-auth'))
-      }
-      className="flex items-center gap-0.5 transition-colors cursor-pointer"
-      style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b' }}
-    >
-      <Heart size={11} style={{ fill: hyped ? '#e11d48' : 'none', color: hyped ? '#e11d48' : '#64748b' }} />
-      {hypeCount > 0 && <span className="text-[10px]">{hypeCount}</span>}
-    </button>
-  )
 }
 
 function ProfileHeart({ thot, onHype, session }) {
@@ -54,69 +35,6 @@ function ProfileHeart({ thot, onHype, session }) {
       <Heart size={10} style={{ fill: hyped ? '#e11d48' : 'none', color: hyped ? '#e11d48' : '#64748b' }} />
       {hypeCount > 0 && <span className="text-[10px]">{hypeCount}</span>}
     </button>
-  )
-}
-
-function Leaderboard({ thots, session, onHype }) {
-  const [shareThot, setShareThot] = useState(null)
-  const ranked = [...thots]
-    .sort((a, b) =>
-      (b.hype_count ?? 0) - (a.hype_count ?? 0) ||
-      new Date(b.created_at) - new Date(a.created_at)
-    )
-    .slice(0, 10)
-
-  return (
-    <div>
-      <p className="text-slate-500 text-[11px] mb-3 leading-relaxed">
-        Top thots in the current view — zooming out surfaces the best from a wider area.
-      </p>
-      {shareThot && <ShareSheet thot={shareThot} onClose={() => setShareThot(null)} />}
-      {ranked.length === 0 ? (
-        <p className="text-slate-600 text-sm text-center py-10">No drops nearby yet</p>
-      ) : (
-        ranked.map((thot, i) => (
-          <div key={thot.id} className="flex items-start gap-3 py-3 border-b border-white/5 last:border-0">
-            <span className="text-slate-700 text-xs font-mono w-5 mt-0.5 flex-shrink-0">
-              #{i + 1}
-            </span>
-            <div className="flex-1 min-w-0">
-              <p className="text-white text-xs leading-snug line-clamp-2">{thot.content}</p>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span
-                  className="text-[10px] font-semibold"
-                  style={{ color: thot.pen_name ? '#7c3aed' : '#475569' }}
-                >
-                  {thot.pen_name || 'anon'}
-                </span>
-                <span className="text-slate-600 text-[10px]">
-                  {relativeTime(thot.created_at)}
-                </span>
-                <div className="ml-auto flex items-center gap-3 flex-shrink-0">
-                  <button
-                    onClick={() => session?.type === 'user'
-                      ? onHype?.(thot.id)
-                      : window.dispatchEvent(new CustomEvent('thots:needs-auth'))
-                    }
-                    className="flex items-center gap-0.5 transition-colors cursor-pointer"
-                    style={{ background: 'none', border: 'none', padding: 0 }}
-                  >
-                    <LeaderboardHeart thot={thot} session={session} onHype={onHype} />
-                  </button>
-                  <button
-                    onClick={() => setShareThot(thot)}
-                    className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
-                    style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
-                  >
-                    <Upload size={11} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
   )
 }
 
@@ -184,13 +102,13 @@ function ProfileTab({ session, thots, onHype }) {
             Sign up to claim a pen name, post 10 thots/hr, and track your upvotes across sessions.
           </p>
           <button
-            onClick={() => navigate('/', { state: { openSignup: true } })}
+            onClick={() => window.dispatchEvent(new CustomEvent('thots:open-auth', { detail: 'signup' }))}
             className="w-full py-2 rounded-lg bg-brand-purple text-white text-xs font-semibold hover:bg-violet-500 transition-colors cursor-pointer"
           >
             Create account
           </button>
           <button
-            onClick={() => navigate('/', { state: { openLogin: true } })}
+            onClick={() => window.dispatchEvent(new CustomEvent('thots:open-auth', { detail: 'login' }))}
             className="w-full py-1.5 mt-1.5 rounded-lg text-brand-purple text-xs hover:text-violet-400 transition-colors cursor-pointer underline"
           >
             Already have an account? Sign in
@@ -289,7 +207,7 @@ function SettingsPane({ session }) {
 }
 
 export default function ToolsPanel({ onClose, thots, session, onHype }) {
-  const [activeTab, setActiveTab] = useState('leaderboard')
+  const [activeTab, setActiveTab] = useState('profile')
 
   return (
     <div className="absolute top-3 right-3 bottom-3 z-30 w-72 flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
@@ -324,7 +242,6 @@ export default function ToolsPanel({ onClose, thots, session, onHype }) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        {activeTab === 'leaderboard' && <Leaderboard thots={thots} session={session} onHype={onHype} />}
         {activeTab === 'profile'     && <ProfileTab session={session} thots={thots} onHype={onHype} />}
         {activeTab === 'settings'    && <SettingsPane session={session} />}
       </div>

@@ -7,6 +7,35 @@ import { moderate } from '../middleware/moderate.js'
 
 const router = Router()
 
+// Haversine distance in km between two lat/lng points
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+// Returns { lat, lng } from IP geolocation, or null if unavailable
+async function ipLocation(ip) {
+  if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
+    return null // skip check for local/private IPs (dev environment)
+  }
+  try {
+    const r = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}`, {
+      signal: AbortSignal.timeout(3000),
+    })
+    const data = await r.json()
+    if (!data.success || !data.latitude || !data.longitude) return null
+    return { lat: data.latitude, lng: data.longitude }
+  } catch {
+    return null // fail open — don't block posting if geo lookup fails
+  }
+}
+
+
 // GET /thots?lat=&lng=&radius=
 // GET /thots?session_id=  (returns post history for a session, no location filter)
 router.get('/', async (req, res) => {
@@ -123,8 +152,26 @@ router.post('/', smartRateLimit, moderate, async (req, res) => {
   if (isNaN(parseFloat(lat)) || isNaN(parseFloat(lng))) {
     return res.status(400).json({ error: 'lat and lng are required' })
   }
+  const claimedLat = parseFloat(lat)
+  const claimedLng = parseFloat(lng)
+  if (claimedLat < -90 || claimedLat > 90 || claimedLng < -180 || claimedLng > 180) {
+    return res.status(400).json({ error: 'invalid coordinates' })
+  }
   if (!session_id || !/^[0-9a-f-]{36}$/.test(session_id)) {
     return res.status(400).json({ error: 'valid session_id is required' })
+  }
+
+  // Server-side location verification: reject if claimed coords are more than
+  // 500 km from the IP's geolocation. Fails open (allows post) if geo lookup fails.
+  const MAX_DISTANCE_KM = 500
+  const clientIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress
+  const ipGeo = await ipLocation(clientIp)
+  if (ipGeo) {
+    const distKm = haversineKm(claimedLat, claimedLng, ipGeo.lat, ipGeo.lng)
+    if (distKm > MAX_DISTANCE_KM) {
+      console.warn(`[location-spoof] session=${session_id} claimed=(${claimedLat},${claimedLng}) ip_geo=(${ipGeo.lat},${ipGeo.lng}) dist=${Math.round(distKm)}km`)
+      return res.status(422).json({ error: 'Your claimed location is too far from your actual location.' })
+    }
   }
 
   const ip_hash = createHash('sha256')

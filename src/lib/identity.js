@@ -44,4 +44,8 @@ export function updateSession(updates) {
 
 export function clearSession() {
   localStorage.removeItem(SESSION_KEY);
+  // Clear the httpOnly session cookie so /auth/anon issues a fresh UUID next time.
+  // Fire-and-forget — don't block the logout flow on this.
+  const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
+  fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' }).catch(() => {})
 }

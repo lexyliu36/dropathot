@@ -1,0 +1,100 @@
+import { useState } from 'react'
+import { X, Heart, Upload, Star } from 'lucide-react'
+import ShareSheet from './ShareSheet'
+import useAppStore from '../stores/useAppStore'
+
+function relativeTime(isoString) {
+  const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000)
+  if (diff < 60) return 'just now'
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
+}
+
+function LeaderboardHeart({ thot, session, onHype }) {
+  const hyped = useAppStore((s) => s.hypedThotIds.has(thot.id))
+  const hypeCount = useAppStore((s) => s.thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0)
+  return (
+    <button
+      onClick={() => session?.type === 'user'
+        ? onHype?.(thot.id)
+        : window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+      }
+      className="flex items-center gap-0.5 transition-colors cursor-pointer"
+      style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b' }}
+    >
+      <Heart size={11} style={{ fill: hyped ? '#e11d48' : 'none', color: hyped ? '#e11d48' : '#64748b' }} />
+      {hypeCount > 0 && <span className="text-[10px]">{hypeCount}</span>}
+    </button>
+  )
+}
+
+export default function TopThots({ thots, session, onHype, onClose }) {
+  const [shareThot, setShareThot] = useState(null)
+
+  const ranked = [...thots]
+    .sort((a, b) =>
+      (b.hype_count ?? 0) - (a.hype_count ?? 0) ||
+      new Date(b.created_at) - new Date(a.created_at)
+    )
+    .slice(0, 10)
+
+  return (
+    <div className="absolute top-3 right-3 bottom-3 z-30 w-72 flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 flex-shrink-0">
+        <div className="flex items-center gap-2">
+          <Star size={14} style={{ fill: '#f59e0b', color: '#f59e0b' }} />
+          <span className="text-white font-bold text-sm tracking-tight">Top Thots</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-7 h-7 rounded-full bg-white/5 hover:bg-white/10 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+          style={{ border: 'none' }}
+        >
+          <X size={13} />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto px-4 py-3">
+        <p className="text-slate-500 text-[11px] mb-3 leading-relaxed">
+          Top thots in the current view — zooming out surfaces the best from a wider area.
+        </p>
+
+        {shareThot && <ShareSheet thot={shareThot} onClose={() => setShareThot(null)} />}
+
+        {ranked.length === 0 ? (
+          <p className="text-slate-600 text-sm text-center py-10">No drops nearby yet</p>
+        ) : (
+          ranked.map((thot, i) => (
+            <div key={thot.id} className="flex items-start gap-3 py-3 border-b border-white/5 last:border-0">
+              <span className="text-slate-700 text-xs font-mono w-5 mt-0.5 flex-shrink-0">
+                #{i + 1}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-xs leading-snug line-clamp-2">{thot.content}</p>
+                <div className="flex items-center gap-2 mt-1.5">
+                  <span className="text-[10px] font-semibold" style={{ color: thot.pen_name ? '#7c3aed' : '#475569' }}>
+                    {thot.pen_name || 'anon'}
+                  </span>
+                  <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
+                  <div className="ml-auto flex items-center gap-3 flex-shrink-0">
+                    <LeaderboardHeart thot={thot} session={session} onHype={onHype} />
+                    <button
+                      onClick={() => setShareThot(thot)}
+                      className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
+                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+                    >
+                      <Upload size={11} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}

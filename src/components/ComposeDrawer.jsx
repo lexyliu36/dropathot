@@ -5,6 +5,7 @@ import { X, Send, User } from 'lucide-react'
 const MAX = 280
 
 const ANON_OPTIONS = [
+  { value: 6, label: '6 hours' },
   { value: 3, label: '3 hours' },
   { value: 2, label: '2 hours' },
   { value: 1, label: '1 hour' },
@@ -91,6 +92,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
             placeholder="What's on your mind?"
             rows={4}
             className="w-full bg-white/5 border border-white/10 rounded-2xl p-3 text-white placeholder:text-slate-600 resize-none focus:outline-none focus:border-brand-purple transition-colors text-sm"
+            style={{ fontSize: '16px' }}
           />
           {error && <p className="text-red-400 text-xs">{error}</p>}
 

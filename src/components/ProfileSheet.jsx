@@ -266,7 +266,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
             {!isAuth && (
               <p className="text-slate-600 text-[10px]">
                 <button
-                  onClick={() => navigate('/', { state: { openSignup: true } })}
+                  onClick={() => window.dispatchEvent(new CustomEvent('thots:open-auth', { detail: 'signup' }))}
                   className="underline cursor-pointer"
                   style={{ background: 'none', border: 'none', color: '#7c3aed' }}
                 >Sign up</button> to keep your pen name
@@ -278,7 +278,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
         {!loading && allThots.length > 0 && !isAuth && (
           <p className="text-slate-600 text-[10px] text-center py-3">
             <button
-              onClick={() => navigate('/', { state: { openSignup: true } })}
+              onClick={() => window.dispatchEvent(new CustomEvent('thots:open-auth', { detail: 'signup' }))}
               className="underline cursor-pointer"
               style={{ background: 'none', border: 'none', color: '#7c3aed' }}
             >Sign up</button> to like thots

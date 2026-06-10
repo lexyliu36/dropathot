@@ -217,3 +217,22 @@ npm run dev       # frontend dev server, port 5173
 npm run build     # production build
 node server/index.js  # backend, port 4000 (once created)
 ```
+
+---
+
+## Gotchas / Lessons Learned
+
+### Never create a Supabase client directly in server files
+**Rule:** Always `import { supabase } from '../lib/supabase.js'` (or the correct relative path). Never call `createClient()` directly in route or middleware files.
+
+**Why:** Railway runs Node 18. The `@supabase/supabase-js` Realtime client requires native WebSocket (Node 20+) or an explicit `ws` transport. `server/lib/supabase.js` is the one place that wires up `{ realtime: { transport: ws } }` correctly. Any file that calls `createClient()` directly will crash on startup with:
+```
+Error: Node.js 18 detected without native WebSocket support.
+```
+
+**Files that got this wrong (already fixed):**
+- `server/middleware/moderate.js` — was importing createClient, now uses shared client
+- `server/routes/reports.js` — same fix
+
+### Git commits must be done from the user's terminal
+Claude's sandbox can stage files (`git add`) but cannot commit — the git identity isn't configured in the sandbox and the index.lock is often held by Claude Code's background process. Always ask Lexy to run `git commit` + `git push` from her terminal.

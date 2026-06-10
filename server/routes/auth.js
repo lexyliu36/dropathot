@@ -208,4 +208,15 @@ router.post('/login', async (req, res) => {
   })
 })
 
+
+// POST /auth/logout — clear session cookie so /auth/anon issues a fresh UUID
+router.post('/logout', (req, res) => {
+  res.clearCookie('session_id', {
+    httpOnly: true,
+    sameSite: IS_PROD ? 'none' : 'lax',
+    secure: IS_PROD,
+  })
+  res.json({ ok: true })
+})
+
 export default router
