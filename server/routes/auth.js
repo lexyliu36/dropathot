@@ -38,9 +38,9 @@ const IS_PROD = process.env.NODE_ENV === 'production'
 
 const SESSION_COOKIE_OPTS = {
   httpOnly: true,
-  sameSite: IS_PROD ? 'none' : 'lax',   // 'none' required for cross-domain (Vercel ↔ Railway)
-  secure: IS_PROD,                       // HTTPS-only in production
-  maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days (not a year — limits hijack window)
+  sameSite: 'lax',    // api.dropathot.com shares the same site as dropathot.com — lax is safe and more secure than none
+  secure: IS_PROD,    // HTTPS-only in production
+  maxAge: 30 * 24 * 60 * 60 * 1000,
 }
 
 // GET /auth/profile — returns the current auth user's pen_name (requires Bearer token)
@@ -237,7 +237,7 @@ router.post('/login', async (req, res) => {
 router.post('/logout', (req, res) => {
   res.clearCookie('session_id', {
     httpOnly: true,
-    sameSite: IS_PROD ? 'none' : 'lax',
+    sameSite: 'lax',
     secure: IS_PROD,
   })
   res.json({ ok: true })
