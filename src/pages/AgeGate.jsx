@@ -302,7 +302,7 @@ export default function AgeGate() {
   }
 
   return (
-    <div className="relative min-h-screen w-full flex flex-col items-center justify-center bg-[#0a0a0f] px-6">
+    <div className="relative min-h-screen w-full flex flex-col items-center justify-center bg-[#0a0a0f] px-6" style={{ overflowX: 'hidden', overscrollBehavior: 'none' }}>
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[500px] h-[500px] rounded-full bg-brand-purple opacity-8 blur-[100px]" />
       </div>
