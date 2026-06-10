@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useLocation, Link } from "react-router-dom";
 import { ChevronRight, ChevronLeft, RotateCcw, Loader2, Mail } from "lucide-react";
 import { updateSession } from "../lib/identity";
 import { signUp } from "../lib/auth";
@@ -63,29 +63,57 @@ function YearPicker({ value, onChange }) {
   );
 }
 
-// ─── Simple drag CAPTCHA ──────────────────────────────────────────────────────
-const SHAPES = ["■", "▲", "●", "◆"];
+// ─── Drag CAPTCHA ─────────────────────────────────────────────────────────────
+// Bot hardening:
+//   1. Target + start positions are randomised on every mount/reset
+//   2. Drag must take ≥400 ms (instant programmatic drops fail)
+//   3. Pointer must travel ≥50 px total during the drag (teleport drops fail)
+//   4. Snap tolerance is 20 px (tight enough to require genuine placement)
+
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function makeChallengePositions() {
+  // Container is ~300-340 px wide, 180 px tall; keep shapes 30px from edges
+  const targetX  = randomInt(210, 270);
+  const targetY  = randomInt(50,  120);
+  // Start on the left third, never overlapping the target zone
+  const startX   = randomInt(20,  80);
+  const startY   = randomInt(50,  120);
+  return { target: { x: targetX, y: targetY }, start: { x: startX, y: startY } };
+}
 
 function DragCaptcha({ onVerified }) {
-  const [dragging, setDragging] = useState(false);
-  const [pos, setPos] = useState({ x: 30, y: 90 });
-  const [solved, setSolved] = useState(false);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [challenge, setChallenge] = useState(() => makeChallengePositions());
+  const [dragging, setDragging]   = useState(false);
+  const [pos, setPos]             = useState(() => ({ ...challenge.start }));
+  const [solved, setSolved]       = useState(false);
+  const [offset, setOffset]       = useState({ x: 0, y: 0 });
   const containerRef = useRef(null);
+  const dragStartTime  = useRef(null);
+  const dragTravelPx   = useRef(0);
+  const lastDragPos    = useRef(null);
 
-  const TARGET = { x: 200, y: 90 };
-  const TOLERANCE = 30;
-  const shapeIdx = 1; // triangle
+  const TARGET    = challenge.target;
+  const TOLERANCE = 20;
 
   function onMouseDown(e) {
     if (solved) return;
+    e.preventDefault();
+    dragStartTime.current  = Date.now();
+    dragTravelPx.current   = 0;
+    lastDragPos.current    = { x: e.clientX, y: e.clientY };
     setDragging(true);
     setOffset({ x: e.clientX - pos.x, y: e.clientY - pos.y });
-    e.preventDefault();
   }
   function onTouchStart(e) {
     if (solved) return;
+    e.preventDefault();
     const t = e.touches[0];
+    dragStartTime.current  = Date.now();
+    dragTravelPx.current   = 0;
+    lastDragPos.current    = { x: t.clientX, y: t.clientY };
     setDragging(true);
     setOffset({ x: t.clientX - pos.x, y: t.clientY - pos.y });
   }
@@ -93,15 +121,28 @@ function DragCaptcha({ onVerified }) {
     if (!dragging) return;
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const nx = Math.max(0, Math.min(clientX - offset.x, rect.width - 40));
-    const ny = Math.max(0, Math.min(clientY - offset.y, rect.height - 40));
+    // Accumulate real pointer travel
+    if (lastDragPos.current) {
+      dragTravelPx.current += Math.hypot(
+        clientX - lastDragPos.current.x,
+        clientY - lastDragPos.current.y
+      );
+    }
+    lastDragPos.current = { x: clientX, y: clientY };
+    const nx = Math.max(0, Math.min(clientX - offset.x, rect.width  - 52));
+    const ny = Math.max(0, Math.min(clientY - offset.y, rect.height - 52));
     setPos({ x: nx, y: ny });
   }
   function onUp() {
     if (!dragging) return;
     setDragging(false);
-    const dist = Math.hypot(pos.x - TARGET.x, pos.y - TARGET.y);
-    if (dist < TOLERANCE) {
+    const elapsed = Date.now() - (dragStartTime.current ?? 0);
+    const dist    = Math.hypot(pos.x - TARGET.x, pos.y - TARGET.y);
+    const passed  =
+      dist                  < TOLERANCE &&
+      elapsed               >= 400      &&  // must take ≥400 ms
+      dragTravelPx.current  >= 50;          // must actually move ≥50 px
+    if (passed) {
       setPos(TARGET);
       setSolved(true);
       setTimeout(onVerified, 400);
@@ -109,8 +150,12 @@ function DragCaptcha({ onVerified }) {
   }
 
   function reset() {
+    const next = makeChallengePositions();
     setSolved(false);
-    setPos({ x: 30, y: 90 });
+    setChallenge(next);
+    setPos({ ...next.start });
+    dragTravelPx.current  = 0;
+    dragStartTime.current = null;
   }
 
   return (
@@ -121,31 +166,45 @@ function DragCaptcha({ onVerified }) {
       <div
         ref={containerRef}
         className="relative w-full rounded-xl overflow-hidden border border-white/10 bg-[#0e1020] select-none"
-        style={{ height: 180 }}
+        style={{ height: 180, touchAction: 'none' }}
         onMouseMove={e => onMove(e.clientX, e.clientY)}
         onMouseUp={onUp}
-        onTouchMove={e => onMove(e.touches[0].clientX, e.touches[0].clientY)}
+        onTouchMove={e => { e.preventDefault(); onMove(e.touches[0].clientX, e.touches[0].clientY) }}
         onTouchEnd={onUp}
       >
-        {/* Target outline */}
-        <div
-          className="absolute flex items-center justify-center text-4xl text-brand-blue/40 border-2 border-brand-blue/30 border-dashed rounded-lg"
-          style={{ left: TARGET.x - 20, top: TARGET.y - 20, width: 48, height: 48 }}
+        {/* Target outline — dashed triangle SVG */}
+        <svg
+          className="absolute pointer-events-none"
+          style={{ left: TARGET.x - 26, top: TARGET.y - 26, width: 52, height: 52 }}
+          viewBox="0 0 52 52"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
         >
-          {SHAPES[shapeIdx]}
-        </div>
+          <polygon
+            points="26,4 50,48 2,48"
+            stroke="rgba(37,99,235,0.5)"
+            strokeWidth="2"
+            strokeDasharray="5 3"
+            fill="rgba(37,99,235,0.08)"
+          />
+        </svg>
 
-        {/* Draggable shape */}
-        <div
+        {/* Draggable solid triangle */}
+        <svg
           onMouseDown={onMouseDown}
           onTouchStart={onTouchStart}
-          className={`absolute flex items-center justify-center text-4xl cursor-grab active:cursor-grabbing transition-colors ${
-            solved ? "text-green-400" : "text-brand-blue"
-          }`}
-          style={{ left: pos.x, top: pos.y - 20, width: 48, height: 48, userSelect: "none" }}
+          className={`absolute cursor-grab active:cursor-grabbing`}
+          style={{ left: pos.x - 26, top: pos.y - 26, width: 52, height: 52, userSelect: 'none', touchAction: 'none' }}
+          viewBox="0 0 52 52"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
         >
-          {SHAPES[shapeIdx]}
-        </div>
+          <polygon
+            points="26,4 50,48 2,48"
+            fill={solved ? '#22c55e' : '#2563eb'}
+            style={{ transition: 'fill 0.3s' }}
+          />
+        </svg>
 
         {solved && (
           <div className="absolute inset-0 flex items-center justify-center bg-green-500/10">
@@ -261,7 +320,7 @@ export default function AgeGate() {
                   />
                   <span className="text-slate-300 text-sm leading-relaxed">
                     I confirm <strong className="text-white">I meet all age requirements</strong> outlined in Thots'{" "}
-                    <a href="#" className="text-brand-blue underline">Terms of Service</a>.
+                    <Link to="/legal/terms" target="_blank" rel="noopener noreferrer" className="text-brand-blue underline">Terms of Service</Link>.
                   </span>
                 </label>
 

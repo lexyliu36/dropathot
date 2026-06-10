@@ -208,8 +208,14 @@ export default function Map() {
       style: 'mapbox://styles/mapbox/dark-v11',
       center,
       zoom: 16,
+      pitch: 0,
+      bearing: 0,
       attributionControl: false,
     })
+    // Lock to 2D — no tilt or rotation gestures
+    map.dragRotate.disable()
+    map.touchPitch.disable()
+    map.touchZoomRotate.disableRotation()
 
     map.addControl(new mapboxgl.AttributionControl({ compact: true }))
 
@@ -618,7 +624,7 @@ export default function Map() {
         {/* Recenter button */}
         {location && (
           <button
-            onClick={() => mapInstanceRef.current?.flyTo({ center: [location.lng, location.lat], zoom: 16, duration: 600 })}
+            onClick={() => mapInstanceRef.current?.flyTo({ center: [location.lng, location.lat], zoom: 16, pitch: 0, bearing: 0, duration: 600 })}
             className="w-9 h-9 rounded-xl bg-[#0e0e1a]/90 border border-white/10 shadow-lg flex items-center justify-center transition-colors cursor-pointer"
             style={{ color: '#e11d48' }}
             aria-label="Recenter on me"
@@ -692,6 +698,10 @@ export default function Map() {
           session={session}
           onHype={handleHype}
           onClose={() => setLeaderboardOpen(false)}
+          onSelectThot={(thot) => {
+            useAppStore.getState().setSelectedThot(thot)
+            setLeaderboardOpen(false)
+          }}
         />
       )}
 

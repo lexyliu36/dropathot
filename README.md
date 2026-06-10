@@ -98,6 +98,22 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.10` — Map UX Polish & CAPTCHA Hardening
+
+#### Map — 2D Lock
+- **Removed 3D tilt** — `dragRotate`, `touchPitch`, and `touchZoomRotate` rotation disabled on map init; map stays flat at all times
+- **Recenter resets orientation** — the recenter button now flies to `pitch: 0, bearing: 0` so north is always up after recentering, even if the map had drifted
+
+#### Age Gate — CAPTCHA Improvements
+- **SVG triangle outline** — target is now a proper dashed SVG triangle matching the draggable shape exactly, replacing the old dashed rectangle
+- **Bot hardening** — four checks now required to pass: (1) shape placed within 20px of target, (2) drag must take ≥400ms, (3) pointer must travel ≥50px total, (4) positions randomised on every mount and reset so hardcoded coordinates fail
+- **Fix: Terms of Service link** — was `href="#"` (dead link); now opens `/legal/terms` in a new tab via React Router `Link`
+- **Fix: mobile scroll during drag** — `touch-action: none` on container and draggable + `preventDefault` on touchstart/touchmove stops the page from scrolling while dragging the shape
+
+#### Top Thots
+- **Clickable pen names** — tapping a pen name opens that user's ProfileSheet and closes the leaderboard
+- **Comment count badge** — shows 💬 N next to each thot (only when >0); tapping it also opens the ProfileSheet to read the thread
+
 ### `v0.9` — Anti-Abuse: Profile Tab, Subnet Limits & Alert Emails
 
 #### Profile Tab (Tools Panel)

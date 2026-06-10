@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Heart, Upload, Star } from 'lucide-react'
+import { X, Heart, Upload, Star, MessageCircle } from 'lucide-react'
 import ShareSheet from './ShareSheet'
 import useAppStore from '../stores/useAppStore'
 
@@ -29,7 +29,7 @@ function LeaderboardHeart({ thot, session, onHype }) {
   )
 }
 
-export default function TopThots({ thots, session, onHype, onClose }) {
+export default function TopThots({ thots, session, onHype, onClose, onSelectThot }) {
   const [shareThot, setShareThot] = useState(null)
 
   const ranked = [...thots]
@@ -75,11 +75,29 @@ export default function TopThots({ thots, session, onHype, onClose }) {
               <div className="flex-1 min-w-0">
                 <p className="text-white text-xs leading-snug line-clamp-2">{thot.content}</p>
                 <div className="flex items-center gap-2 mt-1.5">
-                  <span className="text-[10px] font-semibold" style={{ color: thot.pen_name ? '#7c3aed' : '#475569' }}>
-                    {thot.pen_name || 'anon'}
-                  </span>
+                  {thot.pen_name ? (
+                    <button
+                      onClick={() => onSelectThot?.(thot)}
+                      className="text-[10px] font-semibold cursor-pointer hover:opacity-75 transition-opacity"
+                      style={{ background: 'none', border: 'none', padding: 0, color: '#7c3aed' }}
+                    >
+                      {thot.pen_name}
+                    </button>
+                  ) : (
+                    <span className="text-[10px] font-semibold" style={{ color: '#475569' }}>anon</span>
+                  )}
                   <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
                   <div className="ml-auto flex items-center gap-3 flex-shrink-0">
+                    {(thot.comment_count ?? 0) > 0 && (
+                      <button
+                        onClick={() => onSelectThot?.(thot)}
+                        className="flex items-center gap-0.5 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                        style={{ background: 'none', border: 'none', padding: 0 }}
+                      >
+                        <MessageCircle size={11} />
+                        <span className="text-[10px]">{thot.comment_count}</span>
+                      </button>
+                    )}
                     <LeaderboardHeart thot={thot} session={session} onHype={onHype} />
                     <button
                       onClick={() => setShareThot(thot)}
