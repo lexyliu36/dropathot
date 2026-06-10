@@ -75,7 +75,7 @@ export default function Landing() {
   function resetValidation() { setFieldErrors({}); setTouched(new Set()); }
 
   useEffect(() => {
-    if (state?.openLogin) { setMode("login"); resetValidation(); }
+    if (state?.openLogin) { setMode("login"); resetValidation(); if (state.prefillEmail) setForm(f => ({ ...f, email: state.prefillEmail })); }
     else if (state?.openSignup) { setMode("signup"); resetValidation(); }
   }, [state]);
 

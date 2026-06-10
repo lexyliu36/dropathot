@@ -63,8 +63,10 @@ router.get('/check-email', async (req, res) => {
   try {
     // Use the auth admin REST API directly — the JS client's listUsers filter
     // param is silently ignored in some versions, causing false positives
+    // Use per_page=50 — the search param does substring matching so we need enough
+    // results to find the exact match via the .find() below
     const resp = await fetch(
-      `${process.env.SUPABASE_URL}/auth/v1/admin/users?search=${encodeURIComponent(email)}&per_page=1`,
+      `${process.env.SUPABASE_URL}/auth/v1/admin/users?search=${encodeURIComponent(email)}&per_page=50`,
       {
         headers: {
           apikey: process.env.SUPABASE_SERVICE_KEY,

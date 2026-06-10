@@ -34,6 +34,11 @@ export default function VerifyEmail() {
       setStatus("sent")
       setCooldown(COOLDOWN_SECONDS)
     } catch (err) {
+      // Email already verified — no point staying here, send them to sign in
+      if (err.message?.toLowerCase().includes('already verified')) {
+        navigate("/", { state: { openLogin: true, prefillEmail: email } })
+        return
+      }
       setStatus("error")
       setErrorMsg(err.message)
     }
