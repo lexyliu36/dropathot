@@ -173,13 +173,16 @@ router.post('/resend-verification', async (req, res) => {
   const throttle = checkResendAllowed(email)
   if (!throttle.allowed) return res.status(429).json({ error: throttle.reason })
 
-  // Only resend if account exists and is unconfirmed
-  const { data: listData } = await supabase.auth.admin.listUsers({
-    filter: `email=eq.${email}`,
-    page: 1,
-    perPage: 1,
-  })
-  const user = listData?.users?.[0]
+  // Only resend if account exists and is unconfirmed.
+  // listUsers filter param is silently ignored by the JS client — use the REST API directly
+  // with exact-match find(), same pattern as check-email.
+  const searchResp = await fetch(
+    `${process.env.SUPABASE_URL}/auth/v1/admin/users?search=${encodeURIComponent(email)}&per_page=50`,
+    { headers: { apikey: process.env.SUPABASE_SERVICE_KEY, Authorization: `Bearer ${process.env.SUPABASE_SERVICE_KEY}` } }
+  )
+  if (!searchResp.ok) return res.status(500).json({ error: 'Could not look up account' })
+  const searchData = await searchResp.json()
+  const user = searchData?.users?.find(u => u.email?.toLowerCase() === email)
   if (!user) return res.status(404).json({ error: 'No account found with that email' })
   if (user.email_confirmed_at) return res.status(400).json({ error: 'Email is already verified. Try logging in.' })
 
