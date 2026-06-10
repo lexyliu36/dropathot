@@ -307,7 +307,7 @@ async function checkVelocitySpike(lat, lng, io) {
 
   // Log the flag
   flagCooldown.set(h3tile, Date.now())
-  console.warn(\`[velocity] spike detected: tile=\${h3tile} count=\${count} in \${VELOCITY_WINDOW_MINS}min\`)
+  console.warn(`[velocity] spike detected: tile=${h3tile} count=${count} in ${VELOCITY_WINDOW_MINS}min`)
 
   await supabase.from('velocity_flags').insert({
     h3_tile: h3tile,
