@@ -10,6 +10,7 @@ import thotsRouter from './routes/thots.js'
 import authRouter from './routes/auth.js'
 import commentsRouter from './routes/comments.js'
 import reportsRouter from './routes/reports.js'
+import adminRouter from './routes/admin.js'
 import { startDeletionCron } from './lib/deletionCron.js'
 
 const app = express()
@@ -39,6 +40,7 @@ app.use('/thots', thotsRouter)
 app.use('/auth', authRouter)
 app.use('/comments', commentsRouter)
 app.use('/reports', reportsRouter)
+app.use('/admin', adminRouter)
 
 app.get('/health', (_req, res) => res.json({ ok: true }))
 
