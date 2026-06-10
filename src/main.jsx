@@ -35,7 +35,7 @@ createRoot(document.getElementById("root")).render(
         <Route path="/legal/terms" element={<TermsPage />} />
         <Route path="/legal/privacy" element={<PrivacyPage />} />
         <Route path="/legal/safety" element={<SafetyPage />} />
-        <Route path="/admin" element={<AdminDashboard />} />
+        <Route path="/drop-ops" element={<AdminDashboard />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
