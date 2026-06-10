@@ -71,6 +71,21 @@ export default function Landing() {
     if (session.ageVerified && session.type) navigate("/map", { replace: true });
   }, []);
 
+  // Detect Supabase post-verification redirect: /#access_token=...&type=signup
+  // Show the verified banner and switch to login mode so they can sign in immediately
+  useEffect(() => {
+    const hash = window.location.hash
+    if (!hash) return
+    const params = new URLSearchParams(hash.replace(/^#/, ''))
+    if (params.get('type') === 'signup' || params.get('type') === 'recovery') {
+      setMode('login')
+      // Clean the hash from the URL without a page reload
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      // Use router state to trigger the green banner
+      navigate('.', { replace: true, state: { emailVerified: true } })
+    }
+  }, [])
+
   // Components navigate here with { openLogin } or { openSignup } to pre-select a mode
   function resetValidation() { setFieldErrors({}); setTouched(new Set()); }
 
@@ -279,8 +294,9 @@ export default function Landing() {
 
         {/* Email verified banner */}
         {state?.emailVerified && (
-          <div className="w-full px-4 py-3 rounded-2xl bg-green-500/10 border border-green-500/30 text-green-400 text-sm text-center">
-            Email verified! Log in to get started.
+          <div className="w-full px-4 py-3 rounded-2xl bg-green-500/12 border border-green-500/35 text-green-400 text-sm text-center panel-slide-up flex items-center justify-center gap-2">
+            <span>✓</span>
+            <span>Email verified — you're good to go. Sign in below.</span>
           </div>
         )}
 
