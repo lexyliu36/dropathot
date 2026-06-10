@@ -274,6 +274,57 @@ router.get('/:id', async (req, res) => {
   res.json(data)
 })
 
+// DELETE /thots/:id — soft-delete (hide) a thot the requester owns.
+// The record is kept for moderation/legal; hidden=true removes it from all feeds.
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params
+  if (!/^[0-9a-f-]{36}$/.test(id)) return res.status(400).json({ error: 'invalid id' })
+
+  // Cookie is authoritative — same pattern as POST
+  const session_id = req.cookies?.session_id
+  if (!session_id) return res.status(401).json({ error: 'no session' })
+
+  // Verify the thot belongs to this session before hiding
+  const { data: thot, error: fetchErr } = await supabase
+    .from('thots')
+    .select('id, session_id, hidden')
+    .eq('id', id)
+    .single()
+
+  if (fetchErr || !thot) return res.status(404).json({ error: 'not found' })
+  if (thot.session_id !== session_id) return res.status(403).json({ error: 'not yours' })
+  if (thot.hidden) return res.json({ ok: true }) // already hidden — idempotent
+
+  const { error: updateErr } = await supabase
+    .from('thots')
+    .update({ hidden: true })
+    .eq('id', id)
+
+  if (updateErr) return res.status(500).json({ error: updateErr.message })
+
+  // Restore the most recent prior thot from the same session that was auto-hidden
+  // when this thot was posted, provided it hasn't expired yet.
+  const { data: restored } = await supabase
+    .from('thots')
+    .select('*')
+    .eq('session_id', session_id)
+    .eq('hidden', true)
+    .neq('id', id)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (restored) {
+    await supabase
+      .from('thots')
+      .update({ hidden: false })
+      .eq('id', restored.id)
+  }
+
+  res.json({ ok: true, restored: restored ?? null })
+})
+
 // ---------------------------------------------------------------------------
 // Velocity spike detection
 // If >15 thots appear in the same H3 tile within 10 minutes, log a flag.

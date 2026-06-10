@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, ShieldX, ShieldCheck, Heart, MessageCircle, Upload, Flag } from 'lucide-react'
+import { X, ShieldX, ShieldCheck, Heart, MessageCircle, Upload, Flag, Trash2 } from 'lucide-react'
 import { AnonAvatar } from './ThotPin'
 import CommentThread from './CommentThread'
 import ShareSheet from './ShareSheet'
@@ -22,24 +22,63 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session }) {
   const isAuth = useAppStore((s) => s.session?.type === 'user')
   const [showComments, setShowComments] = useState(false)
   const [showShare, setShowShare] = useState(false)
-  const [reported, setReported] = useState(false)
+  const [deleted, setDeleted] = useState(false)
   const commentCount = thot.comment_count ?? 0
   const isOwn = thot.session_id === session?.id
+  const reported = useAppStore((s) => s.reportedThotIds.has(thot.id))
+  const addReportedThot = useAppStore((s) => s.addReportedThot)
+  const removeReportedThot = useAppStore((s) => s.removeReportedThot)
 
   async function handleReport() {
-    if (reported) return
+    if (reported) {
+      // Toggle off — remove the report
+      if (!window.confirm('Remove your report on this thot?')) return
+      try {
+        await fetch(`${API_URL}/reports/${thot.id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+        removeReportedThot(thot.id)
+      } catch (err) {
+        console.error('Unreport failed:', err)
+      }
+      return
+    }
+    if (!window.confirm('Report this thot? It will be reviewed by moderators.')) return
     try {
-      await fetch(`${API_URL}/reports`, {
+      const r = await fetch(`${API_URL}/reports`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ thot_id: thot.id, reason: 'user_report' }),
       })
-      setReported(true)
+      if (r.ok || r.status === 409) addReportedThot(thot.id)
     } catch (err) {
       console.error('Report failed:', err)
     }
   }
+
+  async function handleDelete() {
+    if (!window.confirm('Hide this thot? It will be removed from the map and your history.')) return
+    try {
+      const r = await fetch(`${API_URL}/thots/${thot.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      if (r.ok) {
+        const data = await r.json()
+        // Remove from live map immediately
+        useAppStore.getState().removeThot(thot.id)
+        // If a previously hidden thot was restored, surface it on the map
+        if (data.restored) useAppStore.getState().addThot(data.restored)
+        setDeleted(true)
+      }
+    } catch (err) {
+      console.error('Delete failed:', err)
+    }
+  }
+
+  if (deleted) return null
 
   return (
     <>
@@ -114,6 +153,18 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session }) {
               >
                 <Upload size={15} />
               </button>
+
+              {/* Delete — only for own thots */}
+              {isOwn && (
+                <button
+                  onClick={handleDelete}
+                  title="Hide this thot"
+                  className="flex items-center gap-1 transition-colors cursor-pointer ml-auto text-slate-700 hover:text-red-400"
+                  style={{ background: 'none', border: 'none', padding: 0 }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              )}
 
               {/* Report — only for other people's thots */}
               {!isOwn && (

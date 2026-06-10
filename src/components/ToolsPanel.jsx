@@ -45,6 +45,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
   const [likedThots, setLikedThots] = useState([])
   const [shareThot, setShareThot] = useState(null)
   const [view, setView] = useState('thots') // 'thots' | 'likes'
+  const [deletingId, setDeletingId] = useState(null)
 
   useEffect(() => {
     const id = session?.id
@@ -65,6 +66,29 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
       .then(data => setLikedThots(data))
       .catch(() => {})
   }, [session?.id])
+
+  async function handleDeleteThot(thotId) {
+    if (!window.confirm('Hide this thot? It will be removed from the map and your history.')) return
+    setDeletingId(thotId)
+    try {
+      const r = await fetch(`${API_URL}/thots/${thotId}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      if (r.ok) {
+        const data = await r.json()
+        setMyThots(prev => prev.filter(t => t.id !== thotId))
+        // Remove from live map
+        useAppStore.getState().removeThot(thotId)
+        // If a previously hidden thot was restored, surface it on the map
+        if (data.restored) {
+          useAppStore.getState().addThot(data.restored)
+          setMyThots(prev => [data.restored, ...prev.filter(t => t.id !== data.restored.id)])
+        }
+      }
+    } catch {}
+    setDeletingId(null)
+  }
 
   const totalHypes = myThots.reduce((sum, t) => sum + (t.hype_count ?? 0), 0)
 
@@ -161,13 +185,24 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
                   <ProfileHeart thot={thot} onHype={onHype} session={session} />
-                  <button
-                    onClick={() => setShareThot(thot)}
-                    className="ml-auto text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
-                    style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
-                  >
-                    <Upload size={11} />
-                  </button>
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      onClick={() => setShareThot(thot)}
+                      className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
+                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+                    >
+                      <Upload size={11} />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteThot(thot.id)}
+                      disabled={deletingId === thot.id}
+                      className="text-slate-700 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40"
+                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+                      title="Hide this thot"
+                    >
+                      <Trash2 size={11} />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))

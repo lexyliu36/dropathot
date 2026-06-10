@@ -50,6 +50,25 @@ const useAppStore = create((set, get) => ({
     }
   }),
 
+  removeThot: (thotId) => set((s) => ({
+    thots: s.thots.filter(t => t.id !== thotId),
+  })),
+
+  // Reported thot IDs — persisted in localStorage so you can't re-report after refresh
+  reportedThotIds: new Set(JSON.parse(localStorage.getItem('reportedThotIds') || '[]')),
+  addReportedThot: (thotId) => set((s) => {
+    const next = new Set(s.reportedThotIds)
+    next.add(thotId)
+    localStorage.setItem('reportedThotIds', JSON.stringify([...next]))
+    return { reportedThotIds: next }
+  }),
+  removeReportedThot: (thotId) => set((s) => {
+    const next = new Set(s.reportedThotIds)
+    next.delete(thotId)
+    localStorage.setItem('reportedThotIds', JSON.stringify([...next]))
+    return { reportedThotIds: next }
+  }),
+
   // Blocked session IDs — their thots are hidden locally only
   blockedSessions: new Set(),
   blockSession: (sessionId) => set((s) => {

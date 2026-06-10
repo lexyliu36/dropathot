@@ -123,7 +123,7 @@ router.post('/signup', async (req, res) => {
       const { data: listData } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
       const existing = listData?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
       if (existing && !existing.email_confirmed_at) {
-        const siteUrl = process.env.SITE_URL || 'http://localhost:5173'
+        const siteUrl = process.env.SITE_URL || (process.env.NODE_ENV === 'production' ? 'https://dropathot.com' : 'http://localhost:5173')
         const { data: linkData } = await supabase.auth.admin.generateLink({ type: 'signup', email, options: { redirectTo: siteUrl } })
         if (linkData) {
           try { await sendVerificationEmail(email, linkData.properties.action_link) } catch {}
@@ -145,7 +145,7 @@ router.post('/signup', async (req, res) => {
   }
 
   // Generate verification link and send via Resend
-  const siteUrl = process.env.SITE_URL || 'http://localhost:5173'
+  const siteUrl = process.env.SITE_URL || (process.env.NODE_ENV === 'production' ? 'https://dropathot.com' : 'http://localhost:5173')
   const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
     type: 'signup',
     email,
@@ -181,7 +181,7 @@ router.post('/resend-verification', async (req, res) => {
   if (!user) return res.status(404).json({ error: 'No account found with that email' })
   if (user.email_confirmed_at) return res.status(400).json({ error: 'Email is already verified. Try logging in.' })
 
-  const siteUrl = process.env.SITE_URL || 'http://localhost:5173'
+  const siteUrl = process.env.SITE_URL || (process.env.NODE_ENV === 'production' ? 'https://dropathot.com' : 'http://localhost:5173')
   const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
     type: 'signup',
     email,

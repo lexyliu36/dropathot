@@ -39,6 +39,10 @@ export async function signUp(email, password, penName, birthYear) {
     body: JSON.stringify({ email, password, pen_name: penName, birth_year: birthYear }),
   })
   const data = await res.json()
-  if (!res.ok) throw new Error(data.error || 'Signup failed')
+  if (!res.ok) {
+    const err = new Error(data.message || data.error || 'Signup failed')
+    err.code = data.error   // preserve raw code for programmatic checks
+    throw err
+  }
   return data // { user_id, pen_name }
 }

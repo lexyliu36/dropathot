@@ -294,6 +294,11 @@ export default function AgeGate() {
       setSignedUpEmail(pending.email);
       setStep("email-sent");
     } catch (err) {
+      if (err.code === 'unconfirmed') {
+        // Account exists but email not verified — go to resend page
+        navigate('/verify-email', { state: { email: pending?.email } });
+        return;
+      }
       setError(err.message);
       setStep("captcha");
     } finally {
@@ -343,7 +348,7 @@ export default function AgeGate() {
                     className="mt-0.5 w-4 h-4 accent-brand-blue cursor-pointer"
                   />
                   <span className="text-slate-300 text-sm leading-relaxed">
-                    I confirm <strong className="text-white">I meet all age requirements</strong> outlined in Thots'{" "}
+                    I confirm <strong className="text-white">I meet all age requirements</strong> outlined in DropAThot's {" "}
                     <Link to="/legal/terms" target="_blank" rel="noopener noreferrer" className="text-brand-blue underline">Terms of Service</Link>.
                   </span>
                 </label>
