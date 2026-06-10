@@ -74,8 +74,10 @@ router.get('/check-email', async (req, res) => {
     )
     if (!resp.ok) throw new Error(`Auth API ${resp.status}`)
     const data = await resp.json()
-    const exists = data?.users?.some(u => u.email?.toLowerCase() === email) ?? false
-    res.json({ exists })
+    const match = data?.users?.find(u => u.email?.toLowerCase() === email)
+    const exists = !!match
+    const confirmed = match ? !!match.email_confirmed_at : false
+    res.json({ exists, confirmed })
   } catch {
     res.status(500).json({ error: 'Could not verify email availability' })
   }
@@ -114,7 +116,23 @@ router.post('/signup', async (req, res) => {
     email_confirm: false,
     user_metadata: { pen_name, birth_year },
   })
-  if (authError) return res.status(400).json({ error: authError.message })
+  if (authError) {
+    // If account exists but email is unconfirmed, resend the verification link
+    if (authError.message?.toLowerCase().includes('already registered') ||
+        authError.message?.toLowerCase().includes('already been registered')) {
+      const { data: listData } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 })
+      const existing = listData?.users?.find(u => u.email?.toLowerCase() === email.toLowerCase())
+      if (existing && !existing.email_confirmed_at) {
+        const siteUrl = process.env.SITE_URL || 'http://localhost:5173'
+        const { data: linkData } = await supabase.auth.admin.generateLink({ type: 'signup', email, options: { redirectTo: siteUrl } })
+        if (linkData) {
+          try { await sendVerificationEmail(email, linkData.properties.action_link) } catch {}
+        }
+        return res.status(409).json({ error: 'unconfirmed', message: 'A verification email has been resent. Please check your inbox.' })
+      }
+    }
+    return res.status(400).json({ error: authError.message })
+  }
 
   const { error: userError } = await supabase.from('users').insert({
     id: authData.user.id,

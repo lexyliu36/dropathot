@@ -118,10 +118,15 @@ export default function Landing() {
     setLoading(true);
     setError(null);
     try {
-      const exists = await checkEmailExists(form.email);
-      if (exists) {
+      const { exists, confirmed } = await checkEmailExists(form.email);
+      if (exists && confirmed) {
         setFieldErrors(prev => ({ ...prev, email: 'An account with this email already exists.' }));
         setTouched(prev => new Set([...prev, 'email']));
+        return;
+      }
+      if (exists && !confirmed) {
+        // Account exists but email was never verified — navigate to resend page
+        navigate('/verify-email', { state: { email: form.email } });
         return;
       }
       // Write to sessionStorage instead of history.state so the plaintext

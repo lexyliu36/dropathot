@@ -18,7 +18,7 @@ export async function checkEmailExists(email) {
   })
   const data = await res.json()
   if (!res.ok) throw new Error(data.error || 'Could not verify email')
-  return data.exists // boolean
+  return { exists: data.exists, confirmed: data.confirmed ?? true }
 }
 
 export async function resendVerification(email) {

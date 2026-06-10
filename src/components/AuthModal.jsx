@@ -96,9 +96,13 @@ export default function AuthModal({ initialMode = 'login', onClose, onSuccess })
 
     setLoading(true); setError(null)
     try {
-      const exists = await checkEmailExists(form.email)
-      if (exists) {
+      const { exists, confirmed } = await checkEmailExists(form.email)
+      if (exists && confirmed) {
         setFieldErrors(prev => ({ ...prev, email: 'An account with this email already exists.' }))
+        return
+      }
+      if (exists && !confirmed) {
+        navigate('/verify-email', { state: { email: form.email } })
         return
       }
       sessionStorage.setItem('pending_signup', JSON.stringify({
