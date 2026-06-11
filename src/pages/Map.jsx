@@ -84,6 +84,8 @@ export default function Map() {
   const [searchFetching, setSearchFetching] = useState(false)
   const searchInputRef = useRef(null)
   const searchSessionToken = useRef(crypto.randomUUID())
+  const hypeTimersRef = useRef({})        // debounce timers per thot
+  const hypeServerRef = useRef({})        // last confirmed server state per thot
 
   const { location, error: locationError, request: requestLocation, retry } = useLocation()
   const { error: thotsError } = useThots()
@@ -134,7 +136,7 @@ export default function Map() {
           .catch(() => {})
         fetch(`${API_URL}/thots/my-hypes`, { credentials: 'include', headers })
           .then(r => r.ok ? r.json() : [])
-          .then(ids => setHypedThotIds(ids))
+          .then(ids => { setHypedThotIds(ids); ids.forEach(id => { hypeServerRef.current[id] = true }) })
           .catch(() => {})
       }
       initAuth()
@@ -382,23 +384,46 @@ export default function Map() {
     if (youEl?.parentElement) youEl.parentElement.appendChild(youEl)
   }, [visibleThots, mapReady, session?.id])
 
-  async function handleHype(thotId) {
+  function handleHype(thotId) {
     const s = useAppStore.getState()
-    console.log('[hype] called for', thotId, 'session type:', s.session?.type, 'has token:', !!s.session?.supabaseToken)
     if (!s.session?.supabaseToken) {
       window.dispatchEvent(new CustomEvent('thots:needs-auth'))
       return
     }
-    const res = await fetch(`${API_URL}/thots/${thotId}/hype`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${s.session.supabaseToken}` },
-    })
-    const data = await res.json().catch(() => ({}))
-    console.log('[hype] server response', res.status, data)
-    if (res.status === 401) { window.dispatchEvent(new CustomEvent('thots:needs-auth')); return }
-    if (!res.ok) return
-    toggleHypedThot(thotId, data.hyped, data.hype_count)
+    // Optimistic toggle — instant UI feedback
+    const wasHyped = s.hypedThotIds.has(thotId)
+    const prevCount = s.thots.find(t => t.id === thotId)?.hype_count ?? 0
+    toggleHypedThot(thotId, !wasHyped, wasHyped ? prevCount - 1 : prevCount + 1)
+
+    // Debounce the API call so rapid clicks only send one request
+    clearTimeout(hypeTimersRef.current[thotId])
+    hypeTimersRef.current[thotId] = setTimeout(async () => {
+      const current = useAppStore.getState()
+      const desiredHyped = current.hypedThotIds.has(thotId)
+      const serverHyped = hypeServerRef.current[thotId] ?? false
+
+      // If optimistic state already matches server, skip the request
+      if (desiredHyped === serverHyped) return
+
+      const token = current.session?.supabaseToken
+      const res = await fetch(`${API_URL}/thots/${thotId}/hype`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.status === 401) {
+        toggleHypedThot(thotId, serverHyped, prevCount) // revert
+        window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+        return
+      }
+      if (!res.ok) {
+        toggleHypedThot(thotId, serverHyped, prevCount) // revert
+        return
+      }
+      const data = await res.json().catch(() => ({}))
+      hypeServerRef.current[thotId] = data.hyped  // update known server state
+      toggleHypedThot(thotId, data.hyped, data.hype_count)
+    }, 350)
   }
 
   async function handlePost(content, duration) {

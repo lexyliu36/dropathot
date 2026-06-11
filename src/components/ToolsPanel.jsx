@@ -24,17 +24,20 @@ function ProfileHeart({ thot, onHype, session }) {
   const hyped = useAppStore((s) => s.hypedThotIds.has(thot.id))
   const hypeCount = useAppStore((s) => s.thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0)
   return (
-    <button
-      onClick={() => session?.type === 'user'
-        ? onHype?.(thot.id)
-        : window.dispatchEvent(new CustomEvent('thots:needs-auth'))
-      }
-      className="flex items-center gap-0.5 transition-colors cursor-pointer"
-      style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b' }}
-    >
-      <Heart size={10} style={{ fill: hyped ? '#e11d48' : 'none', color: hyped ? '#e11d48' : '#64748b' }} />
-      {hypeCount > 0 && <span className="text-[10px]">{hypeCount}</span>}
-    </button>
+    <div className="relative group/tip">
+      <button
+        onClick={() => session?.type === 'user'
+          ? onHype?.(thot.id)
+          : window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+        }
+        className="flex items-center gap-1.5 transition-colors cursor-pointer"
+        style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b' }}
+      >
+        <Heart size={17} style={{ fill: hyped ? '#e11d48' : 'none', color: hyped ? '#e11d48' : '#64748b' }} />
+        {hypeCount > 0 && <span className="text-xs">{hypeCount}</span>}
+      </button>
+      <span className="action-tip">{hyped ? 'Unlike' : 'Like'}</span>
+    </div>
   )
 }
 
@@ -103,7 +106,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
   return (
     <div>
       {/* Identity card */}
-      <div className="bg-white/5 border border-white/8 rounded-xl p-3 mb-4">
+      <div className="bg-white/5 border border-white/[0.05] rounded-xl p-3 mb-4">
         <div className="flex items-center gap-3">
           <div
             className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
@@ -135,7 +138,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
         </div>
 
         {isAuth && (
-          <div className="flex gap-4 mt-3 pt-3 border-t border-white/8">
+          <div className="flex gap-4 mt-3 pt-3 border-t border-white/[0.05]">
             <button
               onClick={() => setView('thots')}
               className="text-center cursor-pointer transition-opacity hover:opacity-80"
@@ -189,27 +192,32 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
           ) : (
             myThots.map(thot => (
               <div key={thot.id} className="py-2.5 border-b border-white/5 last:border-0">
-                <p className="text-white text-xs leading-snug line-clamp-2">{thot.content}</p>
+                <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
                   <ProfileHeart thot={thot} onHype={onHype} session={session} />
                   <div className="ml-auto flex items-center gap-2">
-                    <button
-                      onClick={() => setShareThot(thot)}
-                      className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
-                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
-                    >
-                      <Upload size={11} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteThot(thot.id)}
-                      disabled={deletingId === thot.id}
-                      className="text-slate-700 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40"
-                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
-                      title="Hide this thot"
-                    >
-                      <Trash2 size={11} />
-                    </button>
+                    <div className="relative group/tip">
+                      <button
+                        onClick={() => setShareThot(thot)}
+                        className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
+                        style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+                      >
+                        <Upload size={17} />
+                      </button>
+                      <span className="action-tip">Share</span>
+                    </div>
+                    <div className="relative group/tip">
+                      <button
+                        onClick={() => handleDeleteThot(thot.id)}
+                        disabled={deletingId === thot.id}
+                        className="text-slate-700 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40"
+                        style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                      <span className="action-tip">Delete</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -227,27 +235,30 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
           ) : (
             likedThots.map(thot => (
               <div key={thot.id} className="py-2.5 border-b border-white/5 last:border-0">
-                <p className="text-white text-xs leading-snug line-clamp-2">{thot.content}</p>
+                <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
                 <div className="flex items-center gap-2 mt-1.5">
                   {thot.pen_name ? (
                     <button
                       onClick={() => onOpenProfile?.(thot)}
-                      className="text-[10px] font-semibold cursor-pointer hover:opacity-80 transition-opacity"
+                      className="text-xs font-semibold cursor-pointer hover:opacity-80 transition-opacity"
                       style={{ background: 'none', border: 'none', padding: 0, color: '#7c3aed' }}
                     >
                       {thot.pen_name}
                     </button>
                   ) : (
-                    <span className="text-slate-600 text-[10px]">anon</span>
+                    <span className="text-slate-600 text-xs">anon</span>
                   )}
                   <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
-                  <button
-                    onClick={() => setShareThot(thot)}
-                    className="ml-auto text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
-                    style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
-                  >
-                    <Upload size={11} />
-                  </button>
+                  <div className="relative group/tip ml-auto">
+                    <button
+                      onClick={() => setShareThot(thot)}
+                      className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
+                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+                    >
+                      <Upload size={17} />
+                    </button>
+                    <span className="action-tip">Share</span>
+                  </div>
                 </div>
               </div>
             ))
@@ -398,13 +409,13 @@ function SettingsPane({ session }) {
   return (
     <div className="flex flex-col gap-3 pt-1">
       {/* Coming soon placeholder */}
-      <div className="bg-white/3 border border-white/6 rounded-xl p-3">
+      <div className="bg-white/[0.07] border border-white/[0.04] rounded-xl p-3">
         <p className="text-slate-500 text-xs font-medium mb-1">Preferences</p>
         <p className="text-slate-700 text-[11px]">More settings coming soon</p>
       </div>
 
       {/* Sign out */}
-      <div className="bg-white/3 border border-white/6 rounded-xl p-3">
+      <div className="bg-white/[0.07] border border-white/[0.04] rounded-xl p-3">
         <p className="text-slate-500 text-xs font-medium mb-2">Account</p>
         {isAuth && session.penName && (
           <p className="text-slate-400 text-[11px] mb-3">
@@ -554,7 +565,7 @@ function SettingsPane({ session }) {
 
       {/* Delete account — members only */}
       {isAuth && (
-        <div className="bg-white/3 border border-white/6 rounded-xl p-3">
+        <div className="bg-white/[0.07] border border-white/[0.04] rounded-xl p-3">
           <p className="text-slate-500 text-xs font-medium mb-1">Delete account</p>
           {!deletionStatus?.pending && !showDeleteConfirm && (
             <p className="text-slate-600 text-[10px] leading-relaxed mb-3">
@@ -647,9 +658,9 @@ export default function ToolsPanel({ onClose, thots, session, onHype, onOpenProf
   const [activeTab, setActiveTab] = useState('profile')
 
   return (
-    <div className="absolute top-3 right-3 bottom-3 z-30 w-72 flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden panel-slide-right">
+    <div className="absolute top-3 right-3 bottom-3 z-30 w-72 flex flex-col bg-[#0e0e1a] border border-white/[0.06] rounded-2xl shadow-2xl overflow-hidden panel-slide-right">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05] flex-shrink-0">
         <span className="text-white font-bold text-sm tracking-tight">Tools</span>
         <button
           onClick={onClose}
@@ -660,7 +671,7 @@ export default function ToolsPanel({ onClose, thots, session, onHype, onOpenProf
       </div>
 
       {/* Tab nav */}
-      <div className="flex border-b border-white/8 flex-shrink-0">
+      <div className="flex border-b border-white/[0.05] flex-shrink-0">
         {TABS.map(({ id, icon: Icon, label }) => (
           <button
             key={id}

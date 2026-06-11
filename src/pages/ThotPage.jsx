@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Heart, MessageCircle, Upload, MapPin } from 'lucide-react'
 import { AnonAvatar } from '../components/ThotPin'
 import ShareSheet from '../components/ShareSheet'
+import { reverseGeocode } from '../lib/geocode.js'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
@@ -34,23 +35,11 @@ export default function ThotPage() {
       .finally(() => setLoading(false))
   }, [id])
 
-
   useEffect(() => {
     if (!thot?.lat || !thot?.lng) return
-    fetch(
-      `https://nominatim.openstreetmap.org/reverse?lat=${thot.lat}&lon=${thot.lng}&format=json&zoom=12`,
-      { headers: { 'Accept-Language': 'en' } }
-    )
-      .then(r => r.json())
-      .then(data => {
-        const a = data.address || {}
-        const neighbourhood = a.neighbourhood || a.suburb || a.quarter || a.hamlet
-        const city = a.city || a.town || a.village || a.county
-        if (neighbourhood && city) setLocationName(`${neighbourhood}, ${city}`)
-        else if (city) setLocationName(city)
-        else if (data.display_name) setLocationName(data.display_name.split(',').slice(0, 2).join(',').trim())
-      })
-      .catch(() => {})
+    reverseGeocode(thot.lat, thot.lng).then(label => {
+      if (label) setLocationName(label)
+    })
   }, [thot?.lat, thot?.lng])
 
   const accentColor = thot?.pen_name ? '#7c3aed' : '#64748b'
@@ -62,18 +51,13 @@ export default function ThotPage() {
     >
       {/* Logo */}
       <div className="mb-8 text-center">
-        <span
-          className="text-2xl font-black tracking-tight"
-          style={{ color: '#e11d48' }}
-        >
+        <span className="text-2xl font-black tracking-tight" style={{ color: '#e11d48' }}>
           drop-a-thot
         </span>
         <p className="text-slate-500 text-xs mt-1">anonymous thoughts, dropped on a map</p>
       </div>
 
-      {loading && (
-        <div className="text-slate-500 text-sm">Loading…</div>
-      )}
+      {loading && <div className="text-slate-500 text-sm">Loading…</div>}
 
       {notFound && (
         <div className="text-center">
@@ -89,7 +73,6 @@ export default function ThotPage() {
         >
           {/* Thot card */}
           <div className="px-5 py-5">
-            {/* Header */}
             <div className="flex items-start gap-3 mb-3">
               <AnonAvatar size={36} color={accentColor} />
               <div>
@@ -100,10 +83,8 @@ export default function ThotPage() {
               </div>
             </div>
 
-            {/* Content */}
             <p className="text-white text-sm leading-relaxed mb-4">{thot.content}</p>
 
-            {/* Stats row */}
             <div className="flex items-center gap-5">
               <div className="flex items-center gap-1.5 text-slate-500">
                 <Heart size={15} />
@@ -124,21 +105,19 @@ export default function ThotPage() {
             </div>
           </div>
 
-          {/* Location hint */}
+          {/* Location footer */}
           <div
             className="px-5 py-3 flex items-center gap-2"
             style={{ borderTop: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}
           >
             <MapPin size={12} className="text-slate-600 flex-shrink-0" />
-            {locationName
-              ? <span className="text-slate-600 text-[11px]">{locationName}</span>
-              : <span className="text-slate-600 text-[11px]">Dropped somewhere on the map</span>
-            }
+            <span className="text-slate-600 text-[11px]">
+              {locationName ?? 'Dropped somewhere on the map'}
+            </span>
           </div>
         </div>
       )}
 
-      {/* CTA */}
       {!loading && !notFound && (
         <div className="mt-6 text-center">
           <button

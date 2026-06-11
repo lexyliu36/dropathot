@@ -19,6 +19,13 @@ function relativeTime(isoString) {
 function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete }) {
   const hyped = useAppStore((s) => s.hypedThotIds.has(thot.id))
   const hypeCount = useAppStore((s) => s.thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0)
+  const [heartAnim, setHeartAnim] = useState(false)
+
+  function handleHypeClick() {
+    if (!isAuth) { window.dispatchEvent(new CustomEvent('thots:needs-auth')); return }
+    setHeartAnim(true)
+    onHype?.(thot.id)
+  }
   const isAuth = useAppStore((s) => s.session?.type === 'user')
   const [showComments, setShowComments] = useState(false)
   const [showShare, setShowShare] = useState(false)
@@ -94,11 +101,9 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete })
   return (
     <>
       <div
-        className="py-3 px-1 transition-colors"
+        className="py-3 px-2 rounded-xl transition-colors"
         style={highlighted ? {
           background: `${accentColor}0d`,
-          borderRadius: '12px',
-          padding: '10px 12px',
           border: `1px solid ${accentColor}28`,
         } : {
           borderBottom: '1px solid rgba(255,255,255,0.05)',
@@ -111,71 +116,75 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete })
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xs font-semibold leading-tight" style={{ color: accentColor }}>
+              <span className="text-xs sm:text-sm font-semibold leading-tight" style={{ color: accentColor }}>
                 {thot.pen_name || 'anon'}
               </span>
               <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
             </div>
 
             {/* Content */}
-            <p className="text-white/90 text-xs leading-relaxed mt-1 break-words">{thot.content}</p>
+            <p className="text-white/90 text-xs sm:text-sm leading-relaxed mt-1 break-words">{thot.content}</p>
 
             {/* Action row */}
-            <div className="flex items-center gap-4 mt-2.5">
+            <div className="flex items-center gap-5 mt-3">
               {/* Hype / Heart */}
-              <button
-                onClick={() => isAuth
-                  ? onHype?.(thot.id)
-                  : window.dispatchEvent(new CustomEvent('thots:needs-auth'))
-                }
-                title={isAuth ? (hyped ? 'Unlike' : 'Like') : 'Sign in to like'}
-                className="flex items-center gap-1 transition-colors cursor-pointer group"
-                style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b' }}
-              >
-                <Heart
-                  size={15}
-                  style={{
-                    fill: hyped ? '#e11d48' : 'none',
-                    transition: 'fill 0.15s, color 0.15s',
-                  }}
-                />
-                {hypeCount > 0 && (
-                  <span className="text-[11px]" style={{ color: hyped ? '#e11d48' : '#64748b' }}>
-                    {hypeCount}
-                  </span>
-                )}
-              </button>
+              <div className="relative group/tip">
+                <button
+                  onClick={handleHypeClick}
+                  className="flex items-center gap-1.5 transition-colors cursor-pointer"
+                  style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b' }}
+                >
+                  <Heart
+                    size={19}
+                    className={heartAnim ? 'heart-pop' : ''}
+                    onAnimationEnd={() => setHeartAnim(false)}
+                    style={{ fill: hyped ? '#e11d48' : 'none', transition: 'fill 0.15s, color 0.15s' }}
+                  />
+                  {hypeCount > 0 && (
+                    <span className="text-xs" style={{ color: hyped ? '#e11d48' : '#64748b' }}>{hypeCount}</span>
+                  )}
+                </button>
+                <span className="action-tip">{isAuth ? (hyped ? 'Unlike' : 'Like') : 'Sign in'}</span>
+              </div>
 
               {/* Comment */}
-              <button
-                onClick={() => setShowComments(v => !v)}
-                className="flex items-center gap-1 transition-colors cursor-pointer"
-                style={{ background: 'none', border: 'none', padding: 0, color: showComments ? '#94a3b8' : '#64748b' }}
-              >
-                <MessageCircle size={15} />
-                {commentCount > 0 && <span className="text-[11px]">{commentCount}</span>}
-              </button>
+              <div className="relative group/tip">
+                <button
+                  onClick={() => setShowComments(v => !v)}
+                  className="flex items-center gap-1.5 transition-colors cursor-pointer"
+                  style={{ background: 'none', border: 'none', padding: 0, color: showComments ? '#94a3b8' : '#64748b' }}
+                >
+                  <MessageCircle size={17} />
+                  {commentCount > 0 && <span className="text-xs">{commentCount}</span>}
+                </button>
+                <span className="action-tip">Comment</span>
+              </div>
 
               {/* Share */}
-              <button
-                onClick={() => setShowShare(true)}
-                className="flex items-center gap-1 transition-colors cursor-pointer"
-                style={{ background: 'none', border: 'none', padding: 0, color: '#64748b' }}
-              >
-                <Upload size={15} />
-              </button>
+              <div className="relative group/tip">
+                <button
+                  onClick={() => setShowShare(true)}
+                  className="flex items-center gap-1 transition-colors cursor-pointer"
+                  style={{ background: 'none', border: 'none', padding: 0, color: '#64748b' }}
+                >
+                  <Upload size={17} />
+                </button>
+                <span className="action-tip">Share</span>
+              </div>
 
               {/* Delete — only for own thots */}
               {isOwn && (
                 <div className="flex flex-col items-end ml-auto gap-1">
-                  <button
-                    onClick={handleDelete}
-                    title="Hide this thot"
-                    className="flex items-center gap-1 transition-colors cursor-pointer text-slate-700 hover:text-red-400"
-                    style={{ background: 'none', border: 'none', padding: 0 }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  <div className="relative group/tip">
+                    <button
+                      onClick={handleDelete}
+                      className="flex items-center gap-1 transition-colors cursor-pointer text-slate-700 hover:text-red-400"
+                      style={{ background: 'none', border: 'none', padding: 0 }}
+                    >
+                      <Trash2 size={17} />
+                    </button>
+                    <span className="action-tip">Delete</span>
+                  </div>
                   {deleteError && (
                     <span className="text-[10px]" style={{ color: '#f87171' }}>{deleteError}</span>
                   )}
@@ -184,18 +193,19 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete })
 
               {/* Report — only for other people's thots */}
               {!isOwn && (
-                <button
-                  onClick={handleReport}
-                  title={reported ? 'Reported' : 'Report this thot'}
-                  className="flex items-center gap-1 transition-colors cursor-pointer ml-auto"
-                  style={{
-                    background: 'none', border: 'none', padding: 0,
-                    color: reported ? '#f97316' : '#3f4b5b',
-                  }}
-                >
-                  <Flag size={13} style={{ fill: reported ? '#f97316' : 'none' }} />
-                  {reported && <span className="text-[10px]" style={{ color: '#f97316' }}>reported</span>}
-                </button>
+                <div className="relative group/tip ml-auto">
+                  <button
+                    onClick={handleReport}
+                    className="flex items-center gap-1 transition-colors cursor-pointer"
+                    style={{
+                      background: 'none', border: 'none', padding: 0,
+                      color: reported ? '#f97316' : '#3f4b5b',
+                    }}
+                  >
+                    <Flag size={17} style={{ fill: reported ? '#f97316' : 'none' }} />
+                  </button>
+                  <span className="action-tip">{reported ? 'Reported' : 'Report'}</span>
+                </div>
               )}
             </div>
           </div>
@@ -255,7 +265,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   return (
     <div className="absolute top-3 right-3 bottom-3 z-30 w-72 flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden panel-slide-right">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/8 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05] flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <AnonAvatar size={30} color={accentColor} active={isYou} />
           <div>
@@ -356,7 +366,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
 
       {/* Drop new thot CTA */}
       {isYou && onCompose && allThots.length > 0 && (
-        <div className="px-4 py-3 border-t border-white/8 flex-shrink-0">
+        <div className="px-4 py-3 border-t border-white/[0.05] flex-shrink-0">
           <button
             onClick={onCompose}
             className="w-full rounded-xl py-2.5 text-sm font-semibold cursor-pointer transition-colors"

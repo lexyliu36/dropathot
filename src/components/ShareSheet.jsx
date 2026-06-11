@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { X, Link2, Share2, Heart, MessageCircle, MapPin } from 'lucide-react'
 import { AnonAvatar } from './ThotPin'
+import { reverseGeocode } from '../lib/geocode.js'
 
 function relativeTime(iso) {
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -17,9 +18,19 @@ function accentFor(penName) {
 
 export default function ShareSheet({ thot, onClose, urlOverride, titleOverride }) {
   const [copied, setCopied] = useState(false)
+  const [locationLabel, setLocationLabel] = useState(thot.city ?? null)
+
   const url = urlOverride ?? `${window.location.origin}/t/${thot.id}`
   const title = titleOverride ?? 'Share this thot'
   const accent = accentFor(thot.pen_name)
+
+  useEffect(() => {
+    if (locationLabel) return
+    if (!thot.lat || !thot.lng) return
+    reverseGeocode(thot.lat, thot.lng).then(label => {
+      if (label) setLocationLabel(label)
+    })
+  }, [thot.lat, thot.lng])
 
   function copyLink() {
     navigator.clipboard.writeText(url).then(() => {
@@ -38,13 +49,11 @@ export default function ShareSheet({ thot, onClose, urlOverride, titleOverride }
 
   return createPortal(
     <>
-      {/* Backdrop */}
       <div
         className="fixed inset-0 z-[200] flex items-center justify-center px-4"
         style={{ background: 'rgba(0,0,0,0.65)' }}
         onClick={onClose}
       >
-        {/* Modal */}
         <div
           className="w-full max-w-sm rounded-2xl px-5 pt-5 pb-6 panel-slide-up"
           style={{ background: '#0e0e1a', border: '1px solid rgba(255,255,255,0.1)' }}
@@ -67,7 +76,6 @@ export default function ShareSheet({ thot, onClose, urlOverride, titleOverride }
             className="rounded-xl px-4 py-3.5 mb-5"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
           >
-            {/* Author row */}
             <div className="flex items-center gap-2.5 mb-2.5">
               <AnonAvatar size={28} color={accent} />
               <div>
@@ -78,12 +86,10 @@ export default function ShareSheet({ thot, onClose, urlOverride, titleOverride }
               </div>
             </div>
 
-            {/* Content */}
             <p className="text-white text-sm font-semibold leading-snug line-clamp-4 mb-3">
               {thot.content}
             </p>
 
-            {/* Stats row */}
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1 text-slate-500 text-[11px]">
                 <Heart size={11} /> {thot.hype_count ?? 0}
@@ -91,10 +97,10 @@ export default function ShareSheet({ thot, onClose, urlOverride, titleOverride }
               <span className="flex items-center gap-1 text-slate-500 text-[11px]">
                 <MessageCircle size={11} /> {thot.comment_count ?? 0}
               </span>
-              {thot.city && (
-                <span className="flex items-center gap-1 text-slate-600 text-[10px] ml-auto">
-                  <MapPin size={9} />
-                  {thot.city}
+              {locationLabel && (
+                <span className="flex items-center gap-1 text-slate-500 text-[11px] ml-auto">
+                  <MapPin size={10} />
+                  {locationLabel}
                 </span>
               )}
             </div>

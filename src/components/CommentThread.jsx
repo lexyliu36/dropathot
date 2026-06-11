@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
-import { Heart, Send, Loader2, CornerDownRight, Upload } from 'lucide-react'
+import { Heart, Send, Loader2, CornerDownRight, Upload, Trash2 } from 'lucide-react'
 import ShareSheet from './ShareSheet'
+import useAppStore from '../stores/useAppStore'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
@@ -12,36 +13,87 @@ function relativeTime(isoString) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
-function CommentItem({ comment, session, accentColor, onReply, onShare }) {
-  const [hyped, setHyped] = useState(false)
+function CommentItem({ comment, session, accentColor, onReply, onShare, onDelete, initialHyped }) {
+  const [hyped, setHyped] = useState(initialHyped ?? false)
   const [count, setCount] = useState(comment.hype_count ?? 0)
+  const [heartAnim, setHeartAnim] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const hypeTimerRef = useRef(null)
+  const hypeServerRef = useRef(initialHyped ?? false)
   const isAuth = session?.type === 'user'
+  const isOwner = isAuth && session?.userId && comment.user_id === session.userId
 
-  async function toggleHype() {
-    if (!isAuth) return
-    const res = await fetch(`${API_URL}/comments/${comment.id}/hype`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${session.supabaseToken}` },
-    })
-    if (!res.ok) return
-    const data = await res.json()
-    setHyped(data.hyped)
-    setCount(data.hype_count)
+  function toggleHype() {
+    if (!isAuth) {
+      window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+      return
+    }
+    const token = useAppStore.getState().session?.supabaseToken
+    if (!token) { window.dispatchEvent(new CustomEvent('thots:needs-auth')); return }
+
+    // Optimistic: flip immediately, play animation
+    const currentHyped = !hypeTimerRef.current
+      ? hypeServerRef.current
+      : (hyped) // use current UI state if timer pending
+    const next = !hyped
+    setHyped(next)
+    setCount(c => next ? c + 1 : Math.max(0, c - 1))
+    setHeartAnim(true)
+
+    // Debounce: only fire API if net change vs last known server state
+    clearTimeout(hypeTimerRef.current)
+    hypeTimerRef.current = setTimeout(async () => {
+      hypeTimerRef.current = null
+      const desired = next
+      const serverState = hypeServerRef.current
+      if (desired === serverState) return // no net change, skip
+
+      const res = await fetch(`${API_URL}/comments/${comment.id}/hype`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) {
+        // Revert to server state
+        setHyped(serverState)
+        setCount(c => desired ? Math.max(0, c - 1) : c + 1)
+        return
+      }
+      const data = await res.json()
+      hypeServerRef.current = data.hyped
+      setHyped(data.hyped)
+      setCount(data.hype_count)
+    }, 350)
+  }
+
+  async function handleDelete() {
+    if (!isOwner || deleting) return
+    setDeleting(true)
+    try {
+      const token = useAppStore.getState().session?.supabaseToken
+      const res = await fetch(`${API_URL}/comments/${comment.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) onDelete(comment.id)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
     <div className="flex flex-col gap-1 py-2.5 border-b border-white/5 last:border-0">
       {/* Author + timestamp */}
       <div className="flex items-center gap-1.5">
-        <span className="text-[11px] font-semibold" style={{ color: accentColor }}>
+        <span className="text-[11px] sm:text-xs font-semibold" style={{ color: accentColor }}>
           {comment.pen_name}
         </span>
         <span className="text-slate-600 text-[10px]">{relativeTime(comment.created_at)}</span>
       </div>
 
       {/* Content */}
-      <p className="text-white text-xs leading-snug">
+      <p className="text-white text-xs sm:text-sm leading-snug">
         {comment.reply_to_pen_name && (
           <span className="font-semibold mr-1" style={{ color: accentColor }}>
             @{comment.reply_to_pen_name}
@@ -54,39 +106,58 @@ function CommentItem({ comment, session, accentColor, onReply, onShare }) {
 
       {/* Actions */}
       <div className="flex items-center gap-3 mt-0.5">
-        <button
-          onClick={toggleHype}
-          className="flex items-center gap-1 transition-colors"
-          style={{
-            color: hyped ? accentColor : 'rgba(255,255,255,0.3)',
-            background: 'none', border: 'none', padding: 0,
-            cursor: isAuth ? 'pointer' : 'default',
-            opacity: isAuth ? 1 : 0.5,
-          }}
-        >
-          <Heart size={11} style={{ fill: hyped ? accentColor : 'none', strokeWidth: 1.5 }} />
-          {count > 0 && <span className="text-[10px]">{count}</span>}
-        </button>
+        <div className="relative group/tip">
+          <button
+            onClick={toggleHype}
+            className="flex items-center gap-1 transition-colors"
+            style={{
+              color: hyped ? accentColor : '#64748b',
+              background: 'none', border: 'none', padding: 0,
+              cursor: 'pointer',
+            }}
+          >
+            <Heart size={14} className={heartAnim ? 'heart-pop' : ''} onAnimationEnd={() => setHeartAnim(false)} style={{ fill: hyped ? accentColor : 'none', strokeWidth: 1.5 }} />
+            {count > 0 && <span className="text-xs">{count}</span>}
+          </button>
+          <span className="action-tip">{hyped ? 'Unlike' : 'Like'}</span>
+        </div>
 
         {isAuth && (
           <button
             onClick={() => onReply(comment.pen_name)}
-            className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+            className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
             style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
           >
-            <CornerDownRight size={11} />
+            <CornerDownRight size={13} />
             Reply
           </button>
         )}
 
         <button
           onClick={() => onShare(comment)}
-          className="flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+          className="flex items-center gap-1 text-xs text-slate-500 hover:text-slate-300 transition-colors"
           style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
         >
-          <Upload size={11} />
+          <Upload size={13} />
           Share
         </button>
+
+        {isOwner && (
+          <div className="relative group/tip ml-auto">
+            <button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="flex items-center gap-1 text-xs text-slate-600 hover:text-red-400 transition-colors disabled:opacity-40"
+              style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer' }}
+            >
+              {deleting
+                ? <Loader2 size={11} className="animate-spin" />
+                : <Trash2 size={13} />
+              }
+            </button>
+            <span className="action-tip">Delete</span>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -94,20 +165,39 @@ function CommentItem({ comment, session, accentColor, onReply, onShare }) {
 
 export default function CommentThread({ thotId, accentColor, session }) {
   const [comments, setComments] = useState([])
+  const [hypedIds, setHypedIds] = useState(new Set())
   const [loading, setLoading] = useState(true)
   const [text, setText] = useState('')
   const [posting, setPosting] = useState(false)
   const [replyingTo, setReplyingTo] = useState(null)
   const [sharingComment, setSharingComment] = useState(null)
   const textareaRef = useRef(null)
+
+  function autoResize(el) {
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+  }
   const isAuth = session?.type === 'user'
 
   useEffect(() => {
-    fetch(`${API_URL}/comments?thot_id=${thotId}`)
+    const token = useAppStore.getState().session?.supabaseToken
+
+    const fetchComments = fetch(`${API_URL}/comments?thot_id=${thotId}`)
       .then(r => r.ok ? r.json() : [])
-      .then(data => setComments(data))
-      .catch(() => setComments([]))
-      .finally(() => setLoading(false))
+      .catch(() => [])
+
+    const fetchHyped = token
+      ? fetch(`${API_URL}/comments/my-hypes?thot_id=${thotId}`, {
+          credentials: 'include',
+          headers: { Authorization: `Bearer ${token}` },
+        }).then(r => r.ok ? r.json() : []).catch(() => [])
+      : Promise.resolve([])
+
+    Promise.all([fetchComments, fetchHyped]).then(([commentData, hypedData]) => {
+      setComments(commentData)
+      setHypedIds(new Set(hypedData))
+    }).finally(() => setLoading(false))
   }, [thotId])
 
   function handleReply(penName) {
@@ -125,16 +215,21 @@ export default function CommentThread({ thotId, accentColor, session }) {
     if (replyingTo && !val.startsWith(`@${replyingTo}`)) setReplyingTo(null)
   }
 
+  function handleCommentDeleted(commentId) {
+    setComments(prev => prev.filter(c => c.id !== commentId))
+  }
+
   async function postComment() {
     if (!text.trim() || posting || !isAuth) return
     setPosting(true)
     try {
+      const token = useAppStore.getState().session?.supabaseToken
       const body = { thot_id: thotId, content: text.trim() }
       if (replyingTo) body.reply_to_pen_name = replyingTo
       const res = await fetch(`${API_URL}/comments`, {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.supabaseToken}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(body),
       })
       if (!res.ok) return
@@ -148,7 +243,7 @@ export default function CommentThread({ thotId, accentColor, session }) {
   }
 
   return (
-    <div className="mt-2 pt-2 border-t border-white/8">
+    <div className="mt-2 pt-2 border-t border-white/[0.04]">
       {!loading && comments.length > 0 && (
         <p className="text-slate-500 text-[10px] mb-2">
           {comments.length} comment{comments.length !== 1 ? 's' : ''}
@@ -165,6 +260,8 @@ export default function CommentThread({ thotId, accentColor, session }) {
               accentColor={accentColor}
               onReply={handleReply}
               onShare={setSharingComment}
+              onDelete={handleCommentDeleted}
+              initialHyped={hypedIds.has(c.id)}
             />
           ))}
         </div>
@@ -186,20 +283,20 @@ export default function CommentThread({ thotId, accentColor, session }) {
             <textarea
               ref={textareaRef}
               value={text}
-              onChange={e => handleTextChange(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); postComment() } }}
-              placeholder={replyingTo ? `Reply to @${replyingTo}…` : 'Add a comment…'}
+              onChange={e => { handleTextChange(e.target.value); autoResize(e.target) }}
+              onKeyDown={e => {}}
+              placeholder={replyingTo ? `@${replyingTo}…` : 'Comment…'}
               rows={1}
               className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder:text-slate-600 resize-none focus:outline-none focus:border-white/20 text-xs transition-colors"
-              style={{ minHeight: 34 }}
+              style={{ minHeight: 34, maxHeight: 160, overflowY: 'auto' }}
             />
             <button
               onClick={postComment}
               disabled={!text.trim() || posting}
-              className="flex-shrink-0 rounded-xl p-2 transition-colors disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-              style={{ background: accentColor }}
+              className="flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-colors disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+              style={{ background: accentColor, color: '#fff' }}
             >
-              {posting ? <Loader2 size={13} className="animate-spin text-white" /> : <Send size={13} className="text-white" />}
+              {posting ? <Loader2 size={13} className="animate-spin" /> : <><Send size={12} />Reply</>}
             </button>
           </div>
         </div>

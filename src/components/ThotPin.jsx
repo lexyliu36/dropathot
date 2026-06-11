@@ -47,6 +47,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
   // Read live hype state + count from store so updates from any hype action reflect immediately
   const hyped = useAppStore((s) => s.hypedThotIds.has(thot.id))
   const hypeCount = useAppStore((s) => s.thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0)
+  const [heartAnim, setHeartAnim] = useState(false)
   const isAuth = useAppStore((s) => s.session?.type === 'user')
 
   const accentColor = isYou ? '#e11d48' : thot.pen_name ? '#7c3aed' : '#64748b'
@@ -145,10 +146,10 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
           <button
             onClick={(e) => {
               e.stopPropagation()
-              console.log('[hype btn] clicked isAuth:', isAuth, 'onHype:', !!onHype)
               if (!isAuth) {
                 window.dispatchEvent(new CustomEvent('thots:needs-auth'))
               } else {
+                setHeartAnim(true)
                 onHype?.(thot.id)
               }
             }}
@@ -163,7 +164,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
               transition: 'color 0.15s, background 0.15s', lineHeight: 1,
             }}
           >
-            <Heart size={14} style={{ fill: hyped ? accentColor : 'none', strokeWidth: 1.5 }} />
+            <Heart size={14} className={heartAnim ? 'heart-pop' : ''} onAnimationEnd={() => setHeartAnim(false)} style={{ fill: hyped ? accentColor : 'none', strokeWidth: 1.5 }} />
             {hypeCount > 0 && <span>{hypeCount}</span>}
           </button>
         </div>
