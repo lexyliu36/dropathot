@@ -78,19 +78,22 @@ export default function TopThots({ thots, session, onHype, onClose, onSelectThot
               <div className="flex-1 min-w-0">
                 <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
                 <div className="flex items-center gap-2 mt-1.5">
-                  {thot.pen_name ? (
-                    <button
-                      onClick={() => onSelectThot?.(thot)}
-                      className="text-xs sm:text-sm font-semibold cursor-pointer hover:opacity-75 transition-opacity"
-                      style={{ background: 'none', border: 'none', padding: 0, color: '#7c3aed' }}
-                    >
-                      {thot.pen_name}
-                    </button>
-                  ) : (
-                    <span className="text-xs sm:text-sm font-semibold" style={{ color: '#475569' }}>anon</span>
-                  )}
-                  <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
-                  <div className="ml-auto flex items-center gap-3 flex-shrink-0">
+                  {/* pen name + timestamp — allowed to shrink so icons stay aligned */}
+                  <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
+                    {thot.pen_name ? (
+                      <button
+                        onClick={() => onSelectThot?.(thot)}
+                        className="text-xs sm:text-sm font-semibold cursor-pointer hover:opacity-75 transition-opacity truncate"
+                        style={{ background: 'none', border: 'none', padding: 0, color: '#7c3aed' }}
+                      >
+                        {thot.pen_name}
+                      </button>
+                    ) : (
+                      <span className="text-xs sm:text-sm font-semibold truncate" style={{ color: '#475569' }}>anon</span>
+                    )}
+                    <span className="text-slate-600 text-[10px] flex-shrink-0">{relativeTime(thot.created_at)}</span>
+                  </div>
+                  <div className="flex items-center gap-3 flex-shrink-0">
                     {(thot.comment_count ?? 0) > 0 && (
                       <div className="relative group/tip">
                         <button
