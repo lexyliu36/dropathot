@@ -110,9 +110,3 @@ body { background: #0a0a0f; color: #f1f5f9; font-family: 'Inter', sans-serif; ov
   opacity: 1;
 }
 
-/* Prevent iOS auto-zoom on input/textarea focus (requires font-size >= 16px) */
-@media screen and (max-width: 768px) {
-  input, textarea, select {
-    font-size: 16px !important;
-  }
-}

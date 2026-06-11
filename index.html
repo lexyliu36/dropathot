@@ -8,6 +8,24 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      // Prevent iOS auto-zoom on input/textarea focus without disabling pinch-zoom
+      (function() {
+        var viewport = document.querySelector('meta[name="viewport"]');
+        var original = 'width=device-width, initial-scale=1.0';
+        var noZoom = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';
+        document.addEventListener('focusin', function(e) {
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+            viewport.setAttribute('content', noZoom);
+          }
+        });
+        document.addEventListener('focusout', function(e) {
+          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+            viewport.setAttribute('content', original);
+          }
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
