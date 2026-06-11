@@ -1,8 +1,43 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { MapPin, Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { signIn, checkEmailExists } from "../lib/auth";
 import { updateSession, clearSession, getOrCreateSession } from "../lib/identity";
+
+const TAGLINES = [
+  "What's really going on around you.",
+  "The city, unfiltered.",
+  "Your neighborhood's inner monologue.",
+  "Drop it. Read it. Gone tomorrow.",
+]
+
+function TaglineCycler() {
+  const [index, setIndex] = useState(0)
+  const [visible, setVisible] = useState(true)
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setVisible(false)
+      setTimeout(() => {
+        setIndex(i => (i + 1) % TAGLINES.length)
+        setVisible(true)
+      }, 400)
+    }, 3500)
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <span
+      style={{
+        transition: 'opacity 0.4s ease',
+        opacity: visible ? 1 : 0,
+        display: 'inline-block',
+      }}
+    >
+      {TAGLINES[index]}
+    </span>
+  )
+}
 
 export default function Landing() {
   const navigate = useNavigate();
@@ -287,8 +322,8 @@ export default function Landing() {
         {/* Logo */}
         <div className="flex flex-col items-center gap-1 mb-2">
           <span className="text-4xl font-black tracking-tight text-white">drop-a-thot</span>
-          <div className="flex items-center gap-1 text-slate-400 text-sm">
-            <span>anonymous thoughts, dropped on a map</span>
+          <div className="flex items-center gap-1 text-slate-400 text-sm min-h-[1.5em] justify-center">
+            <TaglineCycler />
           </div>
         </div>
 
