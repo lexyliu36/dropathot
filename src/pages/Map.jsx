@@ -12,6 +12,7 @@ import ComposeDrawer from '../components/ComposeDrawer'
 import ToolsPanel from '../components/ToolsPanel'
 import TopThots from '../components/TopThots'
 import ProfileSheet from '../components/ProfileSheet'
+import DMDrawer from '../components/DMDrawer'
 import AuthModal from '../components/AuthModal'
 import { getOrCreateSession, updateSession } from '../lib/identity'
 import { explodeMarker } from '../lib/animations'
@@ -98,6 +99,10 @@ export default function Map() {
   const selectedThot = useAppStore((s) => s.selectedThot)
   const setSelectedThot = useAppStore((s) => s.setSelectedThot)
   const [showYouProfile, setShowYouProfile] = useState(false)
+  const [dmPartner, setDmPartner] = useState(null) // { userId, penName, accentColor }
+  const [dmSource, setDmSource] = useState(null) // 'selected' | 'you' — which profile sheet to restore
+  const [openCommentForThotId, setOpenCommentForThotId] = useState(null)
+  const [youHighlightThotId, setYouHighlightThotId] = useState(null)
   const setSession = useAppStore((s) => s.setSession)
   const setHypedThotIds = useAppStore((s) => s.setHypedThotIds)
   const toggleHypedThot = useAppStore((s) => s.toggleHypedThot)
@@ -289,7 +294,7 @@ export default function Map() {
     const el = document.createElement('div')
     el.style.cssText = 'pointer-events: none; overflow: visible;'
     const root = createRoot(el)
-    root.render(<YouPin hasThot={false} onAvatarClick={() => { setShowYouProfile(true); setSelectedThot(null) }} />)
+    root.render(<YouPin hasThot={false} onAvatarClick={() => { setShowYouProfile(true); setYouHighlightThotId(null); setSelectedThot(null) }} />)
 
     const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
       .setLngLat([location.lng, location.lat])
@@ -309,7 +314,7 @@ export default function Map() {
     youMarkerRef.current.root.render(
       <YouPin
         hasThot={!!userThot}
-        onAvatarClick={() => { setShowYouProfile(true); setSelectedThot(null) }}
+        onAvatarClick={() => { setShowYouProfile(true); setYouHighlightThotId(null); setSelectedThot(null) }}
       />
     )
   }, [thots, session?.id])
@@ -359,6 +364,7 @@ export default function Map() {
           onClick={(t) => {
             if (t.session_id === session?.id) {
               setShowYouProfile(true)
+              setYouHighlightThotId(t.id)
               setSelectedThot(null)
             } else {
               setSelectedThot(t)
@@ -725,6 +731,12 @@ export default function Map() {
           onClose={() => setLeaderboardOpen(false)}
           onSelectThot={(thot) => {
             useAppStore.getState().setSelectedThot(thot)
+            setOpenCommentForThotId(null)
+            setLeaderboardOpen(false)
+          }}
+          onCommentClick={(thot) => {
+            useAppStore.getState().setSelectedThot(thot)
+            setOpenCommentForThotId(thot.id)
             setLeaderboardOpen(false)
           }}
         />
@@ -749,7 +761,14 @@ export default function Map() {
           thot={selectedThot}
           session={session}
           onHype={handleHype}
-          onClose={() => setSelectedThot(null)}
+          onClose={() => { setSelectedThot(null); setOpenCommentForThotId(null) }}
+          openCommentForThotId={openCommentForThotId}
+          highlightThotId={selectedThot?.id}
+          onFlyTo={(t) => {
+            mapInstanceRef.current?.flyTo({ center: [t.lng, t.lat], zoom: 17, duration: 700 })
+            setSelectedThot(t)
+          }}
+          onOpenDM={partner => { setDmSource('selected'); setDmPartner(partner) }}
         />
       )}
 
@@ -761,7 +780,24 @@ export default function Map() {
           isYouProfile
           onHype={handleHype}
           onCompose={() => { setShowYouProfile(false); setComposing(true) }}
-          onClose={() => setShowYouProfile(false)}
+          onClose={() => { setShowYouProfile(false); setYouHighlightThotId(null) }}
+          highlightThotId={youHighlightThotId}
+          onFlyTo={(t) => {
+            mapInstanceRef.current?.flyTo({ center: [t.lng, t.lat], zoom: 17, duration: 700 })
+            setYouHighlightThotId(t.id)
+          }}
+          onOpenDM={partner => { setDmSource('you'); setDmPartner(partner) }}
+        />
+      )}
+
+      {/* DM Drawer */}
+      {dmPartner && !composing && (
+        <DMDrawer
+          partner={dmPartner}
+          onClose={() => {
+            setDmPartner(null)
+            setDmSource(null)
+          }}
         />
       )}
 

@@ -32,7 +32,7 @@ function LeaderboardHeart({ thot, session, onHype }) {
   )
 }
 
-export default function TopThots({ thots, session, onHype, onClose, onSelectThot }) {
+export default function TopThots({ thots, session, onHype, onClose, onSelectThot, onCommentClick }) {
   const [shareThot, setShareThot] = useState(null)
 
   const ranked = [...thots]
@@ -94,19 +94,17 @@ export default function TopThots({ thots, session, onHype, onClose, onSelectThot
                     <span className="text-slate-600 text-[10px] flex-shrink-0">{relativeTime(thot.created_at)}</span>
                   </div>
                   <div className="flex items-center gap-3 flex-shrink-0">
-                    {(thot.comment_count ?? 0) > 0 && (
-                      <div className="relative group/tip">
-                        <button
-                          onClick={() => onSelectThot?.(thot)}
-                          className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
-                          style={{ background: 'none', border: 'none', padding: 0 }}
-                        >
-                          <MessageCircle size={17} />
-                          <span className="text-xs">{thot.comment_count}</span>
-                        </button>
-                        <span className="action-tip">Comments</span>
-                      </div>
-                    )}
+                    <div className="relative group/tip">
+                      <button
+                        onClick={() => onCommentClick?.(thot)}
+                        className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                        style={{ background: 'none', border: 'none', padding: 0 }}
+                      >
+                        <MessageCircle size={17} />
+                        {(thot.comment_count ?? 0) > 0 && <span className="text-xs">{thot.comment_count}</span>}
+                      </button>
+                      <span className="action-tip">Comments</span>
+                    </div>
                     <LeaderboardHeart thot={thot} session={session} onHype={onHype} />
                     <div className="relative group/tip">
                       <button

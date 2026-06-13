@@ -163,7 +163,7 @@ function CommentItem({ comment, session, accentColor, onReply, onShare, onDelete
   )
 }
 
-export default function CommentThread({ thotId, accentColor, session }) {
+export default function CommentThread({ thotId, accentColor, session, autoFocus }) {
   const [comments, setComments] = useState([])
   const [hypedIds, setHypedIds] = useState(new Set())
   const [loading, setLoading] = useState(true)
@@ -172,6 +172,12 @@ export default function CommentThread({ thotId, accentColor, session }) {
   const [replyingTo, setReplyingTo] = useState(null)
   const [sharingComment, setSharingComment] = useState(null)
   const textareaRef = useRef(null)
+
+  useEffect(() => {
+    if (autoFocus && !loading) {
+      setTimeout(() => textareaRef.current?.focus(), 100)
+    }
+  }, [autoFocus, loading])
 
   function autoResize(el) {
     if (!el) return

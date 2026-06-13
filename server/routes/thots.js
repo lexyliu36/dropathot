@@ -38,6 +38,23 @@ async function ipLocation(ip) {
 }
 
 
+// Enrich thots: fill in user_id for named users whose thot predates migration 012
+async function enrichWithUserId(thots) {
+  if (!thots?.length) return thots
+  const missing = thots.filter(t => t.pen_name && !t.user_id).map(t => t.pen_name)
+  if (!missing.length) return thots
+  const unique = [...new Set(missing)]
+  const { data: users } = await supabase
+    .from('users')
+    .select('id, pen_name')
+    .in('pen_name', unique)
+  if (!users?.length) return thots
+  const map = Object.fromEntries(users.map(u => [u.pen_name, u.id]))
+  return thots.map(t => (!t.user_id && t.pen_name && map[t.pen_name])
+    ? { ...t, user_id: map[t.pen_name] }
+    : t)
+}
+
 // GET /thots?lat=&lng=&radius=
 // GET /thots?session_id=  (returns post history for a session, no location filter)
 router.get('/', async (req, res) => {
@@ -66,7 +83,7 @@ router.get('/', async (req, res) => {
         .limit(50))
     }
     if (error) return res.status(500).json({ error: 'Failed to fetch thots' })
-    return res.json(data)
+    return res.json(await enrichWithUserId(data))
   }
 
   // Geo mode
@@ -98,7 +115,7 @@ router.get('/', async (req, res) => {
         console.error('get_thots_nearby error:', fallbackError)
         return res.status(500).json({ error: 'Failed to fetch thots' })
       }
-      return res.json((fallback ?? []).slice(0, limit))
+      return res.json(await enrichWithUserId((fallback ?? []).slice(0, limit)))
     }
     console.error('get_thots_nearby error:', error)
     return res.status(500).json({ error: 'Failed to fetch thots' })
@@ -236,13 +253,16 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
     expires_at = new Date(Date.now() + h * 3600 * 1000).toISOString()
   }
 
-  // Hide previous active thot from this session
-  await supabase
-    .from('thots')
-    .update({ hidden: true })
-    .eq('session_id', session_id)
-    .eq('hidden', false)
-    .gt('expires_at', new Date().toISOString())
+  // Hide previous active thots from this session that are within the block radius.
+  // Posts far enough apart can coexist — one pin per ~500m area, not one pin total.
+  // Use RPC so ST_DWithin runs server-side with unambiguous geography meter units.
+  // The PostgREST st.dwithin filter string format is unreliable for geography columns.
+  await supabase.rpc('hide_nearby_session_thots', {
+    p_session_id: session_id,
+    p_lat: claimedLat,
+    p_lng: claimedLng,
+    p_radius_m: 500,
+  })
 
   // Insert new thot
   const { data: newThot, error } = await supabase
@@ -251,6 +271,7 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
       content: content.trim(),
       pen_name: pen_name || null,
       session_id,
+      user_id: req.user?.id ?? null,
       ip_hash,
       location: `SRID=4326;POINT(${lng} ${lat})`,
       expires_at,
@@ -283,7 +304,7 @@ router.get('/:id', async (req, res) => {
     .eq('id', id)
     .single()
   if (error || !data) return res.status(404).json({ error: 'not found' })
-  res.json(data)
+  res.json(await enrichWithUserId(data))
 })
 
 // DELETE /thots/:id — soft-delete (hide) a thot the requester owns.
@@ -384,7 +405,7 @@ async function checkVelocitySpike(lat, lng, io) {
     .select('*', { count: 'exact', head: true })
     .gte('created_at', windowStart)
     .eq('hidden', false)
-    .filter('location', 'st.dwithin', `SRID=4326;POINT(${lng} ${lat}),0.006`) // ~600m in degrees
+    .filter('location', 'st.dwithin', `SRID=4326;POINT(${lng} ${lat}),600`) // 600m — geography uses meters
 
   if (error || count === null) return
   if (count < VELOCITY_THRESHOLD) return

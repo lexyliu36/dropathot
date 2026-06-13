@@ -19,7 +19,16 @@ body { background: #0a0a0f; color: #f1f5f9; font-family: 'Inter', sans-serif; ov
 }
 
 .panel-slide-right {
-  animation: slideInFromRight 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: slideInFromRight 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fadeScaleIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.panel-fade-overlay {
+  animation: fadeScaleIn 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 .panel-slide-up {
@@ -110,3 +119,14 @@ body { background: #0a0a0f; color: #f1f5f9; font-family: 'Inter', sans-serif; ov
   opacity: 1;
 }
 
+/* Hide tooltips on touch devices — hover state sticks after tap */
+@media (hover: none) {
+  .action-tip { display: none; }
+}
+
+/* Prevent mobile browsers from zooming on input focus (zoom triggers when font-size < 16px) */
+@media (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+}

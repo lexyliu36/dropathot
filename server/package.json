@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js",
+    "dev": "node --env-file=.env --watch index.js",
     "seed": "node --env-file=.env seed.js",
     "seed:demo": "node --env-file=.env seed-demo.js",
     "test": "vitest run",

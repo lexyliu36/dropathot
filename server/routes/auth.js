@@ -490,4 +490,18 @@ router.put('/password', async (req, res) => {
 })
 
 
+
+// GET /auth/user-by-pen-name/:penName — look up user_id by pen name (for follow/DM on old thots)
+router.get('/user-by-pen-name/:penName', async (req, res) => {
+  const { penName } = req.params
+  if (!penName) return res.status(400).json({ error: 'penName required' })
+  const { data, error } = await supabase
+    .from('users')
+    .select('id')
+    .eq('pen_name', penName)
+    .maybeSingle()
+  if (error || !data) return res.status(404).json({ error: 'not found' })
+  res.json({ userId: data.id })
+})
+
 export default router

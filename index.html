@@ -21,7 +21,25 @@
         });
         document.addEventListener('focusout', function(e) {
           if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
-            viewport.setAttribute('content', original);
+            // Delay so focus-switching between inputs doesn't flash; also covers panel close
+            setTimeout(function() {
+              var a = document.activeElement;
+              if (!a || (a.tagName !== 'INPUT' && a.tagName !== 'TEXTAREA' && a.tagName !== 'SELECT')) {
+                viewport.setAttribute('content', original);
+              }
+            }, 150);
+          }
+        });
+        // Also reset on any touch outside an input (catches modal-close scenarios)
+        document.addEventListener('touchend', function(e) {
+          var t = e.target;
+          if (t.tagName !== 'INPUT' && t.tagName !== 'TEXTAREA' && t.tagName !== 'SELECT') {
+            setTimeout(function() {
+              var a = document.activeElement;
+              if (!a || (a.tagName !== 'INPUT' && a.tagName !== 'TEXTAREA' && a.tagName !== 'SELECT')) {
+                viewport.setAttribute('content', original);
+              }
+            }, 200);
           }
         });
       })();

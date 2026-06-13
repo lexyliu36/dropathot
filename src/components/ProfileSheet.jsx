@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, ShieldX, ShieldCheck, Heart, MessageCircle, Upload, Flag, Trash2 } from 'lucide-react'
+import { X, ShieldX, ShieldCheck, Heart, MessageCircle, Upload, Flag, Trash2, UserPlus, UserMinus, MessageSquare, AlertTriangle, MoreVertical, Eye, EyeOff } from 'lucide-react'
 import { AnonAvatar } from './ThotPin'
 import CommentThread from './CommentThread'
 import ShareSheet from './ShareSheet'
@@ -16,7 +16,7 @@ function relativeTime(isoString) {
   return `${Math.floor(diff / 86400)}d`
 }
 
-function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete }) {
+function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, defaultOpenComments, onFlyTo }) {
   const hyped = useAppStore((s) => s.hypedThotIds.has(thot.id))
   const hypeCount = useAppStore((s) => s.thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0)
   const [heartAnim, setHeartAnim] = useState(false)
@@ -27,12 +27,13 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete })
     onHype?.(thot.id)
   }
   const isAuth = useAppStore((s) => s.session?.type === 'user')
-  const [showComments, setShowComments] = useState(false)
+  const [showComments, setShowComments] = useState(defaultOpenComments ?? false)
   const [showShare, setShowShare] = useState(false)
   const [deleted, setDeleted] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
   const commentCount = thot.comment_count ?? 0
   const isOwn = thot.session_id === session?.id
+  const isVisible = useAppStore((s) => s.thots.some(t => t.id === thot.id))
   const reported = useAppStore((s) => s.reportedThotIds.has(thot.id))
   const addReportedThot = useAppStore((s) => s.addReportedThot)
   const removeReportedThot = useAppStore((s) => s.removeReportedThot)
@@ -101,7 +102,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete })
   return (
     <>
       <div
-        className="py-3 px-2 rounded-xl transition-colors"
+        className="py-3 px-2 rounded-xl transition-colors relative"
         style={highlighted ? {
           background: `${accentColor}0d`,
           border: `1px solid ${accentColor}28`,
@@ -109,8 +110,26 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete })
           borderBottom: '1px solid rgba(255,255,255,0.05)',
         }}
       >
-        {/* Header: avatar + name + timestamp */}
-        <div className="flex items-start gap-2.5">
+        {/* Visibility badge + locate button */}
+        <div className="absolute top-2.5 right-2 flex items-center gap-1.5">
+          {isVisible ? (
+            <span className="flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+              style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}>
+              <Eye size={8} />Live
+            </span>
+          ) : (
+            <span className="flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
+              style={{ background: 'rgba(100,116,139,0.12)', color: '#64748b', border: '1px solid rgba(100,116,139,0.2)' }}>
+              <EyeOff size={8} />Hidden
+            </span>
+          )}
+        </div>
+        {/* Header: avatar + name + timestamp — click to fly to pin when live */}
+        <div
+          className="flex items-start gap-2.5"
+          onClick={() => isVisible && onFlyTo?.(thot)}
+          style={isVisible && onFlyTo ? { cursor: 'pointer' } : {}}
+        >
           <div className="flex-shrink-0 mt-0.5">
             <AnonAvatar size={30} color={accentColor} />
           </div>
@@ -214,7 +233,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete })
         {/* Comment thread — indented under content */}
         {showComments && (
           <div className="mt-3 ml-9">
-            <CommentThread thotId={thot.id} accentColor={accentColor} session={session} />
+            <CommentThread thotId={thot.id} accentColor={accentColor} session={session} autoFocus={defaultOpenComments} />
           </div>
         )}
       </div>
@@ -224,9 +243,15 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete })
   )
 }
 
-export default function ProfileSheet({ thot, session, isYouProfile = false, onCompose, onClose, onHype }) {
+export default function ProfileSheet({ thot, session, isYouProfile = false, onCompose, onClose, onHype, onOpenDM, openCommentForThotId, highlightThotId, onFlyTo }) {
   const [history, setHistory] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [followers, setFollowers] = useState(0)
+  const [following, setFollowing] = useState(0)
+  const [isFollowing, setIsFollowing] = useState(false)
+  const [followLoading, setFollowLoading] = useState(false)
+  const [reportState, setReportState] = useState('idle') // idle | confirm | done
+  const [showMore, setShowMore] = useState(false)
   const navigate = useNavigate()
 
   const blockedSessions = useAppStore((s) => s.blockedSessions)
@@ -242,6 +267,10 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   const accentColor = isYou ? '#e11d48' : thot?.pen_name ? '#7c3aed' : '#64748b'
   const isBlocked = blockedSessions.has(sessionId)
 
+  // For named users, session_id IS their auth UUID (set at login, line 222 auth.js).
+  // thot.user_id is only populated post-migration-012; fall back to session_id for pen_name owners.
+  const targetUserId = isYou ? null : (thot?.user_id ?? (penName ? thot?.session_id : null))
+
   useEffect(() => {
     if (!sessionId) { setHistory([]); setLoading(false); return }
     setLoading(true)
@@ -252,60 +281,119 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
       .finally(() => setLoading(false))
   }, [sessionId])
 
+  // Load follow stats once we have a targetUserId
+  useEffect(() => {
+    if (!targetUserId) return
+    const token = useAppStore.getState().session?.supabaseToken
+    fetch(`${API_URL}/follows/${targetUserId}/stats`, {
+      credentials: 'include',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) { setFollowers(d.followers); setFollowing(d.following); setIsFollowing(d.isFollowing) } })
+      .catch(() => {})
+  }, [targetUserId])
+
   function toggleBlock() {
     if (isBlocked) unblockSession(sessionId)
     else blockSession(sessionId)
     onClose()
   }
 
-  const allThots = history
-    ? (thot ? [thot, ...history.filter(t => t.id !== thot.id)] : history)
-    : (thot ? [thot] : [])
+  async function toggleFollow() {
+    if (!isAuth || !targetUserId || followLoading) {
+      if (!isAuth) window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+      return
+    }
+    setFollowLoading(true)
+    const token = useAppStore.getState().session?.supabaseToken
+    const method = isFollowing ? 'DELETE' : 'POST'
+    try {
+      const res = await fetch(`${API_URL}/follows/${targetUserId}`, {
+        method, credentials: 'include',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        setIsFollowing(!isFollowing)
+        setFollowers(f => isFollowing ? Math.max(0, f - 1) : f + 1)
+      }
+    } finally {
+      setFollowLoading(false)
+    }
+  }
+
+  async function handleReport() {
+    if (!isAuth) { window.dispatchEvent(new CustomEvent('thots:needs-auth')); return }
+    if (reportState === 'idle') { setReportState('confirm'); return }
+    if (reportState === 'confirm') {
+      const token = useAppStore.getState().session?.supabaseToken
+      await fetch(`${API_URL}/follows/${targetUserId}/report`, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ reason: 'user report' }),
+      })
+      setReportState('done')
+      setTimeout(() => setReportState('idle'), 3000)
+    }
+  }
+
+  // Use API history directly (newest-first); fall back to thot prop only while loading.
+  const allThots = history ?? (thot ? [thot] : [])
 
   return (
     <div className="absolute top-3 right-3 bottom-3 z-30 w-72 flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden panel-slide-right">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05] flex-shrink-0">
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0">
           <AnonAvatar size={30} color={accentColor} active={isYou} />
-          <div>
+          <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <span className="text-white font-semibold text-sm leading-tight" style={{ color: accentColor }}>
+              <span className="font-semibold text-sm leading-tight truncate" style={{ color: accentColor }}>
                 {penName || 'Anonymous'}
               </span>
               {isYou && (
-                <span className="text-[9px] px-1 py-0.5 rounded-full font-medium leading-none"
+                <span className="text-[9px] px-1 py-0.5 rounded-full font-medium leading-none flex-shrink-0"
                   style={{ background: 'rgba(225,29,72,0.15)', color: '#e11d48', border: '1px solid rgba(225,29,72,0.3)' }}>
                   you
                 </span>
               )}
             </div>
-            <p className="text-slate-600 text-[10px] mt-0.5">
-              {loading ? '…' : allThots.length === 0 ? 'no drops yet' : `${allThots.length} drop${allThots.length !== 1 ? 's' : ''}`}
-            </p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <p className="text-slate-600 text-[10px]">
+                {loading ? '…' : allThots.length === 0 ? 'no drops yet' : `${allThots.length} drop${allThots.length !== 1 ? 's' : ''}`}
+              </p>
+              {targetUserId && (
+                <p className="text-slate-600 text-[10px]">
+                  · <span className="text-slate-400">{followers}</span> follower{followers !== 1 ? 's' : ''}
+                </p>
+              )}
+            </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          {!isYou && (
+        <div className="flex items-center gap-1 flex-shrink-0">
+            {!isYou && isAuth && targetUserId && (
+              <button
+                onClick={toggleFollow}
+                disabled={followLoading}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 ${
+                  isFollowing
+                    ? 'bg-brand-purple/20 text-brand-purple border border-brand-purple/30 hover:bg-brand-purple/10'
+                    : 'bg-white/[0.06] text-slate-300 border border-white/10 hover:bg-brand-purple/15 hover:text-brand-purple hover:border-brand-purple/30'
+                }`}
+                style={{ border: undefined }}
+              >
+                {isFollowing ? <UserMinus size={11} /> : <UserPlus size={11} />}
+                {isFollowing ? 'Following' : 'Follow'}
+              </button>
+            )}
             <button
-              onClick={toggleBlock}
-              title={isBlocked ? 'Unblock' : 'Block'}
-              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                isBlocked ? 'text-green-400 hover:bg-green-500/10' : 'text-slate-500 hover:text-red-400 hover:bg-red-500/10'
-              }`}
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-500 hover:text-white transition-colors cursor-pointer"
               style={{ background: 'none', border: 'none' }}
             >
-              {isBlocked ? <ShieldCheck size={14} /> : <ShieldX size={14} />}
+              <X size={14} />
             </button>
-          )}
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-500 hover:text-white transition-colors cursor-pointer"
-            style={{ background: 'none', border: 'none' }}
-          >
-            <X size={14} />
-          </button>
-        </div>
+          </div>
       </div>
 
       {/* Thot list */}
@@ -318,13 +406,15 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
 
         {!loading && allThots.length > 0 && allThots.map((t) => (
           <ThotCard
+                  defaultOpenComments={openCommentForThotId === t.id}
             key={t.id}
             thot={t}
             accentColor={accentColor}
-            highlighted={!!thot && t.id === thot.id}
+            highlighted={highlightThotId != null && t.id === highlightThotId}
             onHype={onHype}
             session={session}
             onDelete={(id) => setHistory(prev => prev.filter(h => h.id !== id))}
+            onFlyTo={onFlyTo}
           />
         ))}
 
@@ -375,6 +465,47 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
             onMouseLeave={e => e.currentTarget.style.background = '#e11d48'}
           >
             + Drop a new thot
+          </button>
+        </div>
+      )}
+
+      {/* Bottom action bar — other user only */}
+      {!isYou && (
+        <div className="flex items-center border-t border-white/[0.05] flex-shrink-0 px-2 py-1.5">
+          {/* DM */}
+          {isAuth && targetUserId && (
+            <button
+              onClick={() => onOpenDM?.({ userId: targetUserId, penName, accentColor })}
+              className="flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl text-slate-500 hover:text-brand-purple transition-colors cursor-pointer"
+              style={{ background: 'none', border: 'none' }}
+            >
+              <MessageSquare size={15} />
+              <span className="text-[9px]">Message</span>
+            </button>
+          )}
+          {/* Report */}
+          {isAuth && targetUserId && (
+            <button
+              onClick={handleReport}
+              className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-colors cursor-pointer ${
+                reportState !== 'idle' ? 'text-orange-400' : 'text-slate-500 hover:text-orange-400'
+              }`}
+              style={{ background: 'none', border: 'none' }}
+            >
+              <AlertTriangle size={15} />
+              <span className="text-[9px]">{reportState === 'done' ? 'Reported' : reportState === 'confirm' ? 'Confirm?' : 'Report'}</span>
+            </button>
+          )}
+          {/* Block */}
+          <button
+            onClick={toggleBlock}
+            className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-colors cursor-pointer ${
+              isBlocked ? 'text-green-400' : 'text-slate-500 hover:text-red-400'
+            }`}
+            style={{ background: 'none', border: 'none' }}
+          >
+            {isBlocked ? <ShieldCheck size={15} /> : <ShieldX size={15} />}
+            <span className="text-[9px]">{isBlocked ? 'Unblock' : 'Block'}</span>
           </button>
         </div>
       )}

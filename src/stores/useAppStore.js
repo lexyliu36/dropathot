@@ -21,8 +21,22 @@ const useAppStore = create((set, get) => ({
     const s = get()
     if (s.blockedSessions.has(thot.session_id)) return
     if (s.thots.find((t) => t.id === thot.id)) return
-    // Remove previous thot from the same session (server marks it hidden, we mirror that locally)
-    set((s) => ({ thots: [thot, ...s.thots.filter((t) => t.session_id !== thot.session_id)] }))
+    // Mirror server logic: only hide same-session thots within the block radius (~500m).
+    // Thots posted far away from the new one remain visible.
+    const BLOCK_RADIUS_M = 250
+    set((s) => ({
+      thots: [thot, ...s.thots.filter((t) => {
+        if (t.session_id !== thot.session_id) return true  // different user, keep
+        if (t.lat == null || t.lng == null) return false    // no location, hide to be safe
+        const dLat = (t.lat - thot.lat) * Math.PI / 180
+        const dLng = (t.lng - thot.lng) * Math.PI / 180
+        const a = Math.sin(dLat / 2) ** 2 +
+          Math.cos(thot.lat * Math.PI / 180) * Math.cos(t.lat * Math.PI / 180) *
+          Math.sin(dLng / 2) ** 2
+        const distM = 6371000 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return distM > BLOCK_RADIUS_M  // keep if far enough away
+      })],
+    }))
   },
 
   composing: false,
