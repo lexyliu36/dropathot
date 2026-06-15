@@ -65,11 +65,21 @@ router.get('/', async (req, res) => {
     if (!/^[0-9a-f-]{36}$/.test(sessionId)) {
       return res.status(400).json({ error: 'invalid session_id' })
     }
+    // Auth required — only the session owner may fetch their history
+    const token = req.headers.authorization?.replace('Bearer ', '').trim()
+    let callerSessionId = req.cookies?.session_id
+    if (token) {
+      const { data: { user } } = await supabase.auth.getUser(token)
+      if (user) callerSessionId = user.id
+    }
+    if (!callerSessionId || callerSessionId !== sessionId) {
+      return res.status(403).json({ error: 'forbidden' })
+    }
     const limit = Math.min(parseInt(req.query.limit) || 20, 50)
     const offset = parseInt(req.query.offset) || 0
     let { data, error, count } = await supabase
       .from('thots')
-      .select('*', { count: 'exact' })
+      .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted', { count: 'exact' })
       .eq('session_id', sessionId)
       .eq('user_deleted', false)
       .order('created_at', { ascending: false })
@@ -79,7 +89,7 @@ router.get('/', async (req, res) => {
     if (error?.message?.includes('user_deleted')) {
       ;({ data, error, count } = await supabase
         .from('thots')
-        .select('*', { count: 'exact' })
+        .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted', { count: 'exact' })
         .eq('session_id', sessionId)
         .eq('hidden', false)
         .order('created_at', { ascending: false })
@@ -137,7 +147,7 @@ router.get('/liked', async (req, res) => {
   if (error || !user) return res.json([])
   const { data } = await supabase
     .from('hypes')
-    .select('thot_id, thots(*)')
+    .select('thot_id, thots(id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
   res.json(data?.map(h => h.thots).filter(Boolean) ?? [])
@@ -285,7 +295,7 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
   })
 
   // Insert new thot
-  const { data: newThot, error } = await supabase
+  let { data: newThot, error } = await supabase
     .from('thots')
     .insert({
       content: content.trim(),
@@ -303,10 +313,14 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
     console.error('insert thot error:', error)
     return res.status(500).json({ error: 'Failed to save thot' })
   }
+  // Strip internal fields from the value broadcast + returned to client
+  const { ip_hash: _stripIp, session_id: _stripSid, ...safeNewThot } = newThot
+  newThot = safeNewThot
 
-  // Broadcast to nearby Socket.io rooms
+  // Broadcast sanitized thot (strip internal fields before sending to clients)
+  const { ip_hash: _ip, session_id: _sid, ...publicThot } = newThot
   const cells = neighborCells(parseFloat(lat), parseFloat(lng))
-  req.io.to(cells).emit('thot:new', newThot)
+  req.io.to(cells).emit('thot:new', publicThot)
 
   // Velocity spike detection — async, never blocks the response
   checkVelocitySpike(parseFloat(lat), parseFloat(lng), req.io).catch(() => {})
@@ -320,7 +334,7 @@ router.get('/:id', async (req, res) => {
   if (!/^[0-9a-f-]{36}$/.test(id)) return res.status(400).json({ error: 'invalid id' })
   const { data, error } = await supabase
     .from('thots')
-    .select('*')
+    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted')
     .eq('id', id)
     .single()
   if (error || !data) return res.status(404).json({ error: 'not found' })
@@ -379,7 +393,7 @@ router.delete('/:id', async (req, res) => {
   // when this thot was posted, provided it hasn't expired yet.
   const { data: restored } = await supabase
     .from('thots')
-    .select('*')
+    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted')
     .eq('session_id', session_id)
     .eq('hidden', true)
     .eq('user_deleted', false)

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { loginLimiter, authInfoLimiter } from '../middleware/rateLimit.js'
 import { randomUUID, createHash } from 'crypto'
 import { supabase } from '../lib/supabase.js'
 import { sendVerificationEmail, alertSupport } from '../lib/email.js'
@@ -55,7 +56,7 @@ router.get('/profile', async (req, res) => {
 })
 
 // GET /auth/check-email?email= — returns { exists: bool } without revealing sensitive info
-router.get('/check-email', async (req, res) => {
+router.get('/check-email', authInfoLimiter, async (req, res) => {
   const email = (req.query.email || '').toLowerCase().trim()
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: 'valid email required' })
@@ -162,11 +163,11 @@ router.post('/signup', async (req, res) => {
     // Non-fatal — user can request resend
   }
 
-  res.status(201).json({ user_id: authData.user.id, pen_name })
+  res.status(201).json({ pen_name })
 })
 
 // POST /auth/resend-verification
-router.post('/resend-verification', async (req, res) => {
+router.post('/resend-verification', authInfoLimiter, async (req, res) => {
   const email = (req.body.email || '').toLowerCase().trim()
   if (!email) return res.status(400).json({ error: 'email required' })
 
@@ -205,7 +206,7 @@ router.post('/resend-verification', async (req, res) => {
 })
 
 // POST /auth/login
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body
   if (!email || !password) {
     return res.status(400).json({ error: 'email and password are required' })
@@ -226,9 +227,7 @@ router.post('/login', async (req, res) => {
     session_id,
     access_token: data.session.access_token,
     refresh_token: data.session.refresh_token,
-    user_id: data.user.id,
     pen_name,
-    email: data.user.email,
   })
 })
 

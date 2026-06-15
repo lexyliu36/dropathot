@@ -8,13 +8,13 @@ export default function PrivacyPage() {
       <h2>1. Information We Collect</h2>
       <p><strong>Information you provide directly:</strong></p>
       <ul>
-        <li><strong>Registered accounts:</strong> email address, pen name, and password (stored as a hash — we never store plaintext passwords). Your birth year is collected during the age gate and is not stored beyond the session.</li>
+        <li><strong>Registered accounts:</strong> email address, pen name, and password (stored as a hash — we never store plaintext passwords). Your birth year is collected during age verification to confirm you meet the minimum age requirement, and is stored persistently to maintain compliance with age-gating obligations.</li>
         <li><strong>Content:</strong> the text of every thot you post, comment, or reply you submit.</li>
       </ul>
       <p><strong>Information we collect automatically:</strong></p>
       <ul>
         <li><strong>Location data:</strong> when you post a thot, your device's geographic coordinates (latitude and longitude) are captured and stored with that post. This is core to the Service's functionality. Location is only transmitted at the moment of posting — we do not continuously track your location in the background.</li>
-        <li><strong>Session identifier:</strong> a randomly-generated UUID assigned to your browser session. For registered users, this is your Supabase user ID. This identifier persists across sessions via an httpOnly, Secure cookie and is used to associate your posts for moderation and legal compliance.</li>
+        <li><strong>Session identifier:</strong> a randomly-generated UUID assigned to your browser session. For registered users, this is your account identifier. This identifier persists across sessions via an httpOnly, Secure cookie and is used to associate your posts for moderation and legal compliance. A one-way hash of your IP address (SHA-256 with a server-side salt) is stored alongside each post for law enforcement cooperation purposes; the plaintext IP is never stored.</li>
         <li><strong>Hashed IP address:</strong> your IP address is hashed (SHA-256 with a server-side salt) before storage. We never store your plaintext IP address. The hash is retained for law enforcement cooperation purposes only and cannot be used to identify you without access to our private salt.</li>
         <li><strong>Device and usage data:</strong> standard server logs including browser type, operating system, referring URL, and page interactions. These are used for debugging and service improvement and are not linked to your identity.</li>
       </ul>
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
         <li><strong>Business transfers:</strong> if dropathot is acquired, merged, or its assets are transferred, your information may be part of that transfer. We will notify you via a prominent notice on the Service prior to your information becoming subject to a different privacy policy.</li>
         <li><strong>With your consent:</strong> we may share information for other purposes with your explicit consent.</li>
       </ul>
-      <p>Your <strong>public</strong> information — pen name (if registered), post content, location (shown on map), and post timestamp — is visible to other users of the Service by design. Anonymous users appear as "anon" with no pen name.</p>
+      <p>Your <strong>public</strong> information — pen name (if registered), post content, location (shown on map), and post timestamp — is visible to other users of the Service by design. The Service requires a registered account to post content.</p>
 
       <h2>4. Location Data</h2>
       <p>Location is the foundation of dropathot. When you post a thot, your device shares its coordinates with us and those coordinates are stored permanently with the post record (subject to expiry). Posts are visible to other users within a configurable radius. Your precise coordinates are never shown to other users — only the pin on the map indicates your general location at time of posting.</p>
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
       <p>We implement industry-standard technical and organizational measures to protect your information, including TLS encryption in transit, hashed passwords, hashed IPs (never stored in plaintext), httpOnly Secure cookies, and access controls limiting who on our team can access the database. No method of transmission over the Internet is 100% secure, and we cannot guarantee absolute security.</p>
 
       <h2>7. Cookies and Tracking</h2>
-      <p>We use a single session cookie (httpOnly, Secure, SameSite=Strict) to maintain your login state. We do not use advertising cookies, third-party tracking pixels, or analytics cookies from ad networks. Mapbox may set cookies to render the map — see <a href="https://www.mapbox.com/legal/privacy" target="_blank" rel="noopener noreferrer">Mapbox's Privacy Policy</a> for details.</p>
+      <p>We use a single session cookie (httpOnly, Secure, SameSite=Lax) to maintain your login state. We do not use advertising cookies, third-party tracking pixels, or analytics cookies from ad networks. Mapbox may set cookies to render the map — see <a href="https://www.mapbox.com/legal/privacy" target="_blank" rel="noopener noreferrer">Mapbox's Privacy Policy</a> for details.</p>
 
       <h2>8. Your Rights</h2>
       <p>Depending on your jurisdiction, you may have the right to:</p>

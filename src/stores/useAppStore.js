@@ -85,16 +85,18 @@ const useAppStore = create((set, get) => ({
     return { reportedThotIds: next }
   }),
 
-  // Blocked session IDs — their thots are hidden locally only
-  blockedSessions: new Set(),
+  // Blocked session IDs — persisted in localStorage so blocks survive page reload
+  blockedSessions: new Set(JSON.parse(localStorage.getItem('blockedSessions') || '[]')),
   blockSession: (sessionId) => set((s) => {
     const next = new Set(s.blockedSessions)
     next.add(sessionId)
+    localStorage.setItem('blockedSessions', JSON.stringify([...next]))
     return { blockedSessions: next, thots: s.thots.filter(t => t.session_id !== sessionId) }
   }),
   unblockSession: (sessionId) => set((s) => {
     const next = new Set(s.blockedSessions)
     next.delete(sessionId)
+    localStorage.setItem('blockedSessions', JSON.stringify([...next]))
     return { blockedSessions: next }
   }),
 }))

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { commentLimiter } from '../middleware/rateLimit.js'
 import { makeModerate } from '../middleware/moderate.js'
 import { supabase } from '../lib/supabase.js'
 import { enqueueNotification } from '../lib/notificationQueue.js'
@@ -54,7 +55,7 @@ router.get('/:id', async (req, res) => {
 
 // POST /comments — post a comment (auth users only)
 const moderateComment = makeModerate('comment')
-router.post('/', moderateComment, async (req, res) => {
+router.post('/', commentLimiter, moderateComment, async (req, res) => {
   const token = req.headers.authorization?.replace('Bearer ', '').trim()
   if (!token) return res.status(401).json({ error: 'Sign in to comment', code: 'AUTH_REQUIRED' })
   const { data: { user }, error: authError } = await supabase.auth.getUser(token)

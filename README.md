@@ -98,6 +98,60 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.16` — Security Hardening, Legal Accuracy & Production Readiness
+
+#### Critical Fixes
+- **Missing `sendThotReviewEmail` import** (`server/routes/reports.js`) — function was called but never imported, causing a silent `ReferenceError` on every 3rd report; admin review email was never firing
+- **`ip_hash` and `session_id` stripped from all public API responses** — `GET /thots/:id`, `GET /thots?session_id=`, `GET /thots/liked`, and the Socket.io `thot:new` broadcast all used `select('*')`; now use an explicit safe column list (`id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted`); `ip_hash` and `session_id` are never returned to any client
+- **`POST /thots` broadcast sanitized** — `ip_hash` and `session_id` are destructured out of the insert result before being passed to `req.io.emit('thot:new', ...)`
+- **`GET /thots?session_id=` now requires session ownership** — previously unauthenticated; now validates the caller's session cookie or JWT matches the requested `session_id`, returning 403 otherwise; prevents any user from reading another user's post history
+- **`email` removed from `POST /auth/login` response body** — client already knows the email it submitted; including it in the response let it flow into proxies, logs, and any intercepting middleware
+- **`user_id` removed from `POST /auth/signup` response body** — Supabase UUID was unnecessarily disclosed on account creation
+
+#### Rate Limiting (new — all previously unlimited)
+- **`loginLimiter`** — 10 attempts per IP per 15 minutes on `POST /auth/login`; blocks brute-force credential attacks
+- **`authInfoLimiter`** — 20 requests per IP per minute on `GET /auth/check-email` and `POST /auth/resend-verification`; stops account enumeration at machine speed
+- **`commentLimiter`** — 20 comments per session per hour on `POST /comments`
+- **`reportLimiter`** — 30 reports per session per hour on `POST /reports`
+- **`socialLimiter`** — 60 requests per session per hour on `POST` routes in follows and messages
+
+#### Supabase RLS & Grants — migration 015
+- **`get_thots_nearby` rewritten** — previously `returns setof thots` (exposed every column including `ip_hash` and `session_id`); now returns an explicit safe column table type; drop-and-recreate with new signature
+- **Open `anon_insert` policy on `thots` removed** — replaced with `server_only_insert` (`with check (false)`) so the server (using service_role, which bypasses RLS) is the only write path; direct Supabase client inserts bypassing rate limiting, moderation, and IP hashing are now blocked
+- **Open `anon_insert` policy on `reports` removed** — same fix
+- **`GRANT ALL` on social tables replaced with scoped grants** — `follows`: authenticated SELECT only; `messages`: authenticated SELECT + INSERT; `message_hypes`: authenticated SELECT + INSERT + DELETE; `user_reports`: authenticated INSERT only (no SELECT — reporter privacy); `anon` role revoked from all four tables
+- **Column-level revoke** — `ip_hash` and `session_id` columns on `thots` revoked from `anon` and `authenticated` roles at the Postgres column-permission level
+
+#### Legal Pages
+- **Privacy Policy — SameSite corrected** — was `SameSite=Strict`; actual cookie is `SameSite=Lax` (required for cross-subdomain auth); policy now matches implementation
+- **Privacy Policy — birth year retention corrected** — was "not stored beyond the session"; birth year is stored persistently in `users` table and `auth.user_metadata` for age-gate compliance; policy now accurately describes this
+- **Privacy Policy — ip_hash clarified** — added explicit disclosure that a SHA-256 hashed IP is stored server-side per post for law enforcement cooperation; plaintext IP never stored
+- **Terms of Service — anonymous posting removed** — `POST /thots` requires a registered account; Terms now reflect this instead of describing guest posting
+- **Terms of Service — rate limit section corrected** — removed "3 thots/hr for anon, no limit for registered" claim; replaced with accurate description of per-session velocity limits
+- **Terms of Service — DMCA registration softened** — removed false claim "We are registered with the U.S. Copyright Office"; replaced with "in the process of completing" pending actual registration at copyright.gov
+
+#### Block List Persistence
+- **`blockedSessions` now persists to localStorage** — previously in-memory only, resetting on every page reload; now initialised from `localStorage.getItem('blockedSessions')` and written on every block/unblock, matching the same pattern as `reportedThotIds`
+
+#### Security Tests (`server/test/security.test.js`) — 26 new tests
+- `ip_hash` not in `GET /thots/:id` select clause
+- `ip_hash`/`session_id` stripped before Socket.io broadcast
+- Session history select does not use `select('*')`
+- `GET /thots?session_id=` contains ownership enforcement (`callerSessionId !== sessionId`)
+- Login response does not contain `email: data.user.email`
+- Signup response does not contain `user_id`
+- Every admin route includes `requireAdmin` middleware
+- All five new rate limiters exported from `rateLimit.js`
+- All six route files wire their respective limiters
+- `sendThotReviewEmail` importable from `email.js`
+- Block list reads from and writes to localStorage
+- Privacy Policy states `SameSite=Lax`, not `Strict`
+- Privacy Policy doesn't claim birth year not stored
+- Terms doesn't claim DMCA registration complete
+- Terms doesn't describe anonymous posting as available
+
+**Test suite: 53 tests, 5 files, all passing**
+
 ### `v0.15` — Social Graph, Moderation Review & Admin Emails
 
 #### Social Graph

@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { socialLimiter } from '../middleware/rateLimit.js'
 import { supabase } from '../lib/supabase.js'
 
 const router = Router()
@@ -60,7 +61,7 @@ router.get('/', async (req, res) => {
 })
 
 // POST /messages/:userId — send a message
-router.post('/:userId', async (req, res) => {
+router.post('/:userId', socialLimiter, async (req, res) => {
   const user = await requireAuth(req, res); if (!user) return
   const { userId } = req.params
   if (!/^[0-9a-f-]{36}$/.test(userId)) return res.status(400).json({ error: 'invalid user id' })

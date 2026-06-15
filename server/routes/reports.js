@@ -1,10 +1,12 @@
 import express from 'express'
 import { supabase } from '../lib/supabase.js'
+import { sendThotReviewEmail } from '../lib/email.js'
+import { reportLimiter } from '../middleware/rateLimit.js'
 
 const router = express.Router()
 
 // POST /reports — submit a report for a thot
-router.post('/', async (req, res) => {
+router.post('/', reportLimiter, async (req, res) => {
   const { thot_id, reason } = req.body
 
   if (!thot_id || !/^[0-9a-f-]{36}$/.test(thot_id)) {

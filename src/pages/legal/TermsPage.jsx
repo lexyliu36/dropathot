@@ -8,7 +8,7 @@ export default function TermsPage() {
       </div>
 
       <h2>1. Agreement to Terms</h2>
-      <p>These Terms of Service ("Terms") govern your access to and use of dropathot ("we," "us," "our"), including our website at dropathot.com and any associated services (collectively, the "Service"). By creating an account, posting content, or using the Service anonymously, you agree to be bound by these Terms and our <a href="/legal/privacy">Privacy Policy</a> and <a href="/legal/safety">Safety Policy</a>.</p>
+      <p>These Terms of Service ("Terms") govern your access to and use of dropathot ("we," "us," "our"), including our website at dropathot.com and any associated services (collectively, the "Service"). By creating an account, posting content, or using the Service, you agree to be bound by these Terms and our <a href="/legal/privacy">Privacy Policy</a> and <a href="/legal/safety">Safety Policy</a>.</p>
       <p>If you do not agree to these Terms, you may not access or use the Service. We reserve the right to update these Terms at any time. Continued use after any update constitutes your acceptance of the revised Terms.</p>
 
       <h2>2. Eligibility</h2>
@@ -16,7 +16,7 @@ export default function TermsPage() {
       <p>You may not use the Service if you have previously been banned, are prohibited from receiving our services under applicable law, or if your account has been suspended or terminated for any reason.</p>
 
       <h2>3. Your Account and Anonymous Sessions</h2>
-      <p>You may use dropathot with a registered account (identified by a pen name and email) or anonymously via a guest session. In both cases, a unique session identifier is assigned to your device and retained server-side for moderation and legal compliance. See our <a href="/legal/privacy">Privacy Policy</a> for details.</p>
+      <p>You must register an account (identified by a pen name and email) to use the Service and post content. A unique session identifier is assigned to your device and retained server-side for moderation and legal compliance. See our <a href="/legal/privacy">Privacy Policy</a> for details.</p>
       <p>Registered accounts require a valid email and a unique pen name. You are responsible for securing your credentials. You may not share your account, impersonate another person, or choose a pen name that is misleading, offensive, or that infringes on another's rights.</p>
 
       <h2>4. Content You Post ("Thots")</h2>
@@ -44,10 +44,10 @@ export default function TermsPage() {
       <p>Consistent with Section 230 of the Communications Decency Act (47 U.S.C. § 230), we are not the publisher of user-generated content. We never editorially alter post content — moderation blocks posts entirely but does not modify their text.</p>
 
       <h2>7. Rate Limits</h2>
-      <p>Anonymous users may post up to 3 thots per hour. Registered users have no posting rate limit. We reserve the right to adjust these limits at any time.</p>
+      <p>Registered users may post subject to per-session velocity limits, which we may adjust at any time to ensure service quality and prevent abuse.</p>
 
       <h2>8. Copyright and DMCA</h2>
-      <p>We respect intellectual property rights. To submit a DMCA takedown notice, email <strong>legal@dropathot.com</strong> with: (i) identification of the copyrighted work; (ii) location of the infringing material; (iii) your contact information; (iv) a good faith belief statement; and (v) a statement under penalty of perjury that you are authorized to act, with your electronic signature. We are registered with the U.S. Copyright Office and will process valid notices promptly.</p>
+      <p>We respect intellectual property rights. To submit a DMCA takedown notice, email <strong>legal@dropathot.com</strong> with: (i) identification of the copyrighted work; (ii) location of the infringing material; (iii) your contact information; (iv) a good faith belief statement; and (v) a statement under penalty of perjury that you are authorized to act, with your electronic signature. We will process valid notices promptly. We are in the process of completing our DMCA agent registration with the U.S. Copyright Office.</p>
 
       <h2>9. Privacy and Location Data</h2>
       <p>The Service is fundamentally location-based. When you post a thot, your approximate geographic coordinates are stored with the post and displayed on the map. We do not sell your location data to third parties. See our <a href="/legal/privacy">Privacy Policy</a> for full details.</p>
