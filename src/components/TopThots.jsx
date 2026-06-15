@@ -95,7 +95,7 @@ export default function TopThots({ thots, session, onHype, onClose, onSelectThot
               <div className="flex-1 min-w-0">
                 <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
                 {/* Row 1: pen name + timestamp */}
-                <div className="flex items-center gap-1.5 mt-1.5 min-w-0">
+                <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
                   {thot.pen_name ? (
                     <button
                       onClick={() => onSelectThot?.(thot)}
@@ -110,9 +110,9 @@ export default function TopThots({ thots, session, onHype, onClose, onSelectThot
                   <span className="text-slate-600 text-[10px] flex-shrink-0">{relativeTime(thot.created_at)}</span>
                 </div>
                 {/* Location */}
-                <GeoLabel lat={thot.lat} lng={thot.lng} />
+                <div className="-mt-1.5 mb-1.5"><GeoLabel lat={thot.lat} lng={thot.lng} /></div>
                 {/* Row 2: fixed-width slots so icons always align vertically */}
-                <div className="flex items-center mt-1">
+                <div className="flex items-center">
                   {/* Heart slot — fixed 48px */}
                   <div style={{ width: '48px', flexShrink: 0 }}>
                     <LeaderboardHeart thot={thot} session={session} onHype={onHype} />

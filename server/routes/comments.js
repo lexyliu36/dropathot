@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { makeModerate } from '../middleware/moderate.js'
 import { supabase } from '../lib/supabase.js'
+import { enqueueNotification } from '../lib/notificationQueue.js'
 
 const router = Router()
 
@@ -77,6 +78,16 @@ router.post('/', moderateComment, async (req, res) => {
     .insert(row)
     .select().single()
   if (error) return res.status(500).json({ error: 'Failed to post comment' })
+
+  // Notify thot owner (async, skip self-comments)
+  supabase.from('thots').select('user_id, content').eq('id', thot_id).maybeSingle()
+    .then(({ data: thotRow }) => {
+      const ownerId = thotRow?.user_id
+      if (ownerId && ownerId !== user.id) {
+        enqueueNotification(ownerId, 'comment', userData?.pen_name ?? 'Someone', thotRow.content, thot_id)
+      }
+    })
+
   res.status(201).json(data)
 })
 

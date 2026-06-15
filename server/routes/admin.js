@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { supabase } from '../lib/supabase.js'
+import { sendThotRestoredEmail, sendThotRemovedEmail, sendUserBannedEmail, sendUserUnbannedEmail, sendUserReportsDismissedEmail } from '../lib/email.js'
 
 const router = Router()
 
@@ -179,3 +180,158 @@ router.get('/detail/sessions', requireAdmin, async (req, res) => {
 })
 
 export default router
+
+// ---------------------------------------------------------------------------
+// Moderation review endpoints
+// ---------------------------------------------------------------------------
+
+
+// Helper: look up a user's auth email by their UUID
+async function getUserEmail(userId) {
+  if (!userId) return null
+  const { data, error } = await supabase.auth.admin.getUserById(userId)
+  if (error || !data?.user) return null
+  return data.user.email || null
+}
+
+// ── Thot review ──────────────────────────────────────────────────────────────
+
+// GET /admin/review/thot/:id — thot + all reports
+router.get('/review/thot/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params
+  const [thotRes, reportsRes] = await Promise.all([
+    supabase.from('thots').select('id, content, pen_name, session_id, user_id, created_at, hidden, hype_count').eq('id', id).maybeSingle(),
+    supabase.from('reports').select('id, reason, reporter_session, created_at').eq('thot_id', id).order('created_at', { ascending: false }),
+  ])
+  if (!thotRes.data) return res.status(404).json({ error: 'not found' })
+  res.json({ thot: thotRes.data, reports: reportsRes.data || [] })
+})
+
+// POST /admin/review/thot/:id/unhide — restore + enforce proximity rule + email author
+router.post('/review/thot/:id/unhide', requireAdmin, async (req, res) => {
+  const { id } = req.params
+  const { data: thot } = await supabase
+    .from('thots')
+    .select('id, content, pen_name, user_id, session_id, location')
+    .eq('id', id).maybeSingle()
+  if (!thot) return res.status(404).json({ error: 'not found' })
+
+  const authorId = thot.user_id || thot.session_id
+
+  // Find any other non-hidden thots by this user within 250m — hide them first
+  // so we don't violate the "one active thot per user per area" rule
+  if (authorId) {
+    const { data: conflicts } = await supabase.rpc('get_nearby_user_thots', {
+      p_session_id: authorId,
+      p_exclude_id: id,
+      p_meters: 250,
+    }).catch(() => ({ data: null }))
+
+    if (conflicts?.length) {
+      await supabase
+        .from('thots')
+        .update({ hidden: true })
+        .in('id', conflicts.map(c => c.id))
+    }
+  }
+
+  const { error } = await supabase.from('thots').update({ hidden: false }).eq('id', id)
+  if (error) return res.status(500).json({ error: 'Update failed' })
+
+  // Email the author
+  const email = await getUserEmail(authorId)
+  if (email && thot.pen_name) {
+    await sendThotRestoredEmail(email, thot.pen_name, thot.content)
+  }
+
+  res.json({ ok: true, emailed: !!email })
+})
+
+// POST /admin/review/thot/:id/remove — permanently hide + clear reports + email author
+router.post('/review/thot/:id/remove', requireAdmin, async (req, res) => {
+  const { id } = req.params
+  const { reason } = req.body
+  const { data: thot } = await supabase.from('thots').select('id, content, pen_name, user_id, session_id').eq('id', id).maybeSingle()
+  if (!thot) return res.status(404).json({ error: 'not found' })
+
+  // Mark hidden and add a permanent flag via a note in the DB (hidden = true is sufficient)
+  const { error } = await supabase.from('thots').update({ hidden: true }).eq('id', id)
+  if (error) return res.status(500).json({ error: 'Update failed' })
+
+  // Email the author
+  const authorId = thot.user_id || thot.session_id
+  const email = await getUserEmail(authorId)
+  if (email && thot.pen_name) {
+    await sendThotRemovedEmail(email, thot.pen_name, thot.content, reason || null)
+  }
+
+  res.json({ ok: true, emailed: !!email })
+})
+
+// ── User review ───────────────────────────────────────────────────────────────
+
+// GET /admin/review/user/:id — user profile + their thots + comments
+router.get('/review/user/:id', requireAdmin, async (req, res) => {
+  const { id } = req.params
+  const [userRes, reportsRes, thotsRes, commentsRes] = await Promise.all([
+    supabase.from('users').select('id, pen_name, birth_year, created_at, is_banned').eq('id', id).maybeSingle(),
+    supabase.from('user_reports').select('id, reason, reporter_id, created_at').eq('reported_id', id).order('created_at', { ascending: false }),
+    supabase.from('thots').select('id, content, created_at, hidden, hype_count').eq('user_id', id).order('created_at', { ascending: false }).limit(50),
+    supabase.from('comments').select('id, content, created_at, hype_count').eq('session_id', id).order('created_at', { ascending: false }).limit(50),
+  ])
+  if (!userRes.data) return res.status(404).json({ error: 'not found' })
+  res.json({
+    user: userRes.data,
+    reports: reportsRes.data || [],
+    thots: thotsRes.data || [],
+    comments: commentsRes.data || [],
+  })
+})
+
+// POST /admin/review/user/:id/ban — ban user + hide their thots + email them
+router.post('/review/user/:id/ban', requireAdmin, async (req, res) => {
+  const { id } = req.params
+  const { reason } = req.body
+  const { data: user } = await supabase.from('users').select('id, pen_name, is_banned').eq('id', id).maybeSingle()
+  if (!user) return res.status(404).json({ error: 'not found' })
+
+  // Ban + hide all their thots
+  const [banRes] = await Promise.all([
+    supabase.from('users').update({ is_banned: true }).eq('id', id),
+    supabase.from('thots').update({ hidden: true }).eq('user_id', id),
+  ])
+  if (banRes.error) return res.status(500).json({ error: 'Ban failed' })
+
+  const email = await getUserEmail(id)
+  if (email) await sendUserBannedEmail(email, user.pen_name, reason || null)
+
+  res.json({ ok: true, emailed: !!email })
+})
+
+// POST /admin/review/user/:id/unban — restore previously-banned user + email them
+router.post('/review/user/:id/unban', requireAdmin, async (req, res) => {
+  const { id } = req.params
+  const { data: user } = await supabase.from('users').select('id, pen_name, is_banned').eq('id', id).maybeSingle()
+  if (!user) return res.status(404).json({ error: 'not found' })
+  if (!user.is_banned) return res.status(400).json({ error: 'User is not banned' })
+
+  const { error } = await supabase.from('users').update({ is_banned: false }).eq('id', id)
+  if (error) return res.status(500).json({ error: 'Unban failed' })
+
+  const email = await getUserEmail(id)
+  if (email) await sendUserUnbannedEmail(email, user.pen_name)
+
+  res.json({ ok: true, emailed: !!email })
+})
+
+// POST /admin/review/user/:id/dismiss — no action taken, email user that reports were reviewed and cleared
+router.post('/review/user/:id/dismiss', requireAdmin, async (req, res) => {
+  const { id } = req.params
+  const { data: user } = await supabase.from('users').select('id, pen_name').eq('id', id).maybeSingle()
+  if (!user) return res.status(404).json({ error: 'not found' })
+
+  const email = await getUserEmail(id)
+  if (email) await sendUserReportsDismissedEmail(email, user.pen_name)
+
+  res.json({ ok: true, emailed: !!email })
+})

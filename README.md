@@ -98,6 +98,54 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.15` — Social Graph, Moderation Review & Admin Emails
+
+#### Social Graph
+- **Followers list in Tools** — "followers" stat in the Profile tab is now clickable; tapping switches to a followers view listing every user following you with tap-to-profile shortcuts, matching the existing following view
+- **`GET /follows/followers` endpoint** — new server route returns the list of users who follow the current authenticated user, using a Supabase foreign key join to resolve pen names
+- **Follow notification** — following a user enqueues a push notification to the followed user via `notificationQueue`
+
+#### Moderation Review Flow
+- **Admin email at 3 reports (thots)** — `POST /reports` now counts reports after every insert; at exactly 3, sends a branded dark-theme email to the admin with the thot content and a direct "Review thot →" link to `/drop-ops?review=thot&id=xxx`
+- **Admin email at 3 reports (users)** — `POST /follows/:userId/report` does the same for `user_reports`; sends "Review user →" link to `/drop-ops?review=user&id=xxx`
+- **`/drop-ops` review panel** — AdminDashboard reads `?review=thot&id=` or `?review=user&id=` query params from the email link and renders an inline review panel without leaving the dashboard:
+  - **Thot review**: shows content, all reports with reasons, and two action buttons — "Unhide (restore)" or "Keep removed"
+  - **User review**: shows profile, all reports, full post history (last 50 thots), full comment history (last 50), and action buttons
+- **Proximity rule preserved on unhide** — before restoring a thot, the server calls `get_nearby_user_thots` (new PostGIS function in migration `014`) to find other active thots by the same user within 250m; any conflicts are hidden first so the one-active-thot-per-area rule is never broken
+- **Correct user review actions** — non-banned users show "No action — notify user" (dismiss) and "Ban + hide all posts"; already-banned users show only "Reinstate user" — no "Unban" button when there's nothing to undo
+- **User emails on every moderation action**:
+  - Thot restored → author emailed that their post was cleared after review
+  - Thot removed → author emailed with content removal notice and appeal instructions
+  - User banned → user emailed with suspension notice, reason, and appeal instructions
+  - User unbanned/reinstated → user emailed that their account is restored
+  - Reports dismissed (no action) → user emailed that reports were reviewed and nothing was found
+
+#### New Server Endpoints (`server/routes/admin.js`)
+- `GET /admin/review/thot/:id` — thot + all reports
+- `POST /admin/review/thot/:id/unhide` — restore with proximity enforcement + email author
+- `POST /admin/review/thot/:id/remove` — keep hidden + email author
+- `GET /admin/review/user/:id` — user profile + reports + thots + comments
+- `POST /admin/review/user/:id/ban` — ban + hide all thots + email user
+- `POST /admin/review/user/:id/unban` — reinstate previously-banned user + email
+- `POST /admin/review/user/:id/dismiss` — no action, email user they're clear
+
+#### Email (`server/lib/email.js`)
+- `sendThotReviewEmail` — dark-theme admin alert with thot content and review link
+- `sendUserReviewEmail` — dark-theme admin alert with user info and review link
+- `sendThotRestoredEmail` — user notification: thot restored after review
+- `sendThotRemovedEmail` — user notification: content removal notice with reason
+- `sendUserBannedEmail` — user notification: account suspension with appeal path
+- `sendUserUnbannedEmail` — user notification: account reinstated
+- `sendUserReportsDismissedEmail` — user notification: reports reviewed, no action taken
+- `APP_URL` in email templates now reads `SITE_URL` first (already set on Railway), eliminating the need for a separate `APP_URL` env var
+
+#### DB (`supabase/migrations/014_nearby_user_thots_fn.sql`)
+- `get_nearby_user_thots(p_session_id, p_exclude_id, p_meters)` — stable SQL function returning active, non-expired thots by a given session within a radius of another thot; used by the admin unhide endpoint to enforce the proximity rule
+
+#### TopThots Polish
+- Tightened spacing between pen name and geo label (`-mt-1.5 mb-1.5` on GeoLabel wrapper)
+- Icon row sits flush under geo label (`mt-0` instead of `mt-1`)
+
 ### `v0.14` — Performance: Caching, Pagination & Location UX
 
 #### Caching & Pagination

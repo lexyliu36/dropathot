@@ -1,5 +1,7 @@
 import { Router } from 'express'
 import { supabase } from '../lib/supabase.js'
+import { sendUserReviewEmail } from '../lib/email.js'
+import { enqueueNotification } from '../lib/notificationQueue.js'
 
 const router = Router()
 
@@ -22,6 +24,22 @@ router.get('/following', async (req, res) => {
     .eq('follower_id', user.id)
 
   if (error) { console.error('[follows/following]', error); return res.status(500).json({ error: 'Server error' }) }
+
+  const users = (data ?? []).map(row => row.users).filter(Boolean)
+  res.json(users)
+})
+
+// GET /follows/followers — list users who follow the current user
+router.get('/followers', async (req, res) => {
+  const user = await requireAuth(req, res)
+  if (!user) return
+
+  const { data, error } = await supabase
+    .from('follows')
+    .select('follower_id, users!follows_follower_id_fkey(id, pen_name)')
+    .eq('following_id', user.id)
+
+  if (error) { console.error('[follows/followers]', error); return res.status(500).json({ error: 'Server error' }) }
 
   const users = (data ?? []).map(row => row.users).filter(Boolean)
   res.json(users)
@@ -70,6 +88,11 @@ router.post('/:userId', async (req, res) => {
     console.error('[follows] insert error:', error)
     return res.status(500).json({ error: 'Failed to follow', detail: error.message, code: error.code })
   }
+
+  // Notify the followed user (async)
+  const actorName = user.user_metadata?.pen_name ?? 'Someone'
+  enqueueNotification(userId, 'follow', actorName, null, null)
+
   res.json({ ok: true, isFollowing: true })
 })
 
@@ -93,6 +116,23 @@ router.post('/:userId/report', async (req, res) => {
   const { error } = await supabase.from('user_reports')
     .insert({ reporter_id: user.id, reported_id: userId, reason: reason?.slice(0, 200) || null })
   if (error) return res.status(500).json({ error: 'Failed to submit report' })
+
+  // Email admin at exactly 3 reports
+  try {
+    const { count } = await supabase
+      .from('user_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('reported_id', userId)
+    if (count === 3) {
+      const { data: reportedUser } = await supabase
+        .from('users')
+        .select('id, pen_name, created_at')
+        .eq('id', userId)
+        .maybeSingle()
+      if (reportedUser) await sendUserReviewEmail(reportedUser, count)
+    }
+  } catch (e) { console.error('[user report] email trigger failed:', e.message) }
+
   res.json({ ok: true })
 })
 

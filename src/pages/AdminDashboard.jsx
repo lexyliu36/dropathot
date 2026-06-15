@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 const TOKEN_KEY = 'dat_admin_token'
@@ -258,6 +259,190 @@ function LoginScreen({ onLogin, isLocked, countdown, attemptsLeft, loginError })
   )
 }
 
+
+// ── Moderation review panel ───────────────────────────────────────────────────
+
+function ReviewPanel({ token, type, id, onDone }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+  const [done, setDone] = useState(null) // result message
+
+  useEffect(() => {
+    if (!id || !token) return
+    setLoading(true)
+    fetch(`${API_URL}/admin/review/${type}/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(d => { setData(d); setLoading(false) })
+      .catch(e => { setError(`Failed to load (${e})`); setLoading(false) })
+  }, [type, id, token])
+
+  async function doAction(action, body = {}) {
+    setActionLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/admin/review/${type}/${id}/${action}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || res.status)
+      setDone(`Done: ${action}${json.emailed ? ' · email sent to user' : ''}`)
+    } catch (e) { setError(e.message) }
+    setActionLoading(false)
+  }
+
+  function BtnRed({ label, action, confirm: msg, body }) {
+    return (
+      <button
+        onClick={() => { if (!msg || window.confirm(msg)) doAction(action, body || {}) }}
+        disabled={actionLoading || !!done}
+        className="px-4 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-40"
+        style={{ background: '#e11d48', color: '#fff' }}
+      >
+        {label}
+      </button>
+    )
+  }
+  function BtnGreen({ label, action, confirm: msg, body }) {
+    return (
+      <button
+        onClick={() => { if (!msg || window.confirm(msg)) doAction(action, body || {}) }}
+        disabled={actionLoading || !!done}
+        className="px-4 py-2 rounded-lg text-sm font-semibold transition-opacity hover:opacity-80 disabled:opacity-40"
+        style={{ background: '#16a34a', color: '#fff' }}
+      >
+        {label}
+      </button>
+    )
+  }
+
+  if (loading) return <div className="p-8 text-center text-gray-500 text-sm">Loading…</div>
+
+  return (
+    <div className="mt-8 rounded-2xl overflow-hidden" style={{ background: '#0e0e1a', border: '1px solid rgba(255,255,255,0.07)' }}>
+      <div className="h-1" style={{ background: 'linear-gradient(90deg,#e11d48,#7c3aed)' }} />
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <p className="text-xs font-bold uppercase tracking-wider text-rose-500">
+            {type === 'thot' ? 'Thot Review' : 'User Review'}
+          </p>
+          <button onClick={onDone} className="text-gray-600 hover:text-gray-400 text-xs">✕ close</button>
+        </div>
+
+        {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+        {done && <p className="text-green-400 text-sm mb-4 font-medium">{done}</p>}
+
+        {type === 'thot' && data && (() => {
+          const { thot, reports } = data
+          return (
+            <>
+              {/* Thot content */}
+              <div className="rounded-xl p-4 mb-5" style={{ background: '#13131f', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="text-white text-sm leading-relaxed mb-2">"{thot.content}"</p>
+                <div className="flex gap-3 text-xs text-gray-500">
+                  <span className="text-purple-400">{thot.pen_name || 'anon'}</span>
+                  <span>{timeAgo(thot.created_at)}</span>
+                  <span>♥ {thot.hype_count}</span>
+                  {thot.hidden && <span className="text-yellow-500">hidden</span>}
+                </div>
+              </div>
+
+              {/* Reports */}
+              <p className="text-gray-500 text-xs uppercase tracking-wider mb-3">Reports ({reports.length})</p>
+              <div className="space-y-2 mb-6">
+                {reports.map(r => (
+                  <div key={r.id} className="text-xs text-gray-400 py-1.5 border-b border-white/5 last:border-0">
+                    {r.reason || <span className="text-gray-600 italic">no reason given</span>}
+                    <span className="ml-2 text-gray-600">{timeAgo(r.created_at)}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 flex-wrap">
+                <BtnGreen label="✓ Unhide (restore)" action="unhide" confirm="Restore this thot to the map? The author will be emailed." />
+                <BtnRed label="✕ Keep removed" action="remove" confirm="Permanently remove this thot? The author will be emailed." body={{ reason: 'Violated community guidelines' }} />
+              </div>
+            </>
+          )
+        })()}
+
+        {type === 'user' && data && (() => {
+          const { user, reports, thots, comments } = data
+          return (
+            <>
+              {/* User info */}
+              <div className="rounded-xl p-4 mb-5" style={{ background: '#13131f', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="text-white text-base font-bold mb-1">{user.pen_name}</p>
+                <div className="flex gap-3 text-xs text-gray-500">
+                  <span>Joined {timeAgo(user.created_at)}</span>
+                  <span>b. {user.birth_year}</span>
+                  {user.is_banned && <span className="text-red-400 font-medium">BANNED</span>}
+                </div>
+              </div>
+
+              {/* Reports */}
+              <p className="text-gray-500 text-xs uppercase tracking-wider mb-3">Reports ({reports.length})</p>
+              <div className="space-y-1 mb-5">
+                {reports.map(r => (
+                  <div key={r.id} className="text-xs text-gray-400 py-1.5 border-b border-white/5 last:border-0">
+                    {r.reason || <span className="text-gray-600 italic">no reason</span>}
+                    <span className="ml-2 text-gray-600">{timeAgo(r.created_at)}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Their thots */}
+              <p className="text-gray-500 text-xs uppercase tracking-wider mb-3">Thots ({thots.length})</p>
+              <div className="space-y-2 mb-5 max-h-64 overflow-y-auto">
+                {thots.map(t => (
+                  <div key={t.id} className="py-2 border-b border-white/5 last:border-0">
+                    <p className="text-sm text-white/80 leading-snug">{t.content}</p>
+                    <div className="flex gap-2 text-xs text-gray-600 mt-0.5">
+                      <span>{timeAgo(t.created_at)}</span>
+                      {t.hidden && <span className="text-yellow-600">hidden</span>}
+                      <span>♥ {t.hype_count}</span>
+                    </div>
+                  </div>
+                ))}
+                {thots.length === 0 && <p className="text-gray-600 text-xs">No thots</p>}
+              </div>
+
+              {/* Their comments */}
+              <p className="text-gray-500 text-xs uppercase tracking-wider mb-3">Comments ({comments.length})</p>
+              <div className="space-y-2 mb-6 max-h-48 overflow-y-auto">
+                {comments.map(c => (
+                  <div key={c.id} className="py-2 border-b border-white/5 last:border-0">
+                    <p className="text-sm text-white/80 leading-snug">{c.content}</p>
+                    <span className="text-xs text-gray-600">{timeAgo(c.created_at)}</span>
+                  </div>
+                ))}
+                {comments.length === 0 && <p className="text-gray-600 text-xs">No comments</p>}
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3 flex-wrap">
+                {user.is_banned ? (
+                  <BtnGreen label="✓ Reinstate user" action="unban" confirm={`Reinstate ${user.pen_name}? They will be emailed that their account is restored.`} />
+                ) : (
+                  <>
+                    <BtnGreen label="✓ No action — notify user" action="dismiss" confirm={`Email ${user.pen_name} that their reports were reviewed and no action was taken?`} />
+                    <BtnRed label="⊘ Ban + hide all posts" action="ban" confirm={`Ban ${user.pen_name}? Their thots will be hidden and they will be emailed.`} body={{ reason: 'Repeated violations of community guidelines' }} />
+                  </>
+                )}
+              </div>
+            </>
+          )
+        })()}
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function AdminDashboard() {
@@ -272,6 +457,9 @@ export default function AdminDashboard() {
   const [loginError, setLoginError]   = useState('')
   const [activeDetail, setActiveDetail] = useState(null)
   const detailRef = useRef(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const reviewType = searchParams.get('review') // 'thot' | 'user'
+  const reviewId   = searchParams.get('id')
 
   const isLocked = Boolean(failState.lockedUntil && Date.now() < failState.lockedUntil)
   const attemptsLeft = Math.max(0, 5 - (failState.attempts || 0))
@@ -454,6 +642,16 @@ export default function AdminDashboard() {
               onClose={() => setActiveDetail(null)}
             />
           </div>
+        )}
+
+        {/* Moderation review panel (opened from email link) */}
+        {reviewType && reviewId && (
+          <ReviewPanel
+            token={token}
+            type={reviewType}
+            id={reviewId}
+            onDone={() => setSearchParams({})}
+          />
         )}
 
       </div>

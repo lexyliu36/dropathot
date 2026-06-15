@@ -34,6 +34,22 @@ router.post('/', async (req, res) => {
     return res.status(500).json({ error: 'Failed to submit report' })
   }
 
+  // Check if this is the 3rd report — email admin for review
+  try {
+    const { count } = await supabase
+      .from('reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('thot_id', thot_id)
+    if (count === 3) {
+      const { data: thot } = await supabase
+        .from('thots')
+        .select('id, content, pen_name, created_at')
+        .eq('id', thot_id)
+        .maybeSingle()
+      if (thot) await sendThotReviewEmail(thot, count)
+    }
+  } catch (e) { console.error('[reports] email trigger failed:', e.message) }
+
   res.json({ ok: true })
 })
 

@@ -13,6 +13,7 @@ import reportsRouter from './routes/reports.js'
 import adminRouter from './routes/admin.js'
 import followsRouter from './routes/follows.js'
 import messagesRouter from './routes/messages.js'
+import { startDigestJob } from './jobs/digestEmail.js'
 import { startDeletionCron } from './lib/deletionCron.js'
 
 const app = express()
@@ -68,6 +69,7 @@ io.on('connection', (socket) => {
 const PORT = process.env.PORT || 4000
 startDeletionCron()
 
+startDigestJob()
 httpServer.listen(PORT, () => {
   console.log(`Thots server running on port ${PORT}`)
 })

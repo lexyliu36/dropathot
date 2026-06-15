@@ -816,6 +816,11 @@ export default function Map() {
             useAppStore.getState().setSelectedThot(thot)
             setToolsOpen(false)
           }}
+          onFlyTo={(thot) => {
+            mapInstanceRef.current?.flyTo({ center: [thot.lng, thot.lat], zoom: 17, duration: 700 })
+            setToolsOpen(false)
+          }}
+          onOpenDM={partner => { setToolsOpen(false); setDmPartner(partner) }}
         />
       )}
 

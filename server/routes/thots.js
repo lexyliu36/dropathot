@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import { createHash } from 'crypto'
 import { supabase } from '../lib/supabase.js'
+import { enqueueNotification } from '../lib/notificationQueue.js'
 import { neighborCells, latLngToH3 } from '../lib/geo.js'
 import { subnetLimit } from '../middleware/subnetLimit.js'
 import { smartRateLimit } from '../middleware/rateLimit.js'
@@ -176,6 +177,15 @@ router.post('/:id/hype', async (req, res) => {
       console.error('[hype] insert error:', insertErr)
       return res.status(500).json({ error: 'Failed to hype', detail: insertErr.message })
     }
+    // Notify thot owner (async, don't await)
+    supabase.from('thots').select('session_id, content, user_id').eq('id', thotId).maybeSingle()
+      .then(({ data: thotRow }) => {
+        const ownerId = thotRow?.user_id
+        if (ownerId && ownerId !== user.id) {
+          const actorName = user.user_metadata?.pen_name ?? 'Someone'
+          enqueueNotification(ownerId, 'like', actorName, thotRow.content, thotId)
+        }
+      })
   }
 
   const { data: thot } = await supabase.from('thots').select('hype_count').eq('id', thotId).maybeSingle()
