@@ -4,19 +4,19 @@ export default function TermsPage() {
   return (
     <LegalLayout title="Terms of Service" updated="June 9, 2026">
       <div className="callout">
-        You must be 18 years of age or older to access or use drop-a-thot. By continuing, you confirm that you meet this requirement and that you agree to these Terms in full.
+        You must be 18 years of age or older to access or use dropathot. By continuing, you confirm that you meet this requirement and that you agree to these Terms in full.
       </div>
 
       <h2>1. Agreement to Terms</h2>
-      <p>These Terms of Service ("Terms") govern your access to and use of drop-a-thot ("we," "us," "our"), including our website at dropathot.com and any associated services (collectively, the "Service"). By creating an account, posting content, or using the Service anonymously, you agree to be bound by these Terms and our <a href="/legal/privacy">Privacy Policy</a> and <a href="/legal/safety">Safety Policy</a>.</p>
+      <p>These Terms of Service ("Terms") govern your access to and use of dropathot ("we," "us," "our"), including our website at dropathot.com and any associated services (collectively, the "Service"). By creating an account, posting content, or using the Service anonymously, you agree to be bound by these Terms and our <a href="/legal/privacy">Privacy Policy</a> and <a href="/legal/safety">Safety Policy</a>.</p>
       <p>If you do not agree to these Terms, you may not access or use the Service. We reserve the right to update these Terms at any time. Continued use after any update constitutes your acceptance of the revised Terms.</p>
 
       <h2>2. Eligibility</h2>
-      <p>You must be at least 18 years old to use drop-a-thot. By using the Service, you represent and warrant that you are 18 or older. If we discover or reasonably suspect that you are under 18, we will terminate your access immediately and without notice. We do not knowingly collect personal information from anyone under 18.</p>
+      <p>You must be at least 18 years old to use dropathot. By using the Service, you represent and warrant that you are 18 or older. If we discover or reasonably suspect that you are under 18, we will terminate your access immediately and without notice. We do not knowingly collect personal information from anyone under 18.</p>
       <p>You may not use the Service if you have previously been banned, are prohibited from receiving our services under applicable law, or if your account has been suspended or terminated for any reason.</p>
 
       <h2>3. Your Account and Anonymous Sessions</h2>
-      <p>You may use drop-a-thot with a registered account (identified by a pen name and email) or anonymously via a guest session. In both cases, a unique session identifier is assigned to your device and retained server-side for moderation and legal compliance. See our <a href="/legal/privacy">Privacy Policy</a> for details.</p>
+      <p>You may use dropathot with a registered account (identified by a pen name and email) or anonymously via a guest session. In both cases, a unique session identifier is assigned to your device and retained server-side for moderation and legal compliance. See our <a href="/legal/privacy">Privacy Policy</a> for details.</p>
       <p>Registered accounts require a valid email and a unique pen name. You are responsible for securing your credentials. You may not share your account, impersonate another person, or choose a pen name that is misleading, offensive, or that infringes on another's rights.</p>
 
       <h2>4. Content You Post ("Thots")</h2>
@@ -53,7 +53,7 @@ export default function TermsPage() {
       <p>The Service is fundamentally location-based. When you post a thot, your approximate geographic coordinates are stored with the post and displayed on the map. We do not sell your location data to third parties. See our <a href="/legal/privacy">Privacy Policy</a> for full details.</p>
 
       <h2>10. Law Enforcement Cooperation</h2>
-      <p>Anonymity on drop-a-thot does not mean untraceability. We log session identifiers and hashed IP addresses for every post. These records may be disclosed to law enforcement in response to valid legal process — including subpoenas, court orders, and emergency requests involving risk of imminent harm. We cooperate fully with law enforcement investigations.</p>
+      <p>Anonymity on dropathot does not mean untraceability. We log session identifiers and hashed IP addresses for every post. These records may be disclosed to law enforcement in response to valid legal process — including subpoenas, court orders, and emergency requests involving risk of imminent harm. We cooperate fully with law enforcement investigations.</p>
 
       <h2>11. Disclaimers</h2>
       <p>THE SERVICE IS PROVIDED "AS IS" AND "AS AVAILABLE" WITHOUT WARRANTIES OF ANY KIND. TO THE FULLEST EXTENT PERMITTED BY LAW, WE DISCLAIM ALL WARRANTIES, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.</p>

@@ -49,7 +49,11 @@ router.post('/:userId', async (req, res) => {
   const { error } = await supabase.from('follows')
     .insert({ follower_id: user.id, following_id: userId })
   if (error?.code === '23505') return res.json({ ok: true, isFollowing: true }) // already following
-  if (error) return res.status(500).json({ error: 'Failed to follow' })
+  if (error?.code === '23503') return res.status(400).json({ error: 'not_followable', detail: 'This user cannot be followed (demo account)' })
+  if (error) {
+    console.error('[follows] insert error:', error)
+    return res.status(500).json({ error: 'Failed to follow', detail: error.message, code: error.code })
+  }
   res.json({ ok: true, isFollowing: true })
 })
 

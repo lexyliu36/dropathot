@@ -146,7 +146,7 @@ export default function AuthModal({ initialMode = 'login', onClose, onSuccess })
 
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-6">
-          <span className="text-white font-black text-2xl tracking-tight">drop-a-thot</span>
+          <span className="text-white font-black text-2xl tracking-tight">dropathot</span>
         </div>
 
         {/* Tab switcher */}

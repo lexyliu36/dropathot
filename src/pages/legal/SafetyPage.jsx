@@ -4,14 +4,14 @@ export default function SafetyPage() {
   return (
     <LegalLayout title="Safety Policy" updated="June 9, 2026">
       <div className="callout">
-        drop-a-thot is built for anonymous expression — not a platform for harm. This policy explains how we protect our community, what we prohibit, and what to do if something goes wrong.
+        dropathot is built for anonymous expression — not a platform for harm. This policy explains how we protect our community, what we prohibit, and what to do if something goes wrong.
       </div>
 
       <h2>Our Commitment</h2>
-      <p>drop-a-thot lets people share thoughts tied to where they are in the world. We believe strongly in free expression and the value of anonymous speech — but not at the cost of safety. Every feature we build is designed to balance openness with protection. We take safety seriously and invest in both automated and human moderation.</p>
+      <p>dropathot lets people share thoughts tied to where they are in the world. We believe strongly in free expression and the value of anonymous speech — but not at the cost of safety. Every feature we build is designed to balance openness with protection. We take safety seriously and invest in both automated and human moderation.</p>
 
       <h2>1. Age Requirement — 18+</h2>
-      <p>drop-a-thot is strictly for adults. You must be 18 or older to use the Service. We enforce this through an age gate at enrollment and through our Terms of Service. If we detect or are informed that a user is under 18, we will terminate their account immediately and delete any associated content. We have zero tolerance for the grooming, solicitation, or sexual exploitation of minors in any form.</p>
+      <p>dropathot is strictly for adults. You must be 18 or older to use the Service. We enforce this through an age gate at enrollment and through our Terms of Service. If we detect or are informed that a user is under 18, we will terminate their account immediately and delete any associated content. We have zero tolerance for the grooming, solicitation, or sexual exploitation of minors in any form.</p>
       <p><strong>Child Safety:</strong> Any content that sexually exploits minors — including written descriptions, solicitations, or any form of child sexual abuse material (CSAM) — is strictly prohibited. We report all discovered CSAM to the National Center for Missing and Exploited Children (NCMEC) via CyberTipline and cooperate fully with law enforcement investigations. There are no exceptions to this rule.</p>
 
       <h2>2. Violence and Threats</h2>
@@ -25,7 +25,7 @@ export default function SafetyPage() {
       <p>Posts of this nature are blocked by automated moderation and/or removed immediately upon discovery. We report credible threats to law enforcement.</p>
 
       <h2>3. Harassment and Bullying</h2>
-      <p>drop-a-thot is location-based and community-oriented. We do not allow:</p>
+      <p>dropathot is location-based and community-oriented. We do not allow:</p>
       <ul>
         <li>Targeted harassment, bullying, or sustained negative campaigns against any individual;</li>
         <li>Content designed to make a specific person fear for their safety;</li>
@@ -66,7 +66,7 @@ export default function SafetyPage() {
       </ul>
 
       <h2>8. Illegal Activity</h2>
-      <p>drop-a-thot may not be used to facilitate, promote, or coordinate illegal activity, including but not limited to: drug distribution, sex trafficking, prostitution, weapons trafficking, fraud, or any other criminal enterprise. Posts of this nature are removed and, where appropriate, reported to law enforcement.</p>
+      <p>dropathot may not be used to facilitate, promote, or coordinate illegal activity, including but not limited to: drug distribution, sex trafficking, prostitution, weapons trafficking, fraud, or any other criminal enterprise. Posts of this nature are removed and, where appropriate, reported to law enforcement.</p>
 
       <h2>9. How Moderation Works</h2>
       <p><strong>Automated pre-screening:</strong> Every post passes through the Google Perspective API (toxicity scoring) and OpenAI Moderation API before publication. Posts that exceed our thresholds for toxicity, threats, or severe content are blocked and never published. Blocked attempts are logged with session ID and hashed IP.</p>
@@ -75,7 +75,7 @@ export default function SafetyPage() {
       <p><strong>Appeals:</strong> If you believe your content was removed in error, email <strong>safety@dropathot.com</strong> with your pen name and a description of the post in question. We review all appeals.</p>
 
       <h2>10. Anonymity Is Not Impunity</h2>
-      <p>drop-a-thot is designed for anonymous expression — your pen name and identity are not shown to other users unless you choose to disclose them. However, anonymity does not mean untraceability. We retain hashed IP addresses and session identifiers for all posts. This information is disclosed to law enforcement in response to valid legal process. If you engage in illegal activity on the platform, you can be identified through lawful investigation.</p>
+      <p>dropathot is designed for anonymous expression — your pen name and identity are not shown to other users unless you choose to disclose them. However, anonymity does not mean untraceability. We retain hashed IP addresses and session identifiers for all posts. This information is disclosed to law enforcement in response to valid legal process. If you engage in illegal activity on the platform, you can be identified through lawful investigation.</p>
 
       <h2>11. Law Enforcement Cooperation</h2>
       <p>We take our legal obligations seriously and cooperate with law enforcement agencies worldwide. We respond to:</p>

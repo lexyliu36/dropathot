@@ -52,7 +52,7 @@ export default function ThotPage() {
       {/* Logo */}
       <div className="mb-8 text-center">
         <span className="text-2xl font-black tracking-tight" style={{ color: '#e11d48' }}>
-          drop-a-thot
+          dropathot
         </span>
         <p className="text-slate-500 text-xs mt-1">anonymous thoughts, dropped on a map</p>
       </div>
@@ -127,7 +127,7 @@ export default function ThotPage() {
             onMouseEnter={e => e.currentTarget.style.background = '#be123c'}
             onMouseLeave={e => e.currentTarget.style.background = '#e11d48'}
           >
-            Open drop-a-thot
+            Open dropathot
           </button>
           <p className="text-slate-600 text-xs mt-3">See where this was dropped on the map</p>
         </div>

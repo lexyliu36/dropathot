@@ -68,6 +68,18 @@ function applyZoomSettings(map) {
   store.setLimit(100)
 }
 
+// Generate a GeoJSON circle polygon approximation (radiusM metres, n points)
+function makeCircleGeoJSON(lat, lng, radiusM, n = 64) {
+  const coords = []
+  for (let i = 0; i <= n; i++) {
+    const angle = (i / n) * 2 * Math.PI
+    const dLat = (radiusM * Math.cos(angle)) / 111320
+    const dLng = (radiusM * Math.sin(angle)) / (111320 * Math.cos(lat * Math.PI / 180))
+    coords.push([lng + dLng, lat + dLat])
+  }
+  return { type: 'Feature', geometry: { type: 'Polygon', coordinates: [coords] } }
+}
+
 export default function Map() {
   const navigate = useNavigate()
   const mapRef = useRef(null)
@@ -159,15 +171,7 @@ export default function Map() {
       return
     }
 
-    // Anon users: register with server to get the authoritative httpOnly session cookie
-    fetch(`${API_URL}/auth/anon`, {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-    })
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data?.session_id) setSession({ ...localSession, id: data.session_id }) })
-      .catch(() => {})
+    // Only authenticated users can reach the map — nothing to do for anon sessions
   }, [])
 
   // Ping server on mount to wake Railway from cold start before any real requests
@@ -320,6 +324,31 @@ export default function Map() {
   }, [thots, session?.id])
 
 
+
+  // 250m postable-range ring around your location
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map || !mapReady || !location) return
+    const geojson = makeCircleGeoJSON(location.lat, location.lng, 250)
+    if (map.getSource('range-ring')) {
+      map.getSource('range-ring').setData(geojson)
+    } else {
+      map.addSource('range-ring', { type: 'geojson', data: geojson })
+      map.addLayer({
+        id: 'range-ring-fill',
+        type: 'fill',
+        source: 'range-ring',
+        paint: { 'fill-color': '#e11d48', 'fill-opacity': 0.04 },
+      })
+      map.addLayer({
+        id: 'range-ring-line',
+        type: 'line',
+        source: 'range-ring',
+        paint: { 'line-color': '#e11d48', 'line-opacity': 0.35, 'line-width': 1.5, 'line-dasharray': [3, 3] },
+      })
+    }
+  }, [location, mapReady])
+
   // Recompute visible (deduped) thots whenever raw thots change
   useEffect(() => {
     const map = mapInstanceRef.current
@@ -362,6 +391,9 @@ export default function Map() {
           session={session}
           onHype={handleHype}
           onClick={(t) => {
+            if (t.lat != null && t.lng != null) {
+              mapInstanceRef.current?.flyTo({ center: [t.lng, t.lat], zoom: 17, duration: 700 })
+            }
             if (t.session_id === session?.id) {
               setShowYouProfile(true)
               setYouHighlightThotId(t.id)
@@ -432,12 +464,16 @@ export default function Map() {
     }, 350)
   }
 
-  async function handlePost(content, duration) {
+  async function handlePost(content, duration, jitteredLoc) {
     if (!location) throw new Error('Location required')
+    if (session?.type !== 'user') {
+      window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+      throw new Error('Sign in to post')
+    }
     const body = {
       content,
-      lat: location.lat,
-      lng: location.lng,
+      lat: (jitteredLoc ?? location).lat,
+      lng: (jitteredLoc ?? location).lng,
       session_id: session?.id,
       pen_name: session?.penName ?? null,
       duration_hours: duration,
@@ -599,8 +635,8 @@ export default function Map() {
           </div>
         ) : (
           /* Normal mode */
-          <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-b from-[#0a0f1e] to-transparent pointer-events-none">
-            <span className="text-white font-black text-xl tracking-tight">drop-a-thot</span>
+          <div className="relative flex items-center px-4 py-3 bg-gradient-to-b from-[#0a0f1e] to-transparent pointer-events-none">
+            {/* Search — left */}
             <div className="flex items-center gap-2 pointer-events-auto">
               <button
                 onClick={() => { setSearchOpen(true); setLeaderboardOpen(false); setToolsOpen(false) }}
@@ -608,6 +644,10 @@ export default function Map() {
               >
                 <Search size={15} />
               </button>
+            </div>
+            {/* Logo — absolute center */}
+            <span className="absolute left-1/2 -translate-x-1/2 text-white font-black text-xl tracking-tight pointer-events-none">dropathot</span>
+            <div className="flex items-center gap-2 pointer-events-auto ml-auto">
               <button
                 onClick={() => { setLeaderboardOpen(o => !o); setToolsOpen(false) }}
                 className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
@@ -703,7 +743,13 @@ export default function Map() {
       {!composing && (
         <div className="absolute bottom-6 right-5 z-20">
           <button
-            onClick={() => setComposing(true)}
+            onClick={() => {
+              if (session?.type !== 'user') {
+                window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+                return
+              }
+              setComposing(true)
+            }}
             className="w-14 h-14 rounded-full bg-brand-red shadow-lg flex items-center justify-center text-white hover:bg-rose-500 transition-colors cursor-pointer"
             style={{ boxShadow: '0 0 24px #e11d4860' }}
           >

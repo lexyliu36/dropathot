@@ -15,7 +15,7 @@ export default function LegalLayout({ title, updated, children }) {
           </button>
           <div className="flex items-center gap-2">
             <MapPin size={15} style={{ color: '#e11d48' }} />
-            <span className="text-white font-bold text-sm tracking-tight">drop-a-thot</span>
+            <span className="text-white font-bold text-sm tracking-tight">dropathot</span>
           </div>
           <span className="text-slate-600 text-sm">/ {title}</span>
         </div>

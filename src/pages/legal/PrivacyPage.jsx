@@ -3,7 +3,7 @@ import LegalLayout from './LegalLayout'
 export default function PrivacyPage() {
   return (
     <LegalLayout title="Privacy Policy" updated="June 9, 2026">
-      <p>drop-a-thot ("we," "us," "our") is committed to being transparent about how we collect, use, and protect your information. This Privacy Policy explains our practices for our website at dropathot.com and all associated services (the "Service"). By using the Service, you agree to the collection and use of information in accordance with this Policy.</p>
+      <p>dropathot ("we," "us," "our") is committed to being transparent about how we collect, use, and protect your information. This Privacy Policy explains our practices for our website at dropathot.com and all associated services (the "Service"). By using the Service, you agree to the collection and use of information in accordance with this Policy.</p>
 
       <h2>1. Information We Collect</h2>
       <p><strong>Information you provide directly:</strong></p>
@@ -41,13 +41,13 @@ export default function PrivacyPage() {
       <ul>
         <li><strong>Service providers:</strong> we share data with Supabase (database and authentication), Railway (backend hosting), Vercel (frontend hosting), Google (Perspective API moderation), OpenAI (moderation), Resend (transactional email), and Mapbox (map rendering). Each of these providers processes data solely to perform services on our behalf and under confidentiality obligations.</li>
         <li><strong>Law enforcement:</strong> we will disclose session identifiers, hashed IPs, post content, timestamps, and associated location data to law enforcement agencies in response to valid legal process (subpoenas, warrants, court orders) or in emergency situations involving an imminent threat to life or safety.</li>
-        <li><strong>Business transfers:</strong> if drop-a-thot is acquired, merged, or its assets are transferred, your information may be part of that transfer. We will notify you via a prominent notice on the Service prior to your information becoming subject to a different privacy policy.</li>
+        <li><strong>Business transfers:</strong> if dropathot is acquired, merged, or its assets are transferred, your information may be part of that transfer. We will notify you via a prominent notice on the Service prior to your information becoming subject to a different privacy policy.</li>
         <li><strong>With your consent:</strong> we may share information for other purposes with your explicit consent.</li>
       </ul>
       <p>Your <strong>public</strong> information — pen name (if registered), post content, location (shown on map), and post timestamp — is visible to other users of the Service by design. Anonymous users appear as "anon" with no pen name.</p>
 
       <h2>4. Location Data</h2>
-      <p>Location is the foundation of drop-a-thot. When you post a thot, your device shares its coordinates with us and those coordinates are stored permanently with the post record (subject to expiry). Posts are visible to other users within a configurable radius. Your precise coordinates are never shown to other users — only the pin on the map indicates your general location at time of posting.</p>
+      <p>Location is the foundation of dropathot. When you post a thot, your device shares its coordinates with us and those coordinates are stored permanently with the post record (subject to expiry). Posts are visible to other users within a configurable radius. Your precise coordinates are never shown to other users — only the pin on the map indicates your general location at time of posting.</p>
       <p>Location is requested via your browser's Geolocation API and only transmitted when you actively post. You may deny location permissions, in which case you can still browse the map but cannot post.</p>
 
       <h2>5. Data Retention</h2>

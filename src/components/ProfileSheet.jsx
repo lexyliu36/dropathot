@@ -145,19 +145,19 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
             <p className="text-white/90 text-xs sm:text-sm leading-relaxed mt-1 break-words">{thot.content}</p>
 
             {/* Action row */}
-            <div className="flex items-center gap-5 mt-3">
+            <div className="flex items-center mt-3">
               {/* Hype / Heart */}
-              <div className="relative group/tip">
+              <div className="relative group/tip flex-1 flex justify-center">
                 <button
                   onClick={handleHypeClick}
                   className="flex items-center gap-1.5 transition-colors cursor-pointer"
-                  style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b' }}
+                  style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b', minWidth: '36px' }}
                 >
                   <Heart
                     size={19}
                     className={heartAnim ? 'heart-pop' : ''}
                     onAnimationEnd={() => setHeartAnim(false)}
-                    style={{ fill: hyped ? '#e11d48' : 'none', transition: 'fill 0.15s, color 0.15s' }}
+                    style={{ fill: hyped ? '#e11d48' : 'none', transition: 'fill 0.15s, color 0.15s', flexShrink: 0 }}
                   />
                   {hypeCount > 0 && (
                     <span className="text-xs" style={{ color: hyped ? '#e11d48' : '#64748b' }}>{hypeCount}</span>
@@ -167,7 +167,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
               </div>
 
               {/* Comment */}
-              <div className="relative group/tip">
+              <div className="relative group/tip flex-1 flex justify-center">
                 <button
                   onClick={() => setShowComments(v => !v)}
                   className="flex items-center gap-1.5 transition-colors cursor-pointer"
@@ -180,7 +180,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
               </div>
 
               {/* Share */}
-              <div className="relative group/tip">
+              <div className="relative group/tip flex-1 flex justify-center">
                 <button
                   onClick={() => setShowShare(true)}
                   className="flex items-center gap-1 transition-colors cursor-pointer"
@@ -191,9 +191,10 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
                 <span className="action-tip">Share</span>
               </div>
 
-              {/* Delete — only for own thots */}
+              {/* Delete / Report — 4th equal slot */}
+              <div className="flex-1 flex justify-center">
               {isOwn && (
-                <div className="flex flex-col items-end ml-auto gap-1">
+                <div className="flex flex-col items-end gap-1">
                   <div className="relative group/tip">
                     <button
                       onClick={handleDelete}
@@ -209,10 +210,8 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
                   )}
                 </div>
               )}
-
-              {/* Report — only for other people's thots */}
               {!isOwn && (
-                <div className="relative group/tip ml-auto">
+                <div className="relative group/tip">
                   <button
                     onClick={handleReport}
                     className="flex items-center gap-1 transition-colors cursor-pointer"
@@ -226,6 +225,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
                   <span className="action-tip">{reported ? 'Reported' : 'Report'}</span>
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>
@@ -266,10 +266,14 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
     : (thot?.pen_name ?? null)
   const accentColor = isYou ? '#e11d48' : thot?.pen_name ? '#7c3aed' : '#64748b'
   const isBlocked = blockedSessions.has(sessionId)
+  const [confirmBlock, setConfirmBlock] = useState(false)
 
   // For named users, session_id IS their auth UUID (set at login, line 222 auth.js).
+  // Demo seed users have b0000000-... IDs — real auth accounts start with other UUIDs.
   // thot.user_id is only populated post-migration-012; fall back to session_id for pen_name owners.
-  const targetUserId = isYou ? null : (thot?.user_id ?? (penName ? thot?.session_id : null))
+  const rawTargetId = isYou ? null : (thot?.user_id ?? (penName ? thot?.session_id : null))
+  const isDemoUser = rawTargetId?.startsWith('b0000000-')
+  const targetUserId = isDemoUser ? null : rawTargetId
 
   useEffect(() => {
     if (!sessionId) { setHistory([]); setLoading(false); return }
@@ -295,8 +299,13 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   }, [targetUserId])
 
   function toggleBlock() {
-    if (isBlocked) unblockSession(sessionId)
-    else blockSession(sessionId)
+    if (isBlocked) { unblockSession(sessionId); return }
+    setConfirmBlock(true)
+  }
+
+  function confirmBlockAction() {
+    blockSession(sessionId)
+    setConfirmBlock(false)
     onClose()
   }
 
@@ -316,7 +325,12 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
       if (res.ok) {
         setIsFollowing(!isFollowing)
         setFollowers(f => isFollowing ? Math.max(0, f - 1) : f + 1)
+      } else {
+        const body = await res.json().catch(() => ({}))
+        console.error('[toggleFollow] failed', res.status, body)
       }
+    } catch (e) {
+      console.error('[toggleFollow] error', e)
     } finally {
       setFollowLoading(false)
     }
@@ -341,7 +355,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   const allThots = history ?? (thot ? [thot] : [])
 
   return (
-    <div className="absolute top-3 right-3 bottom-3 z-30 w-72 flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden panel-slide-right">
+    <div className="absolute bottom-0 left-0 right-0 z-30 h-[50vh] sm:bottom-3 sm:top-3 sm:left-auto sm:right-3 sm:w-72 sm:h-auto flex flex-col bg-[#0e0e1a] border-t border-white/10 sm:border rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden profile-sheet-anim">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05] flex-shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -496,6 +510,29 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
               <span className="text-[9px]">{reportState === 'done' ? 'Reported' : reportState === 'confirm' ? 'Confirm?' : 'Report'}</span>
             </button>
           )}
+          {/* Block confirm dialog */}
+          {confirmBlock && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 rounded-2xl">
+              <div className="bg-[#0e0e1a] border border-white/10 rounded-2xl p-5 mx-4 flex flex-col gap-3 shadow-2xl">
+                <div className="flex items-center gap-2">
+                  <ShieldX size={18} className="text-red-400 flex-shrink-0" />
+                  <span className="text-white font-semibold text-sm">Block this user?</span>
+                </div>
+                <p className="text-slate-400 text-xs leading-relaxed">Their thots will be hidden from your map. You can unblock them from their profile.</p>
+                <div className="flex gap-2 mt-1">
+                  <button
+                    onClick={() => setConfirmBlock(false)}
+                    className="flex-1 py-2 rounded-xl bg-white/5 text-slate-300 text-sm font-medium hover:bg-white/10 transition-colors cursor-pointer"
+                  >Cancel</button>
+                  <button
+                    onClick={confirmBlockAction}
+                    className="flex-1 py-2 rounded-xl bg-red-500/20 text-red-400 text-sm font-semibold hover:bg-red-500/30 transition-colors cursor-pointer border border-red-500/20"
+                  >Block</button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Block */}
           <button
             onClick={toggleBlock}

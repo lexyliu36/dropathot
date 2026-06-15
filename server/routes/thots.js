@@ -185,8 +185,14 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
   // Cookie is authoritative — prevents session_id spoofing from the client body
   const session_id = req.cookies?.session_id ?? req.body.session_id
 
-  // pen_name is stored in user_metadata — no table query needed
+  // Only authenticated named users can post
+  if (!req.user) {
+    return res.status(401).json({ error: 'You must be signed in to post a thot.', code: 'AUTH_REQUIRED' })
+  }
   const pen_name = req.user?.user_metadata?.pen_name ?? null
+  if (!pen_name) {
+    return res.status(403).json({ error: 'You must have a pen name to post.', code: 'NO_PEN_NAME' })
+  }
 
   // Validate
   if (!content || typeof content !== 'string' || content.trim().length === 0) {
@@ -205,6 +211,11 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
   }
   if (!session_id || !/^[0-9a-f-]{36}$/.test(session_id)) {
     return res.status(400).json({ error: 'valid session_id is required' })
+  }
+
+  // Require a real account — anonymous posting is disabled
+  if (!req.user) {
+    return res.status(401).json({ error: 'Sign up to drop a thot', code: 'AUTH_REQUIRED' })
   }
 
   // Server-side location verification: reject if claimed coords are more than
@@ -246,10 +257,6 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
       ? 72
       : parseInt(duration_hours)
     if (isNaN(h) || h < 1 || h > 72) return res.status(400).json({ error: 'duration must be 1–72 hours' })
-    expires_at = new Date(Date.now() + h * 3600 * 1000).toISOString()
-  } else {
-    const h = parseInt(duration_hours) || 3
-    if (![1, 2, 3].includes(h)) return res.status(400).json({ error: 'anonymous posts can stay up for 1–3 hours' })
     expires_at = new Date(Date.now() + h * 3600 * 1000).toISOString()
   }
 

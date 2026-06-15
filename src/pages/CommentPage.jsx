@@ -56,7 +56,7 @@ export default function CommentPage() {
         {/* Wordmark */}
         <div className="flex items-center justify-center gap-2 mb-8">
           <MapPin size={20} style={{ color: ACCENT }} />
-          <span className="text-white font-bold text-lg tracking-tight">drop-a-thot</span>
+          <span className="text-white font-bold text-lg tracking-tight">dropathot</span>
         </div>
 
         {notFound ? (
@@ -135,7 +135,7 @@ export default function CommentPage() {
               className="block w-full text-center py-3.5 rounded-2xl font-semibold text-white text-sm transition-opacity hover:opacity-90"
               style={{ background: ACCENT }}
             >
-              Open drop-a-thot
+              Open dropathot
             </a>
           </>
         )}

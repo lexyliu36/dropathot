@@ -1,5 +1,16 @@
 import { useState } from 'react'
-import { X, Send, User } from 'lucide-react'
+import { X, Send, User, Map } from 'lucide-react'
+
+// Random noise within a circle of radiusM metres
+function jitterLocation(lat, lng, radiusM) {
+  if (radiusM === 0) return { lat, lng }
+  const u = Math.random(), v = Math.random()
+  const w = radiusM * Math.sqrt(-2 * Math.log(1 - u * 0.999)) * 0.4
+  const t = 2 * Math.PI * v
+  const dLat = (w * Math.cos(t)) / 111320
+  const dLng = (w * Math.sin(t)) / (111320 * Math.cos(lat * Math.PI / 180))
+  return { lat: lat + dLat, lng: lng + dLng }
+}
 
 const MAX = 280
 
@@ -25,17 +36,21 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
   const [error, setError] = useState(null)
 
   const isAuth = session?.type === 'user'
-  const identity = isAuth ? (session?.penName || 'member') : 'anonymous'
+  const identity = session?.penName || 'member'
   const rateNote = isAuth ? 'no rate limit' : '3 thots/hr'
   const durationOptions = isAuth ? AUTH_OPTIONS : ANON_OPTIONS
   const [duration, setDuration] = useState(durationOptions[0].value)
+  const [jitter, setJitter] = useState(0) // 0–100 → 0–250m
 
   async function handlePost() {
     if (!text.trim() || posting) return
     setPosting(true)
     setError(null)
     try {
-      await onPost(text.trim(), duration)
+      const maxRadius = 250 // metres
+      const radiusM = Math.round((jitter / 100) * maxRadius)
+      const jitteredLoc = location ? jitterLocation(location.lat, location.lng, radiusM) : null
+      await onPost(text.trim(), duration, jitteredLoc)
       onClose()
     } catch (err) {
       setError({ message: err.message || 'Failed to post. Try again.', code: err.code ?? null })
@@ -55,7 +70,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
       </div>
 
       {/* Identity indicator */}
-      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/8">
+      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/5">
         <div
           className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
           style={{ background: isAuth ? '#7c3aed33' : '#64748b33', border: `1px solid ${isAuth ? '#7c3aed' : '#475569'}` }}
@@ -106,13 +121,48 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
             )
           )}
 
+          {/* Location Randomizer */}
+          <div className="flex flex-col gap-2 px-3 py-2.5 rounded-xl bg-white/5 border border-white/5">
+            <div className="flex items-center gap-2">
+              <Map size={13} className="text-brand-purple flex-shrink-0" />
+              <span className="text-xs font-semibold text-slate-400">Location Randomizer</span>
+              {jitter > 0 && (
+                <span className="ml-auto text-[10px] text-brand-purple">
+                  ~{Math.round((jitter / 100) * 250)}m offset
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] text-brand-purple w-6">less</span>
+              <input
+                type="range"
+                min={0}
+                max={100}
+                value={jitter}
+                onChange={(e) => setJitter(Number(e.target.value))}
+                className="flex-1 cursor-pointer"
+                style={{
+                  fontSize: '16px',
+                  accentColor: '#7c3aed',
+                  WebkitAppearance: 'none',
+                  appearance: 'none',
+                  height: '4px',
+                  borderRadius: '9999px',
+                  background: `linear-gradient(to right, #7c3aed ${jitter}%, #ffffff22 ${jitter}%)`,
+                  outline: 'none',
+                }}
+              />
+              <span className="text-[11px] text-brand-purple w-6 text-right">more</span>
+            </div>
+          </div>
+
           {/* Duration picker */}
           <div className="flex items-center gap-2">
             <span className="text-xs text-slate-500 flex-shrink-0">Visible for</span>
             <select
               value={duration ?? ''}
               onChange={(e) => setDuration(e.target.value === '' ? null : parseInt(e.target.value))}
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-white text-xs focus:outline-none focus:border-brand-purple transition-colors cursor-pointer"
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-1.5 text-white focus:outline-none focus:border-brand-purple transition-colors cursor-pointer" style={{ fontSize: "12px" }}
             >
               {durationOptions.map(opt => (
                 <option key={String(opt.value)} value={opt.value ?? ''} style={{ background: '#0e0e1a' }}>

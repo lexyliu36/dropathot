@@ -98,6 +98,30 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.13` — Privacy, UX Polish & Mobile Layout
+
+#### Identity & Privacy
+- **Removed anonymous users** — "Use anonymously" removed from Landing; `RequireAuth` now requires `type === "user"`; `POST /thots` returns 401 if no authenticated user; AgeGate hardcoded to `"user"` flow
+- **Location Randomizer** — slider in ComposeDrawer adds Gaussian noise (0–250m) to posted coordinates before hitting the server; purple-themed with live "~Xm offset" readout; max capped at 250m
+- **250m range ring** — dashed red ring drawn on the Mapbox map around your location showing the postable radius; fill and stroke use brand red `#e11d48`
+- **Rebrand: dropathot** — replaced all remaining `drop-a-thot` hyphenated references across `package.json`, email templates, legal pages, and all UI copy
+
+#### Map & Navigation
+- **Fly-to on pin click** — clicking any thot pin on the map now flies the camera to that pin before opening the ProfileSheet, matching the behaviour of the in-sheet thot navigation
+- **Centered logo + left search** — dropathot wordmark moved to absolute center of the map header; Search button moved to the left side
+- **ProfileSheet mobile bottom sheet** — on mobile the ProfileSheet slides up from the bottom at 50vh so the map remains visible above it; on desktop it keeps the right-sidebar layout; animation switches between `slideInFromBottom` and `slideInFromRight` via media query
+
+#### ProfileSheet UX
+- **4-slot action row** — heart, comment, share, and delete/report now each occupy an equal `flex-1` slot, centered, for perfect symmetry across all thot cards
+- **Block confirmation dialog** — tapping Block now shows an in-sheet overlay asking "Block this user?" with Cancel/Block buttons; unblock remains immediate
+- **Live/Hidden badge alignment** — card header uses relative positioning for the badge to avoid layout interference
+- **Comment auto-focus** — opening a ProfileSheet via the Top Thots comment button focuses the comment input automatically
+
+#### Visual Polish
+- **Location Randomizer colors** — icon, labels, slider accent, and offset readout all purple (`brand-purple`); slider track rendered with inline gradient (purple fill → white/13 unfilled); container border dimmed to `white/5`
+- **Range ring color** — changed from white to brand red with 35% opacity dashed stroke and 4% fill
+- **Select font size** — duration dropdown forced to `13px` via inline style to override iOS mobile browser enlargement
+
 ### `v0.12` — Thot Deletion, Animations & Session Security
 
 #### Thot Deletion

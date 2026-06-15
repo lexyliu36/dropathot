@@ -130,3 +130,13 @@ body { background: #0a0a0f; color: #f1f5f9; font-family: 'Inter', sans-serif; ov
     font-size: 16px !important;
   }
 }
+
+/* ProfileSheet: slides up on mobile, slides in from right on desktop */
+.profile-sheet-anim {
+  animation: slideInFromBottom 0.28s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+@media (min-width: 640px) {
+  .profile-sheet-anim {
+    animation: slideInFromRight 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
+  }
+}

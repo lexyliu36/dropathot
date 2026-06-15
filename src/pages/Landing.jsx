@@ -129,10 +129,6 @@ export default function Landing() {
     else if (state?.openSignup) { setMode("signup"); resetValidation(); }
   }, [state]);
 
-  function handleAnon() {
-    navigate("/age-gate", { state: { type: "anon" } });
-  }
-
   async function handleLogin(e) {
     e.preventDefault();
     if (!validateLogin()) return;
@@ -321,7 +317,7 @@ export default function Landing() {
       <div className="relative z-10 w-full max-w-sm px-6 flex flex-col items-center gap-6">
         {/* Logo */}
         <div className="flex flex-col items-center gap-1 mb-2">
-          <span className="text-4xl font-black tracking-tight text-white">drop-a-thot</span>
+          <span className="text-4xl font-black tracking-tight text-white">dropathot</span>
           <div className="flex items-center gap-1 text-slate-400 text-sm min-h-[1.5em] justify-center">
             <TaglineCycler />
           </div>
@@ -349,18 +345,7 @@ export default function Landing() {
             >
               Create account
             </button>
-            <div className="flex items-center gap-3 my-1">
-              <div className="flex-1 h-px bg-white/10" />
-              <span className="text-slate-500 text-sm">or</span>
-              <div className="flex-1 h-px bg-white/10" />
-            </div>
-            <button
-              onClick={handleAnon}
-              className="w-full py-3.5 rounded-2xl bg-[#1a1a2e] border border-white/10 text-white font-semibold text-base hover:bg-[#22223a] transition-colors cursor-pointer flex items-center justify-center gap-2"
-            >
-              <span className="text-lg">🎭</span>
-              Use anonymously
-            </button>
+
           </div>
         )}
 

@@ -11,6 +11,13 @@ function relativeTime(isoString) {
   return `${Math.floor(diff / 86400)}d ago`
 }
 
+function formatCount(n) {
+  if (!n) return ''
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1).replace(/\.0$/, '') + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(n >= 10_000 ? 0 : 1).replace(/\.0$/, '') + 'K'
+  return String(n)
+}
+
 function LeaderboardHeart({ thot, session, onHype }) {
   const hyped = useAppStore((s) => s.hypedThotIds.has(thot.id))
   const hypeCount = useAppStore((s) => s.thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0)
@@ -21,11 +28,11 @@ function LeaderboardHeart({ thot, session, onHype }) {
           ? onHype?.(thot.id)
           : window.dispatchEvent(new CustomEvent('thots:needs-auth'))
         }
-        className="flex items-center gap-1.5 transition-colors cursor-pointer"
+        className="flex items-center gap-1 transition-colors cursor-pointer"
         style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b' }}
       >
-        <Heart size={17} style={{ fill: hyped ? '#e11d48' : 'none', color: hyped ? '#e11d48' : '#64748b' }} />
-        {hypeCount > 0 && <span className="text-xs">{hypeCount}</span>}
+        <Heart size={17} style={{ fill: hyped ? '#e11d48' : 'none', color: hyped ? '#e11d48' : '#64748b', flexShrink: 0 }} />
+        <span className="text-xs tabular-nums" style={{ minWidth: hypeCount > 0 ? '1ch' : 0 }}>{formatCount(hypeCount)}</span>
       </button>
       <span className="action-tip">{hyped ? 'Unlike' : 'Like'}</span>
     </div>
@@ -77,45 +84,49 @@ export default function TopThots({ thots, session, onHype, onClose, onSelectThot
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
-                <div className="flex items-center gap-2 mt-1.5">
-                  {/* pen name + timestamp — allowed to shrink so icons stay aligned */}
-                  <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
-                    {thot.pen_name ? (
-                      <button
-                        onClick={() => onSelectThot?.(thot)}
-                        className="text-xs sm:text-sm font-semibold cursor-pointer hover:opacity-75 transition-opacity truncate"
-                        style={{ background: 'none', border: 'none', padding: 0, color: '#7c3aed' }}
-                      >
-                        {thot.pen_name}
-                      </button>
-                    ) : (
-                      <span className="text-xs sm:text-sm font-semibold truncate" style={{ color: '#475569' }}>anon</span>
-                    )}
-                    <span className="text-slate-600 text-[10px] flex-shrink-0">{relativeTime(thot.created_at)}</span>
-                  </div>
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    <div className="relative group/tip">
-                      <button
-                        onClick={() => onCommentClick?.(thot)}
-                        className="flex items-center gap-1.5 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
-                        style={{ background: 'none', border: 'none', padding: 0 }}
-                      >
-                        <MessageCircle size={17} />
-                        {(thot.comment_count ?? 0) > 0 && <span className="text-xs">{thot.comment_count}</span>}
-                      </button>
-                      <span className="action-tip">Comments</span>
-                    </div>
+                {/* Row 1: pen name + timestamp */}
+                <div className="flex items-center gap-1.5 mt-1.5 min-w-0">
+                  {thot.pen_name ? (
+                    <button
+                      onClick={() => onSelectThot?.(thot)}
+                      className="text-xs sm:text-sm font-semibold cursor-pointer hover:opacity-75 transition-opacity truncate"
+                      style={{ background: 'none', border: 'none', padding: 0, color: '#7c3aed' }}
+                    >
+                      {thot.pen_name}
+                    </button>
+                  ) : (
+                    <span className="text-xs sm:text-sm font-semibold truncate" style={{ color: '#475569' }}>anon</span>
+                  )}
+                  <span className="text-slate-600 text-[10px] flex-shrink-0">{relativeTime(thot.created_at)}</span>
+                </div>
+                {/* Row 2: fixed-width slots so icons always align vertically */}
+                <div className="flex items-center mt-1">
+                  {/* Heart slot — fixed 48px */}
+                  <div style={{ width: '48px', flexShrink: 0 }}>
                     <LeaderboardHeart thot={thot} session={session} onHype={onHype} />
-                    <div className="relative group/tip">
-                      <button
-                        onClick={() => setShareThot(thot)}
-                        className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
-                        style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
-                      >
-                        <Upload size={17} />
-                      </button>
-                      <span className="action-tip">Share</span>
-                    </div>
+                  </div>
+                  {/* Comment slot — fixed 48px */}
+                  <div className="relative group/tip" style={{ width: '48px', flexShrink: 0 }}>
+                    <button
+                      onClick={() => onCommentClick?.(thot)}
+                      className="flex items-center gap-1 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+                      style={{ background: 'none', border: 'none', padding: 0 }}
+                    >
+                      <MessageCircle size={17} style={{ flexShrink: 0 }} />
+                      <span className="text-xs tabular-nums">{formatCount(thot.comment_count ?? 0)}</span>
+                    </button>
+                    <span className="action-tip">Comments</span>
+                  </div>
+                  {/* Share */}
+                  <div className="relative group/tip">
+                    <button
+                      onClick={() => setShareThot(thot)}
+                      className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
+                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+                    >
+                      <Upload size={17} />
+                    </button>
+                    <span className="action-tip">Share</span>
                   </div>
                 </div>
               </div>

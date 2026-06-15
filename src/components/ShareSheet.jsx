@@ -41,7 +41,7 @@ export default function ShareSheet({ thot, onClose, urlOverride, titleOverride }
 
   function shareVia() {
     if (navigator.share) {
-      navigator.share({ title: 'drop-a-thot', text: thot.content, url }).catch(() => {})
+      navigator.share({ title: 'dropathot', text: thot.content, url }).catch(() => {})
     } else {
       copyLink()
     }

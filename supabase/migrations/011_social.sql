@@ -58,3 +58,32 @@ create table if not exists user_reports (
   reason      text,
   created_at  timestamptz default now()
 );
+
+-- RLS for follows
+alter table follows enable row level security;
+create policy "anyone can read follows" on follows for select using (true);
+create policy "auth users can insert follows" on follows for insert with check (auth.uid() = follower_id);
+create policy "auth users can delete own follows" on follows for delete using (auth.uid() = follower_id);
+
+-- RLS for messages
+alter table messages enable row level security;
+create policy "participants can read messages" on messages for select using (auth.uid() = from_user_id or auth.uid() = to_user_id);
+create policy "auth users can send messages" on messages for insert with check (auth.uid() = from_user_id);
+create policy "participants can update messages" on messages for update using (auth.uid() = from_user_id or auth.uid() = to_user_id);
+
+-- RLS for message_hypes
+alter table message_hypes enable row level security;
+create policy "anyone can read message hypes" on message_hypes for select using (true);
+create policy "auth users can hype messages" on message_hypes for insert with check (auth.uid() = user_id);
+create policy "auth users can unhype messages" on message_hypes for delete using (auth.uid() = user_id);
+
+-- RLS for user_reports
+alter table user_reports enable row level security;
+create policy "auth users can insert reports" on user_reports for insert with check (auth.uid() = reporter_id);
+create policy "auth users can read own reports" on user_reports for select using (auth.uid() = reporter_id);
+
+-- Grant privileges (needed when tables are created via raw SQL, not Supabase dashboard)
+grant all on public.follows to service_role, authenticated, anon;
+grant all on public.messages to service_role, authenticated, anon;
+grant all on public.message_hypes to service_role, authenticated, anon;
+grant all on public.user_reports to service_role, authenticated, anon;

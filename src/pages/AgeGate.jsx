@@ -258,19 +258,19 @@ export default function AgeGate() {
   const [signedUpEmail, setSignedUpEmail] = useState("");
 
   // Redirect to landing if accessed directly without going through the flow
-  const flowType = state?.type || "anon";
+  const flowType = "user"; // anonymous flow removed
 
   function handleAgeContinue() {
     if (!agreed) { setError("You must confirm you meet the age requirements."); return; }
     const age = CURRENT_YEAR - year;
-    if (age < 18) { setError("You must be 18 or older to use drop-a-thot."); return; }
+    if (age < 18) { setError("You must be 18 or older to use dropathot."); return; }
     setError("");
     setStep("captcha");
   }
 
   async function handleVerified() {
-    if (flowType === "anon") {
-      updateSession({ ageVerified: true, type: "anon" });
+    if (false) {
+      // anon flow removed
       navigate("/map");
       return;
     }
