@@ -98,6 +98,31 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.14` — Performance: Caching, Pagination & Location UX
+
+#### Caching & Pagination
+- **Server-side pagination** — `GET /thots?session_id` now accepts `limit` (default 20, max 50) and `offset` params; returns `{ thots, total, offset, limit }` instead of a flat array; capped at 50 rows per page to keep response times fast regardless of history length
+- **Client-side thot history cache** (`src/lib/thotCache.js`) — module-level `Map` with 5-minute TTL; first open of a ProfileSheet or the Tools Panel drops list renders instantly from cache on repeat visits; pending-deduplication ensures only one in-flight request per session ID
+- **"Load more" button** — ProfileSheet and ToolsPanel both show `Load more (N left)` when the server reports more thots than the current page; each tap appends the next 20 and merges into the cache
+- **Cache invalidation** — posting a new thot calls `invalidateThotCache(session.id)` so the next ProfileSheet open always reflects the latest post; deleting a thot removes it from the cache immediately via `removeFromCache` without requiring a re-fetch
+- **Geocode cache** (`src/lib/geocode.js`) — module-level Map caches reverse-geocode results by coordinate (4 decimal places); concurrent calls for the same coordinate share a single in-flight promise; eliminates redundant Mapbox Geocoding API calls when multiple cards share a location
+
+#### Location & Map
+- **Location Randomizer UX** — slider now places thots AT the chosen distance (±10%) rather than randomly within the ring; Gaussian spread replaced with `r = radiusM * (0.9 + Math.random() * 0.2)` so posts appear on the ring, matching user expectation
+- **Stale JWT fix** — `visibilitychange` listener on the map page forces `supabase.auth.getSession()` on tab resume; prevents "You must be signed in" errors after laptop sleep with a still-valid session
+
+#### ProfileSheet & ToolsPanel UX
+- **Neighborhood label on all thots** — location label (e.g. "Financial District") shown above thot content in ProfileSheet, Top Thots, and ToolsPanel drops list; powered by geocode cache so repeated coordinates don't re-fetch
+- **Following tab in Tools** — new "Following" view in the Profile tab lists all users you follow with a tap-to-profile shortcut
+- **Mobile bottom sheet** — ProfileSheet slides up from the bottom at 45vh on mobile (map visible above); desktop keeps right-sidebar layout; `slideInFromBottom` / `slideInFromRight` animations switch via CSS media query
+- **Delete removes from ProfileSheet instantly** — trashing a thot filters it from the history list and drops count in real time; no re-fetch needed
+- **Follow button responsive** — icon-only on desktop (saves space next to follower count); shows "Follow" / "Unfollow" label on mobile where there's more room
+
+#### Bug Fixes
+- **Delete + restore showing both nearby thots** — restore logic now calls `count_nearby_session_thots` RPC before un-hiding a prior thot; if a live thot already exists within the block radius the restore is skipped, preventing two visible pins for the same session
+- **Compose drawer keyboard zoom on iOS** — all inputs and textareas in the app set `font-size: 16px` to suppress iOS auto-zoom on focus; map viewport no longer shifts when the keyboard appears
+- **Map resize after drawer close** — `mapInstance.resize()` called 100ms after ComposeDrawer closes so the Mapbox canvas fills the correct dimensions after keyboard dismissal
+
 ### `v0.13` — Privacy, UX Polish & Mobile Layout
 
 #### Identity & Privacy

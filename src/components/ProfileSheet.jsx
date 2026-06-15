@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { getCached, setCached, appendCached, removeFromCache } from '../lib/thotCache'
 import { useNavigate } from 'react-router-dom'
 import { X, ShieldX, ShieldCheck, Heart, MessageCircle, Upload, Flag, Trash2, UserPlus, UserMinus, MessageSquare, AlertTriangle, MoreVertical, Eye, EyeOff } from 'lucide-react'
 import { AnonAvatar } from './ThotPin'
 import CommentThread from './CommentThread'
 import ShareSheet from './ShareSheet'
 import useAppStore from '../stores/useAppStore'
+import { reverseGeocode } from '../lib/geocode.js'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
@@ -34,6 +36,12 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
   const commentCount = thot.comment_count ?? 0
   const isOwn = thot.session_id === session?.id
   const isVisible = useAppStore((s) => s.thots.some(t => t.id === thot.id))
+  const [locationLabel, setLocationLabel] = useState(null)
+  useEffect(() => {
+    if (thot.lat != null && thot.lng != null) {
+      reverseGeocode(thot.lat, thot.lng).then(label => { if (label) setLocationLabel(label) })
+    }
+  }, [thot.id])
   const reported = useAppStore((s) => s.reportedThotIds.has(thot.id))
   const addReportedThot = useAppStore((s) => s.addReportedThot)
   const removeReportedThot = useAppStore((s) => s.removeReportedThot)
@@ -141,6 +149,11 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
               <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
             </div>
 
+            {/* Location label */}
+            {locationLabel && (
+              <span className="text-slate-500 text-[10px] block">{locationLabel}</span>
+            )}
+
             {/* Content */}
             <p className="text-white/90 text-xs sm:text-sm leading-relaxed mt-1 break-words">{thot.content}</p>
 
@@ -245,6 +258,9 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
 
 export default function ProfileSheet({ thot, session, isYouProfile = false, onCompose, onClose, onHype, onOpenDM, openCommentForThotId, highlightThotId, onFlyTo }) {
   const [history, setHistory] = useState(null)
+  const [total, setTotal] = useState(0)
+  const [offset, setOffset] = useState(0)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [loading, setLoading] = useState(true)
   const [followers, setFollowers] = useState(0)
   const [following, setFollowing] = useState(0)
@@ -275,15 +291,48 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   const isDemoUser = rawTargetId?.startsWith('b0000000-')
   const targetUserId = isDemoUser ? null : rawTargetId
 
+  const PAGE = 20
+
   useEffect(() => {
     if (!sessionId) { setHistory([]); setLoading(false); return }
+    const cached = getCached(sessionId)
+    if (cached) {
+      setHistory(cached.thots.filter(t => !t.user_deleted))
+      setTotal(cached.total)
+      setOffset(cached.thots.length)
+      setLoading(false)
+      return
+    }
     setLoading(true)
-    fetch(`${API_URL}/thots?session_id=${sessionId}`)
-      .then(r => r.ok ? r.json() : [])
-      .then(data => setHistory(data))
+    setOffset(0)
+    fetch(`${API_URL}/thots?session_id=${sessionId}&limit=${PAGE}&offset=0`)
+      .then(r => r.ok ? r.json() : { thots: [], total: 0 })
+      .then(({ thots, total }) => {
+        setCached(sessionId, thots, total ?? thots.length)
+        setHistory(thots.filter(t => !t.user_deleted))
+        setTotal(total ?? thots.length)
+        setOffset(thots.length)
+      })
       .catch(() => setHistory([]))
       .finally(() => setLoading(false))
   }, [sessionId])
+
+  async function loadMore() {
+    if (loadingMore || !sessionId) return
+    setLoadingMore(true)
+    try {
+      const r = await fetch(`${API_URL}/thots?session_id=${sessionId}&limit=${PAGE}&offset=${offset}`)
+      const { thots, total: t } = r.ok ? await r.json() : { thots: [], total }
+      appendCached(sessionId, thots, t ?? total)
+      setHistory(prev => {
+        const ids = new Set(prev.map(x => x.id))
+        return [...prev, ...thots.filter(x => !x.user_deleted && !ids.has(x.id))]
+      })
+      setTotal(t ?? total)
+      setOffset(o => o + thots.length)
+    } catch {}
+    setLoadingMore(false)
+  }
 
   // Load follow stats once we have a targetUserId
   useEffect(() => {
@@ -355,7 +404,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   const allThots = history ?? (thot ? [thot] : [])
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-30 h-[50vh] sm:bottom-3 sm:top-3 sm:left-auto sm:right-3 sm:w-72 sm:h-auto flex flex-col bg-[#0e0e1a] border-t border-white/10 sm:border rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden profile-sheet-anim">
+    <div className="absolute bottom-0 left-0 right-0 z-30 h-[45vh] sm:bottom-3 sm:top-3 sm:left-auto sm:right-3 sm:w-72 sm:h-auto flex flex-col bg-[#0e0e1a] border-t border-white/10 sm:border rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden profile-sheet-anim">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05] flex-shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -389,15 +438,16 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
               <button
                 onClick={toggleFollow}
                 disabled={followLoading}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 ${
+                title={isFollowing ? 'Following' : 'Follow'}
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 ${
                   isFollowing
                     ? 'bg-brand-purple/20 text-brand-purple border border-brand-purple/30 hover:bg-brand-purple/10'
                     : 'bg-white/[0.06] text-slate-300 border border-white/10 hover:bg-brand-purple/15 hover:text-brand-purple hover:border-brand-purple/30'
                 }`}
                 style={{ border: undefined }}
               >
-                {isFollowing ? <UserMinus size={11} /> : <UserPlus size={11} />}
-                {isFollowing ? 'Following' : 'Follow'}
+                {isFollowing ? <UserMinus size={13} /> : <UserPlus size={13} />}
+                <span className="inline sm:hidden">{isFollowing ? 'Following' : 'Follow'}</span>
               </button>
             )}
             <button
@@ -427,10 +477,26 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
             highlighted={highlightThotId != null && t.id === highlightThotId}
             onHype={onHype}
             session={session}
-            onDelete={(id) => setHistory(prev => prev.filter(h => h.id !== id))}
+            onDelete={(id) => {
+                removeFromCache(sessionId, id)
+                setHistory(prev => prev.filter(h => h.id !== id))
+              }}
             onFlyTo={onFlyTo}
           />
         ))}
+
+        {/* Load more */}
+        {!loading && allThots.length > 0 && allThots.length < total && (
+          <div className="flex justify-center py-3">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="text-[11px] text-slate-400 hover:text-slate-200 px-4 py-1.5 rounded-full border border-white/10 hover:border-white/20 transition-colors disabled:opacity-50"
+            >
+              {loadingMore ? 'Loading…' : `Load more (${total - allThots.length} left)`}
+            </button>
+          </div>
+        )}
 
         {/* Empty state */}
         {!loading && allThots.length === 0 && isYou && (

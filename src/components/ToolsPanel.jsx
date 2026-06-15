@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react'
+import { getCached, setCached, appendCached, removeFromCache } from '../lib/thotCache'
+import { reverseGeocode } from '../lib/geocode.js'
+
+function GeoLabel({ lat, lng }) {
+  const [label, setLabel] = useState(null)
+  useEffect(() => {
+    if (lat != null && lng != null) reverseGeocode(lat, lng).then(l => { if (l) setLabel(l) })
+  }, [lat, lng])
+  if (!label) return null
+  return <span className="text-slate-600 text-[10px] block mt-0.5">{label}</span>
+}
 import { useNavigate } from 'react-router-dom'
-import { X, User, Settings, LogOut, Heart, Upload, Trash2, Mail, KeyRound } from 'lucide-react'
+import { X, User, Settings, LogOut, Heart, Upload, Trash2, Mail, KeyRound, Users } from 'lucide-react'
 import { clearSession } from '../lib/identity'
 import ShareSheet from './ShareSheet'
 import useAppStore from '../stores/useAppStore'
@@ -45,19 +56,59 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
   const navigate = useNavigate()
   const isAuth = session?.type === 'user'
   const [myThots, setMyThots] = useState([])
+  const [myTotal, setMyTotal] = useState(0)
+  const [myOffset, setMyOffset] = useState(0)
+  const [myLoadingMore, setMyLoadingMore] = useState(false)
+  const [myLoading, setMyLoading] = useState(true)
   const [likedThots, setLikedThots] = useState([])
   const [shareThot, setShareThot] = useState(null)
-  const [view, setView] = useState('thots') // 'thots' | 'likes'
+  const [view, setView] = useState('thots') // 'thots' | 'likes' | 'following'
+  const [followingUsers, setFollowingUsers] = useState([])
   const [deletingId, setDeletingId] = useState(null)
+
+  const PAGE = 20
 
   useEffect(() => {
     const id = session?.id
-    if (!id) return
-    fetch(`${API_URL}/thots?session_id=${id}`)
-      .then(r => r.ok ? r.json() : [])
-      .then(data => setMyThots(data))
+    if (!id) { setMyLoading(false); return }
+    const cached = getCached(id)
+    if (cached) {
+      setMyThots(cached.thots)
+      setMyTotal(cached.total)
+      setMyOffset(cached.thots.length)
+      setMyLoading(false)
+      return
+    }
+    setMyLoading(true)
+    fetch(`${API_URL}/thots?session_id=${id}&limit=${PAGE}&offset=0`)
+      .then(r => r.ok ? r.json() : { thots: [], total: 0 })
+      .then(({ thots, total }) => {
+        setCached(id, thots, total ?? thots.length)
+        setMyThots(thots)
+        setMyTotal(total ?? thots.length)
+        setMyOffset(thots.length)
+      })
       .catch(() => {})
+      .finally(() => setMyLoading(false))
   }, [session?.id])
+
+  async function loadMoreMyThots() {
+    const id = session?.id
+    if (!id || myLoadingMore) return
+    setMyLoadingMore(true)
+    try {
+      const r = await fetch(`${API_URL}/thots?session_id=${id}&limit=${PAGE}&offset=${myOffset}`)
+      const { thots, total: t } = r.ok ? await r.json() : { thots: [], total: myTotal }
+      appendCached(id, thots, t ?? myTotal)
+      setMyThots(prev => {
+        const ids = new Set(prev.map(x => x.id))
+        return [...prev, ...thots.filter(x => !ids.has(x.id))]
+      })
+      setMyTotal(t ?? myTotal)
+      setMyOffset(o => o + thots.length)
+    } catch {}
+    setMyLoadingMore(false)
+  }
 
   useEffect(() => {
     if (!isAuth || !session?.supabaseToken) return
@@ -67,6 +118,17 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
     })
       .then(r => r.ok ? r.json() : [])
       .then(data => setLikedThots(data))
+      .catch(() => {})
+  }, [session?.id])
+
+  useEffect(() => {
+    if (!isAuth || !session?.supabaseToken) return
+    fetch(`${API_URL}/follows/following`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${session.supabaseToken}` },
+    })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setFollowingUsers(data))
       .catch(() => {})
   }, [session?.id])
 
@@ -84,7 +146,9 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
       })
       if (r.ok) {
         const data = await r.json()
+        removeFromCache(session?.id, thotId)
         setMyThots(prev => prev.filter(t => t.id !== thotId))
+        setMyTotal(n => Math.max(0, n - 1))
         s.removeThot(thotId)
         if (data.restored) {
           const restored = { ...data.restored, _isNew: true }
@@ -132,7 +196,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
               </p>
             )}
             <p className="text-slate-500 text-[10px] mt-0.5">
-              {isAuth ? 'member · no rate limit' : 'guest · 3 thots/hr'}
+              {isAuth ? 'member' : 'guest · 3 thots/hr'}
             </p>
           </div>
         </div>
@@ -154,6 +218,14 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
             >
               <p className="text-white text-sm font-bold">{likedThots.length}</p>
               <p className="text-[10px]" style={{ color: view === 'likes' ? '#e11d48' : '#475569' }}>liked</p>
+            </button>
+            <button
+              onClick={() => setView('following')}
+              className="text-center cursor-pointer transition-opacity hover:opacity-80"
+              style={{ background: 'none', border: 'none', padding: 0 }}
+            >
+              <p className="text-white text-sm font-bold">{followingUsers.length}</p>
+              <p className="text-[10px]" style={{ color: view === 'following' ? '#7c3aed' : '#475569' }}>following</p>
             </button>
           </div>
         )}
@@ -186,13 +258,14 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
       {/* Thots list */}
       {view === 'thots' && (
         <>
-          <p className="text-slate-500 text-[11px] mb-2">Your drops ({myThots.length})</p>
+          <p className="text-slate-500 text-[11px] mb-2">Your drops ({myTotal || myThots.length})</p>
           {myThots.length === 0 ? (
             <p className="text-slate-600 text-xs text-center py-8">Nothing posted yet</p>
           ) : (
             myThots.map(thot => (
               <div key={thot.id} className="py-2.5 border-b border-white/5 last:border-0">
                 <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
+                <GeoLabel lat={thot.lat} lng={thot.lng} />
                 <div className="flex items-center gap-2 mt-1.5">
                   <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
                   <ProfileHeart thot={thot} onHype={onHype} session={session} />
@@ -223,6 +296,42 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
               </div>
             ))
           )}
+          {/* Load more */}
+          {myThots.length > 0 && myThots.length < myTotal && (
+            <div className="flex justify-center pt-2">
+              <button
+                onClick={loadMoreMyThots}
+                disabled={myLoadingMore}
+                className="text-[11px] text-slate-400 hover:text-slate-200 px-4 py-1.5 rounded-full border border-white/10 hover:border-white/20 transition-colors disabled:opacity-50"
+              >
+                {myLoadingMore ? 'Loading…' : `Load more (${myTotal - myThots.length} left)`}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Following users list */}
+      {view === 'following' && (
+        <>
+          <p className="text-slate-500 text-[11px] mb-2">Following ({followingUsers.length})</p>
+          {followingUsers.length === 0 ? (
+            <p className="text-slate-600 text-xs text-center py-8">Not following anyone yet</p>
+          ) : (
+            followingUsers.map(u => (
+              <button
+                key={u.id}
+                onClick={() => onOpenProfile?.({ pen_name: u.pen_name, session_id: u.id })}
+                className="w-full flex items-center gap-3 py-2.5 border-b border-white/5 last:border-0 hover:opacity-80 transition-opacity cursor-pointer text-left"
+                style={{ background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.05)', padding: '10px 0' }}
+              >
+                <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#7c3aed22', border: '1px solid #7c3aed55' }}>
+                  <Users size={13} className="text-brand-purple" />
+                </div>
+                <span className="text-white text-xs font-medium">{u.pen_name}</span>
+              </button>
+            ))
+          )}
         </>
       )}
 
@@ -236,6 +345,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile }) {
             likedThots.map(thot => (
               <div key={thot.id} className="py-2.5 border-b border-white/5 last:border-0">
                 <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
+                <GeoLabel lat={thot.lat} lng={thot.lng} />
                 <div className="flex items-center gap-2 mt-1.5">
                   {thot.pen_name ? (
                     <button

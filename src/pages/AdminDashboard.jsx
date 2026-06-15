@@ -218,7 +218,7 @@ function LoginScreen({ onLogin, isLocked, countdown, attemptsLeft, loginError })
     <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0a0f' }}>
       <div className="w-full max-w-sm rounded-2xl p-8" style={{ background: '#0e0e1a' }}>
         <div className="mb-6">
-          <h1 className="text-white text-2xl font-bold">DropAThot</h1>
+          <h1 className="text-white text-2xl font-bold">dropathot</h1>
           <p className="text-gray-500 text-sm mt-1">Admin access. Passcode required.</p>
         </div>
 
@@ -384,7 +384,7 @@ export default function AdminDashboard() {
         {/* Header */}
         <div className="flex items-start justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold">DropAThot <span className="text-gray-600 font-normal">admin</span></h1>
+            <h1 className="text-2xl font-bold">dropathot <span className="text-gray-600 font-normal">admin</span></h1>
             <p className="text-gray-600 text-xs mt-1">
               {lastRefresh
                 ? `Updated ${lastRefresh.toLocaleTimeString()}${loading ? ' · refreshing…' : ''}`

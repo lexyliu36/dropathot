@@ -64,26 +64,29 @@ router.get('/', async (req, res) => {
     if (!/^[0-9a-f-]{36}$/.test(sessionId)) {
       return res.status(400).json({ error: 'invalid session_id' })
     }
-    let { data, error } = await supabase
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50)
+    const offset = parseInt(req.query.offset) || 0
+    let { data, error, count } = await supabase
       .from('thots')
-      .select('*')
+      .select('*', { count: 'exact' })
       .eq('session_id', sessionId)
       .eq('user_deleted', false)
       .order('created_at', { ascending: false })
-      .limit(50)
+      .range(offset, offset + limit - 1)
     // Graceful fallback: if user_deleted column doesn't exist yet (migration pending),
     // fall back to hiding all hidden thots from history
     if (error?.message?.includes('user_deleted')) {
-      ;({ data, error } = await supabase
+      ;({ data, error, count } = await supabase
         .from('thots')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('session_id', sessionId)
         .eq('hidden', false)
         .order('created_at', { ascending: false })
-        .limit(50))
+        .range(offset, offset + limit - 1))
     }
     if (error) return res.status(500).json({ error: 'Failed to fetch thots' })
-    return res.json(await enrichWithUserId(data))
+    const enriched = await enrichWithUserId(data)
+    return res.json({ thots: enriched, total: count ?? enriched.length, offset, limit })
   }
 
   // Geo mode
@@ -377,10 +380,26 @@ router.delete('/:id', async (req, res) => {
     .maybeSingle()
 
   if (restored) {
-    await supabase
-      .from('thots')
-      .update({ hidden: false })
-      .eq('id', restored.id)
+    // Only restore if no other live thot from this session is within 500m of the candidate.
+    // Restoring it otherwise would break the one-thot-per-block-radius rule.
+    const { data: nearbyLive } = await supabase.rpc('count_nearby_session_thots', {
+      p_session_id: session_id,
+      p_lat: restored.lat,
+      p_lng: restored.lng,
+      p_radius_m: 500,
+    })
+
+    const hasNearbyLive = (nearbyLive ?? 0) > 0
+
+    if (!hasNearbyLive) {
+      await supabase
+        .from('thots')
+        .update({ hidden: false })
+        .eq('id', restored.id)
+    } else {
+      // A live thot already covers this area — don't restore
+      return res.json({ ok: true, restored: null })
+    }
   }
 
   res.json({ ok: true, restored: restored ?? null })

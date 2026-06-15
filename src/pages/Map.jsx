@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import mapboxgl from 'mapbox-gl'
 import { SlidersHorizontal, MessageSquarePlus, LocateFixed, Star, Search, X } from 'lucide-react'
 import useAppStore from '../stores/useAppStore'
+import { invalidate as invalidateThotCache } from '../lib/thotCache'
 import useLocation from '../hooks/useLocation'
 import useThots from '../hooks/useThots'
 import ThotPin, { AnonAvatar, YouPin, pinAgeHours } from '../components/ThotPin'
@@ -166,7 +167,23 @@ export default function Map() {
             useAppStore.getState().setSession({ ...useAppStore.getState().session, supabaseToken: session.access_token })
           }
         })
-        return () => subscription.unsubscribe()
+
+        // When tab becomes visible again (e.g. laptop opened), force-refresh the token
+        // so a stale JWT doesn't silently fail on the next post attempt
+        const onVisible = async () => {
+          if (document.visibilityState !== 'visible') return
+          const { data } = await supabase.auth.getSession()
+          if (data?.session) {
+            updateSession({ supabaseToken: data.session.access_token, supabaseRefreshToken: data.session.refresh_token })
+            useAppStore.getState().setSession({ ...useAppStore.getState().session, supabaseToken: data.session.access_token })
+          }
+        }
+        document.addEventListener('visibilitychange', onVisible)
+
+        return () => {
+          subscription.unsubscribe()
+          document.removeEventListener('visibilitychange', onVisible)
+        }
       }
       return
     }
@@ -495,6 +512,7 @@ export default function Map() {
     }
     const newThot = await res.json()
     useAppStore.getState().addThot(newThot)
+    invalidateThotCache(session?.id)
   }
 
   return (
@@ -761,7 +779,7 @@ export default function Map() {
       {/* Compose drawer */}
       {composing && (
         <ComposeDrawer
-          onClose={() => setComposing(false)}
+          onClose={() => { setComposing(false); setTimeout(() => mapInstanceRef.current?.resize(), 100) }}
           onPost={handlePost}
           location={location}
           session={session}

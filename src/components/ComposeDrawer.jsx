@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { X, Send, User, Map } from 'lucide-react'
 
-// Random noise within a circle of radiusM metres
+// Place thot at approximately radiusM metres away in a random direction (±10% variance)
 function jitterLocation(lat, lng, radiusM) {
   if (radiusM === 0) return { lat, lng }
-  const u = Math.random(), v = Math.random()
-  const w = radiusM * Math.sqrt(-2 * Math.log(1 - u * 0.999)) * 0.4
-  const t = 2 * Math.PI * v
-  const dLat = (w * Math.cos(t)) / 111320
-  const dLng = (w * Math.sin(t)) / (111320 * Math.cos(lat * Math.PI / 180))
+  const angle = Math.random() * 2 * Math.PI
+  const r = radiusM * (0.9 + Math.random() * 0.2) // 90–110% of set distance
+  const dLat = (r * Math.cos(angle)) / 111320
+  const dLng = (r * Math.sin(angle)) / (111320 * Math.cos(lat * Math.PI / 180))
   return { lat: lat + dLat, lng: lng + dLng }
 }
 
@@ -82,7 +81,6 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
           <span className={isAuth ? 'text-brand-purple font-semibold' : 'text-slate-300'}>
             {identity}
           </span>
-          <span className="text-slate-600 ml-1">· {rateNote}</span>
         </span>
         {!isAuth && (
           <button

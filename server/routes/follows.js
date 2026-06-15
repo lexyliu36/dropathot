@@ -11,6 +11,22 @@ async function requireAuth(req, res) {
   return user
 }
 
+// GET /follows/following — list users the current user follows
+router.get('/following', async (req, res) => {
+  const user = await requireAuth(req, res)
+  if (!user) return
+
+  const { data, error } = await supabase
+    .from('follows')
+    .select('following_id, users!follows_following_id_fkey(id, pen_name)')
+    .eq('follower_id', user.id)
+
+  if (error) { console.error('[follows/following]', error); return res.status(500).json({ error: 'Server error' }) }
+
+  const users = (data ?? []).map(row => row.users).filter(Boolean)
+  res.json(users)
+})
+
 // GET /follows/:userId/stats — follower + following counts, and whether current user follows them
 router.get('/:userId/stats', async (req, res) => {
   const { userId } = req.params

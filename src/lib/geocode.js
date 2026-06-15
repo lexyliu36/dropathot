@@ -1,5 +1,22 @@
+// In-memory cache — avoids re-hitting Mapbox for the same coordinates within a session
+const _cache = new Map()
+
 // Reverse-geocode lat/lng → "Neighborhood, City" using Mapbox
 export async function reverseGeocode(lat, lng) {
+  const key = `${lat.toFixed(4)},${lng.toFixed(4)}`
+  if (_cache.has(key)) return _cache.get(key)
+  // Deduplicate concurrent requests for the same key
+  if (_cache.has(key + ':pending')) return _cache.get(key + ':pending')
+  const promise = _doGeocode(lat, lng).then(result => {
+    _cache.set(key, result)
+    _cache.delete(key + ':pending')
+    return result
+  })
+  _cache.set(key + ':pending', promise)
+  return promise
+}
+
+async function _doGeocode(lat, lng) {
   const token = import.meta.env.VITE_MAPBOX_TOKEN
   if (!token || lat == null || lng == null) return null
   try {

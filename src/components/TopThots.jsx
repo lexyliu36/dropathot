@@ -1,4 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { reverseGeocode } from '../lib/geocode.js'
+
+function GeoLabel({ lat, lng }) {
+  const [label, setLabel] = useState(null)
+  useEffect(() => {
+    if (lat != null && lng != null) reverseGeocode(lat, lng).then(l => { if (l) setLabel(l) })
+  }, [lat, lng])
+  if (!label) return null
+  return <span className="text-slate-600 text-[10px]">{label}</span>
+}
 import { X, Heart, Upload, Star, MessageCircle } from 'lucide-react'
 import ShareSheet from './ShareSheet'
 import useAppStore from '../stores/useAppStore'
@@ -99,6 +109,8 @@ export default function TopThots({ thots, session, onHype, onClose, onSelectThot
                   )}
                   <span className="text-slate-600 text-[10px] flex-shrink-0">{relativeTime(thot.created_at)}</span>
                 </div>
+                {/* Location */}
+                <GeoLabel lat={thot.lat} lng={thot.lng} />
                 {/* Row 2: fixed-width slots so icons always align vertically */}
                 <div className="flex items-center mt-1">
                   {/* Heart slot — fixed 48px */}
