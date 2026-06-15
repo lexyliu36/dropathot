@@ -83,7 +83,11 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
       return
     }
     setMyLoading(true)
-    fetch(`${API_URL}/thots?session_id=${id}&limit=${PAGE}&offset=0`)
+    const _token1 = useAppStore.getState().session?.supabaseToken
+    fetch(`${API_URL}/thots?session_id=${id}&limit=${PAGE}&offset=0`, {
+      credentials: 'include',
+      headers: _token1 ? { Authorization: `Bearer ${_token1}` } : {},
+    })
       .then(r => r.ok ? r.json() : { thots: [], total: 0 })
       .then(({ thots, total }) => {
         setCached(id, thots, total ?? thots.length)
@@ -100,7 +104,11 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
     if (!id || myLoadingMore) return
     setMyLoadingMore(true)
     try {
-      const r = await fetch(`${API_URL}/thots?session_id=${id}&limit=${PAGE}&offset=${myOffset}`)
+      const _token2 = useAppStore.getState().session?.supabaseToken
+      const r = await fetch(`${API_URL}/thots?session_id=${id}&limit=${PAGE}&offset=${myOffset}`, {
+        credentials: 'include',
+        headers: _token2 ? { Authorization: `Bearer ${_token2}` } : {},
+      })
       const { thots, total: t } = r.ok ? await r.json() : { thots: [], total: myTotal }
       appendCached(id, thots, t ?? myTotal)
       setMyThots(prev => {

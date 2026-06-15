@@ -305,7 +305,11 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
     }
     setLoading(true)
     setOffset(0)
-    fetch(`${API_URL}/thots?session_id=${sessionId}&limit=${PAGE}&offset=0`)
+    const _tok1 = useAppStore.getState().session?.supabaseToken
+    fetch(`${API_URL}/thots?session_id=${sessionId}&limit=${PAGE}&offset=0`, {
+      credentials: 'include',
+      headers: _tok1 ? { Authorization: `Bearer ${_tok1}` } : {},
+    })
       .then(r => r.ok ? r.json() : { thots: [], total: 0 })
       .then(({ thots, total }) => {
         setCached(sessionId, thots, total ?? thots.length)
@@ -321,7 +325,11 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
     if (loadingMore || !sessionId) return
     setLoadingMore(true)
     try {
-      const r = await fetch(`${API_URL}/thots?session_id=${sessionId}&limit=${PAGE}&offset=${offset}`)
+      const _tok2 = useAppStore.getState().session?.supabaseToken
+      const r = await fetch(`${API_URL}/thots?session_id=${sessionId}&limit=${PAGE}&offset=${offset}`, {
+        credentials: 'include',
+        headers: _tok2 ? { Authorization: `Bearer ${_tok2}` } : {},
+      })
       const { thots, total: t } = r.ok ? await r.json() : { thots: [], total }
       appendCached(sessionId, thots, t ?? total)
       setHistory(prev => {
