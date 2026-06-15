@@ -98,6 +98,18 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.17` — Post-hardening `user_id` identity fixes
+
+#### Bug Fixes
+- **Map pins show correct colour after security hardening** — migration 015 stripped `session_id` from `get_thots_nearby` results, causing all `session_id === session.id` checks in `Map.jsx` to silently resolve `false`; all four comparisons now fall back to `|| user_id === session.id`:
+  - `thots.find(...)` for `YouPin` `hasThot` — own active pin now renders red
+  - `const isYou` for `ThotPin` — pin styled as yours
+  - `onClick` handler — tapping own pin opens your profile, not a stranger’s sheet
+  - `thot={...}` passed to your own `ProfileSheet`
+- **`ProfileSheet` `isYou` / `isOwn` fall back to `user_id`** — `ThotCard` pen-names now render red for the logged-in user’s own posts after `session_id` was stripped from geo results
+- **`ProfileSheet` history route uses `?user_id=` for other profiles** — previously always sent `?session_id=` (requires auth, 403s for others); now sends `?user_id=` for non-own profiles and `?session_id=` + auth token only for your own history
+- **Server `GET /thots?user_id=`** — new public profile-history endpoint; queries by `user_id` column, returns only non-hidden non-deleted thots, no auth required
+
 ### `v0.16` — Security Hardening, Legal Accuracy & Production Readiness
 
 #### Critical Fixes

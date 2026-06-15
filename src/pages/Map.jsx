@@ -331,7 +331,7 @@ export default function Map() {
   // Re-render YouPin when the user's thot status changes
   useEffect(() => {
     if (!youMarkerRef.current) return
-    const userThot = thots.find(t => t.session_id === session?.id) ?? null
+    const userThot = thots.find(t => t.session_id === session?.id || t.user_id === session?.id) ?? null
     youMarkerRef.current.root.render(
       <YouPin
         hasThot={!!userThot}
@@ -396,7 +396,7 @@ export default function Map() {
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 
     newThots.forEach((thot) => {
-      const isYou = thot.session_id === session?.id
+      const isYou = thot.session_id === session?.id || thot.user_id === session?.id
 
       const el = document.createElement('div')
       el.style.cssText = 'pointer-events: none; overflow: visible;'
@@ -411,7 +411,7 @@ export default function Map() {
             if (t.lat != null && t.lng != null) {
               mapInstanceRef.current?.flyTo({ center: [t.lng, t.lat], zoom: 17, duration: 700 })
             }
-            if (t.session_id === session?.id) {
+            if (t.session_id === session?.id || t.user_id === session?.id) {
               setShowYouProfile(true)
               setYouHighlightThotId(t.id)
               setSelectedThot(null)
@@ -828,6 +828,7 @@ export default function Map() {
       {selectedThot && !composing && (
         <ProfileSheet
           thot={selectedThot}
+          isYouProfile={selectedThot?.user_id === session?.id}
           session={session}
           onHype={handleHype}
           onClose={() => { setSelectedThot(null); setOpenCommentForThotId(null) }}
@@ -844,7 +845,7 @@ export default function Map() {
       {/* Your profile sheet — tapping your own YouPin */}
       {showYouProfile && !composing && (
         <ProfileSheet
-          thot={thots.find(t => t.session_id === session?.id) ?? null}
+          thot={thots.find(t => t.session_id === session?.id || t.user_id === session?.id) ?? null}
           session={session}
           isYouProfile
           onHype={handleHype}

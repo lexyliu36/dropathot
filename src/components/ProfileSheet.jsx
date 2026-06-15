@@ -34,7 +34,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
   const [deleted, setDeleted] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
   const commentCount = thot.comment_count ?? 0
-  const isOwn = thot.session_id === session?.id
+  const isOwn = thot.session_id === session?.id || thot.user_id === session?.id
   const isVisible = useAppStore((s) => s.thots.some(t => t.id === thot.id))
   const [locationLabel, setLocationLabel] = useState(null)
   useEffect(() => {
@@ -274,9 +274,9 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   const blockSession = useAppStore((s) => s.blockSession)
   const unblockSession = useAppStore((s) => s.unblockSession)
 
-  const isYou = isYouProfile || thot?.session_id === session?.id
+  const isYou = isYouProfile || thot?.session_id === session?.id || thot?.user_id === session?.id
   const isAuth = session?.type === 'user'
-  const sessionId = isYou ? (session?.id ?? thot?.session_id) : thot?.session_id
+  const sessionId = isYou ? session?.id : (thot?.session_id ?? thot?.user_id ?? null)
   const penName = isYou
     ? (session?.penName ?? thot?.pen_name ?? null)
     : (thot?.pen_name ?? null)
@@ -305,8 +305,9 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
     }
     setLoading(true)
     setOffset(0)
-    const _tok1 = useAppStore.getState().session?.supabaseToken
-    fetch(`${API_URL}/thots?session_id=${sessionId}&limit=${PAGE}&offset=0`, {
+    const _tok1 = isYou ? useAppStore.getState().session?.supabaseToken : null
+    const _histParam = isYou ? `session_id=${sessionId}` : `user_id=${sessionId}`
+    fetch(`${API_URL}/thots?${_histParam}&limit=${PAGE}&offset=0`, {
       credentials: 'include',
       headers: _tok1 ? { Authorization: `Bearer ${_tok1}` } : {},
     })
@@ -326,7 +327,8 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
     setLoadingMore(true)
     try {
       const _tok2 = useAppStore.getState().session?.supabaseToken
-      const r = await fetch(`${API_URL}/thots?session_id=${sessionId}&limit=${PAGE}&offset=${offset}`, {
+      const _histParam2 = isYou ? `session_id=${sessionId}` : `user_id=${sessionId}`
+      const r = await fetch(`${API_URL}/thots?${_histParam2}&limit=${PAGE}&offset=${offset}`, {
         credentials: 'include',
         headers: _tok2 ? { Authorization: `Bearer ${_tok2}` } : {},
       })

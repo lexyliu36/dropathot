@@ -57,41 +57,51 @@ async function enrichWithUserId(thots) {
 }
 
 // GET /thots?lat=&lng=&radius=
-// GET /thots?session_id=  (returns post history for a session, no location filter)
+// GET /thots?session_id=   (own history — auth required, session_id must match caller)
+// GET /thots?user_id=      (any named user's public history — no auth required)
 router.get('/', async (req, res) => {
   // Session history mode
-  if (req.query.session_id) {
-    const sessionId = req.query.session_id
-    if (!/^[0-9a-f-]{36}$/.test(sessionId)) {
-      return res.status(400).json({ error: 'invalid session_id' })
+  if (req.query.session_id || req.query.user_id) {
+    const byUserId = !!req.query.user_id
+    const rawId = req.query.session_id ?? req.query.user_id
+    if (!/^[0-9a-f-]{36}$/.test(rawId)) {
+      return res.status(400).json({ error: 'invalid id' })
     }
-    // Auth required — only the session owner may fetch their history
-    const token = req.headers.authorization?.replace('Bearer ', '').trim()
-    let callerSessionId = req.cookies?.session_id
-    if (token) {
-      const { data: { user } } = await supabase.auth.getUser(token)
-      if (user) callerSessionId = user.id
+
+    // Own-history auth guard: only the session owner may fetch by session_id
+    if (!byUserId) {
+      const token = req.headers.authorization?.replace('Bearer ', '').trim()
+      let callerSessionId = req.cookies?.session_id
+      if (token) {
+        const { data: { user } } = await supabase.auth.getUser(token)
+        if (user) callerSessionId = user.id
+      }
+      if (!callerSessionId || callerSessionId !== rawId) {
+        return res.status(403).json({ error: 'forbidden' })
+      }
     }
-    if (!callerSessionId || callerSessionId !== sessionId) {
-      return res.status(403).json({ error: 'forbidden' })
-    }
+
     const limit = Math.min(parseInt(req.query.limit) || 20, 50)
     const offset = parseInt(req.query.offset) || 0
-    let { data, error, count } = await supabase
-      .from('thots')
-      .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted', { count: 'exact' })
-      .eq('session_id', sessionId)
-      .eq('user_deleted', false)
+    const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted'
+
+    // Build query: own history uses session_id column, public profile uses user_id column
+    let query = supabase.from('thots').select(COLS, { count: 'exact' })
+    query = byUserId
+      ? query.eq('user_id', rawId).eq('hidden', false).eq('user_deleted', false)
+      : query.eq('session_id', rawId).eq('user_deleted', false)
+
+    let { data, error, count } = await query
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1)
-    // Graceful fallback: if user_deleted column doesn't exist yet (migration pending),
-    // fall back to hiding all hidden thots from history
+
     if (error?.message?.includes('user_deleted')) {
-      ;({ data, error, count } = await supabase
-        .from('thots')
-        .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted', { count: 'exact' })
-        .eq('session_id', sessionId)
-        .eq('hidden', false)
+      // Graceful fallback if column not yet migrated
+      query = supabase.from('thots').select(COLS, { count: 'exact' })
+      query = byUserId
+        ? query.eq('user_id', rawId).eq('hidden', false)
+        : query.eq('session_id', rawId).eq('hidden', false)
+      ;({ data, error, count } = await query
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1))
     }
