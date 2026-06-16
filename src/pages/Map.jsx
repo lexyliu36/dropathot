@@ -310,7 +310,7 @@ export default function Map() {
   // Your location marker — created once on location + mapReady
   useEffect(() => {
     const map = mapInstanceRef.current
-    if (!map || !mapReady || !location) return
+    if (!map || !mapReady || !location || session?.type !== 'user') return
 
     const el = document.createElement('div')
     el.style.cssText = 'pointer-events: none; overflow: visible;'
@@ -342,10 +342,18 @@ export default function Map() {
 
 
 
-  // 200m postable-range ring around your location
+  // 200m postable-range ring — only shown for authenticated users (anon can't post)
   useEffect(() => {
     const map = mapInstanceRef.current
-    if (!map || !mapReady || !location) return
+    if (!map || !mapReady) return
+    const isAuth = session?.type === 'user'
+    // Remove ring if user is anonymous or location is gone
+    if (!isAuth || !location) {
+      if (map.getLayer('range-ring-fill')) map.removeLayer('range-ring-fill')
+      if (map.getLayer('range-ring-line')) map.removeLayer('range-ring-line')
+      if (map.getSource('range-ring')) map.removeSource('range-ring')
+      return
+    }
     const geojson = makeCircleGeoJSON(location.lat, location.lng, 200)
     if (map.getSource('range-ring')) {
       map.getSource('range-ring').setData(geojson)
@@ -364,7 +372,7 @@ export default function Map() {
         paint: { 'line-color': '#e11d48', 'line-opacity': 0.35, 'line-width': 1.5 },
       })
     }
-  }, [location, mapReady])
+  }, [location, mapReady, session?.type])
 
   // Recompute visible (deduped) thots whenever raw thots change
   useEffect(() => {
