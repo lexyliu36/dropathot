@@ -14,17 +14,18 @@ import SafetyPage from "./pages/legal/SafetyPage"
 import AdminDashboard from "./pages/AdminDashboard"
 import { getOrCreateSession } from "./lib/identity"
 
-// iOS Safari zooms in when an input is focused. Reset zoom on blur by briefly
-// capping maximum-scale=1, which forces the browser to snap back, then restore
-// the original viewport so pinch-zoom (needed for the map) still works.
+// iOS Safari zooms in when an input is focused. On blur, briefly set
+// user-scalable=0 (stronger than maximum-scale alone) to force the browser
+// to snap back to 1x, then restore the original viewport after 300ms so
+// pinch-zoom on the map still works.
 ;(function () {
   const meta = document.querySelector('meta[name=viewport]')
   if (!meta) return
   const orig = meta.content
   document.addEventListener('focusout', (e) => {
     if (!e.target.matches('input, textarea, select')) return
-    meta.content = 'width=device-width, initial-scale=1, maximum-scale=1'
-    requestAnimationFrame(() => requestAnimationFrame(() => { meta.content = orig }))
+    meta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0'
+    setTimeout(() => { meta.content = orig }, 300)
   })
 })()
 
