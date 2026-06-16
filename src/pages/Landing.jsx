@@ -5,9 +5,12 @@ import { signIn, checkEmailExists } from "../lib/auth";
 import { updateSession, clearSession, getOrCreateSession } from "../lib/identity";
 
 const TAGLINES = [
-  "What's really going on around you.",
+  "What people near you are actually thinking.",
   "The city, unfiltered.",
   "Your neighborhood's inner monologue.",
+  "The city's stream of consciousness.",
+  "The unspoken thought of everyone around you.",
+  "Thoughts drop. You find them.",
 ]
 
 function TaglineCycler() {
@@ -226,6 +229,29 @@ export default function Landing() {
         }
       `}</style>
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {/* Crowd background illustration */}
+        <img
+          src="/crowd-bg.jpg"
+          alt=""
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: 'center top',
+            opacity: 0.28,
+            pointerEvents: 'none',
+          }}
+        />
+        {/* Dark radial overlay — keeps CTA area readable */}
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'radial-gradient(ellipse 70% 80% at 50% 50%, rgba(10,10,15,0.35) 0%, rgba(10,10,15,0.75) 100%)',
+          pointerEvents: 'none',
+        }} />
         {/* Deep glow blobs */}
         <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-brand-purple opacity-10 blur-[120px]" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-brand-red opacity-10 blur-[120px]" />
