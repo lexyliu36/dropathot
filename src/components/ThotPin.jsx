@@ -193,7 +193,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
 
 // Your location marker — clean avatar, no bubble.
 // Thot appears once as a regular ThotPin. Clicking here opens compose or your profile.
-export function YouPin({ onAvatarClick, hasThot }) {
+export function YouPin({ onAvatarClick, hasThot, isAnon = false }) {
   return (
     <div style={{
       position: 'relative',
@@ -201,13 +201,14 @@ export function YouPin({ onAvatarClick, hasThot }) {
       height: `${AVATAR_SIZE}px`,
       overflow: 'visible',
       pointerEvents: 'none',
+      opacity: isAnon ? 0.45 : 1,
     }}>
       <div
-        onClick={onAvatarClick}
-        title={hasThot ? 'View your thot' : 'Drop a thot'}
-        style={{ pointerEvents: 'auto', cursor: 'pointer', width: `${AVATAR_SIZE}px`, height: `${AVATAR_SIZE}px` }}
+        onClick={isAnon ? undefined : onAvatarClick}
+        title={isAnon ? 'Browsing anonymously' : hasThot ? 'View your thot' : 'Drop a thot'}
+        style={{ pointerEvents: isAnon ? 'none' : 'auto', cursor: isAnon ? 'default' : 'pointer', width: `${AVATAR_SIZE}px`, height: `${AVATAR_SIZE}px` }}
       >
-        <AnonAvatar size={AVATAR_SIZE} color="#e11d48" active />
+        <AnonAvatar size={AVATAR_SIZE} color={isAnon ? '#64748b' : '#e11d48'} active={!isAnon} />
       </div>
     </div>
   )

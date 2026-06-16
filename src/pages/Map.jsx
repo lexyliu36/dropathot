@@ -310,12 +310,13 @@ export default function Map() {
   // Your location marker — created once on location + mapReady
   useEffect(() => {
     const map = mapInstanceRef.current
-    if (!map || !mapReady || !location || session?.type !== 'user') return
+    if (!map || !mapReady || !location) return
 
+    const isAnon = session?.type !== 'user'
     const el = document.createElement('div')
     el.style.cssText = 'pointer-events: none; overflow: visible;'
     const root = createRoot(el)
-    root.render(<YouPin hasThot={false} onAvatarClick={() => { setShowYouProfile(true); setYouHighlightThotId(null); setSelectedThot(null) }} />)
+    root.render(<YouPin hasThot={false} isAnon={isAnon} onAvatarClick={() => { setShowYouProfile(true); setYouHighlightThotId(null); setSelectedThot(null) }} />)
 
     const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
       .setLngLat([location.lng, location.lat])
@@ -328,17 +329,19 @@ export default function Map() {
     youMarkerRef.current = { marker, root }
   }, [location, mapReady])
 
-  // Re-render YouPin when the user's thot status changes
+  // Re-render YouPin when the user's thot status or auth state changes
   useEffect(() => {
     if (!youMarkerRef.current) return
+    const isAnon = session?.type !== 'user'
     const userThot = thots.find(t => t.session_id === session?.id || t.user_id === session?.id) ?? null
     youMarkerRef.current.root.render(
       <YouPin
         hasThot={!!userThot}
+        isAnon={isAnon}
         onAvatarClick={() => { setShowYouProfile(true); setYouHighlightThotId(null); setSelectedThot(null) }}
       />
     )
-  }, [thots, session?.id])
+  }, [thots, session?.id, session?.type])
 
 
 
@@ -363,13 +366,13 @@ export default function Map() {
         id: 'range-ring-fill',
         type: 'fill',
         source: 'range-ring',
-        paint: { 'fill-color': '#e11d48', 'fill-opacity': 0.04 },
+        paint: { 'fill-color': '#94a3b8', 'fill-opacity': 0.03 },
       })
       map.addLayer({
         id: 'range-ring-line',
         type: 'line',
         source: 'range-ring',
-        paint: { 'line-color': '#e11d48', 'line-opacity': 0.35, 'line-width': 1.5 },
+        paint: { 'line-color': '#94a3b8', 'line-opacity': 0.4, 'line-width': 1.5, 'line-dasharray': [4, 4] },
       })
     }
   }, [location, mapReady, session?.type])
