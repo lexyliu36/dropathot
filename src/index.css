@@ -126,8 +126,10 @@ body { background: #0a0a0f; color: #f1f5f9; font-family: 'Inter', sans-serif; ov
 
 /* Prevent mobile browsers from zooming on input focus (zoom triggers when font-size < 16px).
    Applied unconditionally — no media query — because viewport width can exceed 768px on
-   some iPhones depending on scale, causing the scoped rule to miss. */
-input, textarea, select {
+   some iPhones depending on scale, causing the scoped rule to miss.
+   Excludes <select>: iOS shows a native picker on select tap (no zoom), so 16px isn't needed
+   and would override intentional small font sizes on dropdowns. */
+input, textarea {
   font-size: 16px !important;
 }
 
