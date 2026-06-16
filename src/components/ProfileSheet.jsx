@@ -30,6 +30,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
   }
   const isAuth = useAppStore((s) => s.session?.type === 'user')
   const [showComments, setShowComments] = useState(defaultOpenComments ?? false)
+  const [autoFocusComment, setAutoFocusComment] = useState(defaultOpenComments ?? false)
   const [showShare, setShowShare] = useState(false)
   const [deleted, setDeleted] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
@@ -167,7 +168,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
               {/* Comment */}
               <div className="relative group/tip flex-1 flex justify-center">
                 <button
-                  onClick={() => setShowComments(v => !v)}
+                  onClick={() => { setAutoFocusComment(true); setShowComments(v => !v) }}
                   className="flex items-center gap-1.5 transition-colors cursor-pointer"
                   style={{ background: 'none', border: 'none', padding: 0, color: showComments ? '#94a3b8' : '#64748b' }}
                 >
@@ -231,7 +232,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
         {/* Comment thread — indented under content */}
         {showComments && (
           <div className="mt-3 ml-9">
-            <CommentThread thotId={thot.id} accentColor={accentColor} session={session} autoFocus={defaultOpenComments} />
+            <CommentThread thotId={thot.id} accentColor={accentColor} session={session} autoFocus={autoFocusComment} />
           </div>
         )}
       </div>
