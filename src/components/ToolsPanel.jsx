@@ -11,7 +11,7 @@ function GeoLabel({ lat, lng }) {
   return <span className="text-slate-600 text-[10px] block mt-0.5">{label}</span>
 }
 import { useNavigate } from 'react-router-dom'
-import { X, User, Settings, LogOut, Heart, Upload, Trash2, Mail, KeyRound, Users, MessageSquare, Send } from 'lucide-react'
+import { X, User, Settings, LogOut, Heart, Upload, Trash2, Mail, KeyRound, Users, MessageSquare, Send, Search } from 'lucide-react'
 import { clearSession } from '../lib/identity'
 import ShareSheet from './ShareSheet'
 import useAppStore from '../stores/useAppStore'
@@ -885,7 +885,27 @@ function relativeTimeDM(iso) {
 function MessagesTab({ session, onOpenDM }) {
   const [convos, setConvos] = useState([])
   const [loading, setLoading] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searching, setSearching] = useState(false)
   const token = session?.supabaseToken
+
+  // Debounced pen-name search
+  useEffect(() => {
+    if (!token || !searchQuery.trim()) { setSearchResults([]); setSearching(false); return }
+    setSearching(true)
+    const t = setTimeout(() => {
+      fetch(`${API_URL_DM}/users/search?q=${encodeURIComponent(searchQuery.trim())}`, {
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.ok ? r.json() : [])
+        .then(setSearchResults)
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearching(false))
+    }, 250)
+    return () => clearTimeout(t)
+  }, [searchQuery, token])
 
   useEffect(() => {
     if (!token) { setLoading(false); return }
@@ -905,23 +925,70 @@ function MessagesTab({ session, onOpenDM }) {
 
   if (loading) return <p className="text-slate-600 text-xs text-center mt-8">Loading…</p>
 
-  if (convos.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 mt-12 opacity-50">
-        <MessageSquare size={28} className="text-slate-600" />
-        <p className="text-slate-500 text-xs text-center">No messages yet.<br/>Message someone from their profile.</p>
-      </div>
-    )
-  }
-
   return (
-    <div className="space-y-1 -mx-4 px-0">
-      {convos.map(convo => {
-        const isFromMe = convo.from_user_id === session?.userId
-        const partner = isFromMe ? convo.to_user : convo.from_user
+    <div className="flex flex-col gap-0">
+      {/* Search bar */}
+      <div className="relative mb-3">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+        <input
+          type="text"
+          placeholder="Find a pen name…"
+          value={searchQuery}
+          onChange={e => setSearchQuery(e.target.value)}
+          className="w-full bg-white/[0.05] border border-white/10 rounded-xl py-2 pl-8 pr-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
+        />
+        {searchQuery && (
+          <button onClick={() => { setSearchQuery(''); setSearchResults([]) }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-white">
+            <X size={12} />
+          </button>
+        )}
+      </div>
+
+      {/* Search results */}
+      {searchQuery.trim() ? (
+        <div className="space-y-0 -mx-4">
+          {searching && <p className="text-slate-600 text-xs text-center py-4">Searching…</p>}
+          {!searching && searchResults.length === 0 && (
+            <p className="text-slate-600 text-xs text-center py-4">No users found.</p>
+          )}
+          {searchResults.map(u => (
+            <button
+              key={u.id}
+              onClick={() => {
+                setSearchQuery('')
+                setSearchResults([])
+                onOpenDM?.({ userId: u.id, penName: u.pen_name, accentColor: '#7c3aed' })
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors cursor-pointer text-left"
+              style={{ background: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+            >
+              <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                style={{ background: '#7c3aed22', border: '1px solid #7c3aed44' }}>
+                <span className="text-[10px] font-bold text-brand-purple">
+                  {u.pen_name[0].toUpperCase()}
+                </span>
+              </div>
+              <span className="text-sm font-semibold text-brand-purple">{u.pen_name}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        /* Conversation list */
+        <div className="space-y-1 -mx-4 px-0">
+          {convos.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-2 mt-8 opacity-50">
+              <MessageSquare size={28} className="text-slate-600" />
+              <p className="text-slate-500 text-xs text-center">No messages yet.<br/>Search a pen name to start a conversation.</p>
+            </div>
+          )}
+          {convos.map(convo => {
+        // Server already computes the correct partner — use it directly
+        const partner = convo.partner
         const partnerName = partner?.pen_name ?? null
-        const partnerId = partner?.id ?? (isFromMe ? convo.to_user_id : convo.from_user_id)
+        const partnerId = partner?.id ?? (convo.from_user_id === session?.id ? convo.to_user_id : convo.from_user_id)
         const partnerColor = partnerName ? '#7c3aed' : '#64748b'
+        const isFromMe = convo.from_user_id === session?.id
         const unread = convo.unread > 0
         return (
           <button
@@ -929,7 +996,7 @@ function MessagesTab({ session, onOpenDM }) {
             onClick={() => {
               // Optimistically clear unread dot so it doesn't show stale after returning from DM
               setConvos(prev => prev.map(c => {
-                const cPartnerId = c.from_user_id === session?.userId ? c.to_user_id : c.from_user_id
+                const cPartnerId = c.partner?.id ?? (c.from_user_id === session?.id ? c.to_user_id : c.from_user_id)
                 return cPartnerId === partnerId ? { ...c, unread: 0 } : c
               }))
               onOpenDM?.({ userId: partnerId, penName: partnerName, accentColor: partnerColor })
@@ -960,6 +1027,8 @@ function MessagesTab({ session, onOpenDM }) {
           </button>
         )
       })}
+        </div>
+      )}
     </div>
   )
 }

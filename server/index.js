@@ -12,6 +12,7 @@ import commentsRouter from './routes/comments.js'
 import reportsRouter from './routes/reports.js'
 import adminRouter from './routes/admin.js'
 import followsRouter from './routes/follows.js'
+import usersRouter from './routes/users.js'
 import messagesRouter from './routes/messages.js'
 import { startDigestJob } from './jobs/digestEmail.js'
 import { startDeletionCron } from './lib/deletionCron.js'
@@ -45,6 +46,7 @@ app.use('/comments', commentsRouter)
 app.use('/reports', reportsRouter)
 app.use('/admin', adminRouter)
 app.use('/follows', followsRouter)
+app.use('/users', usersRouter)
 app.use('/messages', messagesRouter)
 
 app.get('/health', (_req, res) => res.json({ ok: true }))

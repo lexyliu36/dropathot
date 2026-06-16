@@ -98,6 +98,45 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.21` — DM Fixes, Search, Report Modal & UX Tweaks
+
+#### DM / Messaging
+- **DM bubble alignment fixed** — messages sent by you now appear on the right; root cause was `myId = session?.userId` (always `undefined` since login response omits `user_id`) replaced with `myId = session?.id` which holds the Supabase UUID matching `messages.from_user_id`
+- **Conversation list partner name fixed** — list was always showing the wrong pen name because client re-derived `partner` from `session?.userId`; now uses server-computed `convo.partner` directly
+- **Search closes open DM** — clicking the map search icon now calls `setDmPartner(null)` so any open DM thread closes first
+
+#### Messages Tab — Pen Name Search
+- New search bar in Messages tab lets you find any user by pen name and start a DM directly
+- Debounced 250ms, calls `GET /users/search?q=` (auth required)
+- Shows matching results with tap-to-open DM; falls back to conversation list when query is empty
+
+#### New Route: `GET /users/search`
+- `server/routes/users.js` — case-insensitive prefix match on `pen_name`, excludes banned users and self, limit 10
+- Registered in `server/index.js` as `/users`
+
+#### Report User — Confirm Modal
+- Clicking Report on a user profile now shows a modal identical in style to the Block modal ("Report this user?" / Cancel / Report), instead of the previous inline "Confirm?" tab-bar state
+- After confirming, button shows "Reported" for 3 seconds then resets
+
+### `v0.20` — Expanded Security Tests
+
+#### New Security Test Groups (10 new groups, 32 new tests — 60 total)
+- **Anon users cannot post** — verifies POST /thots requires `req.user` (Supabase auth) and the "anonymous posting is disabled" guard; also confirms `session_id` from cookie is authoritative over body (prevents client spoofing)
+- **DM privacy** — conversation list and thread both scope queries to the authenticated caller; GET /:userId uses `from_user_id.eq.${user.id}` and `to_user_id.eq.${user.id}` so you can never read another user's messages; unauthenticated access returns `AUTH_REQUIRED`
+- **Self-action prevention** — cannot message yourself (400) or follow yourself (400)
+- **Message hype membership** — liking a message in a conversation you're not part of returns 403 "Not part of this conversation"
+- **Thot deletion ownership** — DELETE /thots/:id requires a valid session (401 if missing) and checks `thot.session_id !== session_id` (403 "not yours") before hiding
+- **Comment deletion ownership** — DELETE /comments/:id checks `comment.user_id !== user.id` (403) before allowing delete
+- **Auth required on all write routes** — POST /comments, POST /comments/:id/hype, POST /thots/:id/hype, POST /follows/:userId, DELETE /follows/:userId all verified to return 401 for unauthenticated callers
+- **UUID validation** — all route params (thot id, comment id, user id, message id) validated against `/^[0-9a-f-]{36}$/` regex before any DB query
+- **Content length limits** — POST /comments enforces ≤280 chars; POST /messages enforces ≤1000 chars; POST /thots wired through `moderate` middleware
+- **IP hash** — confirmed `createHash` (crypto) is imported and used; `ip_hash` field never assigned a raw IP string
+- **Moderation wired** — `moderate` middleware imported and listed in `router.post('/'...)` args; `moderate.js` uses shared Supabase client (not `createClient` directly, preventing Node 18 WebSocket crash)
+
+#### Pre-existing Test Fix
+- Corrected ownership-check assertion from `callerSessionId !== sessionId` → `callerSessionId !== rawId` to match the actual variable name in `thots.js`
+
+
 ### `v0.19` — UI Polish & Delete/Report Modals
 
 #### Custom Confirm Modals

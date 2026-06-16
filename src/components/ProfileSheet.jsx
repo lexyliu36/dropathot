@@ -212,7 +212,10 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
               {!isOwn && (
                 <div className="relative group/tip">
                   <button
-                    onClick={() => setConfirmReport(true)}
+                    onClick={() => {
+                      if (!isAuth) { window.dispatchEvent(new CustomEvent('thots:needs-auth')); return }
+                      setConfirmReport(true)
+                    }}
                     className="flex items-center gap-1 transition-colors cursor-pointer"
                     style={{
                       background: 'none', border: 'none', padding: 0,
@@ -437,19 +440,24 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
     }
   }
 
-  async function handleReport() {
+  const [confirmReport, setConfirmReport] = useState(false)
+
+  async function submitReport() {
+    const token = useAppStore.getState().session?.supabaseToken
+    await fetch(`${API_URL}/follows/${targetUserId}/report`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ reason: 'user report' }),
+    })
+    setConfirmReport(false)
+    setReportState('done')
+    setTimeout(() => setReportState('idle'), 3000)
+  }
+
+  function handleReport() {
     if (!isAuth) { window.dispatchEvent(new CustomEvent('thots:needs-auth')); return }
-    if (reportState === 'idle') { setReportState('confirm'); return }
-    if (reportState === 'confirm') {
-      const token = useAppStore.getState().session?.supabaseToken
-      await fetch(`${API_URL}/follows/${targetUserId}/report`, {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reason: 'user report' }),
-      })
-      setReportState('done')
-      setTimeout(() => setReportState('idle'), 3000)
-    }
+    if (reportState === 'done') return
+    setConfirmReport(true)
   }
 
   // Use API history directly (newest-first); fall back to thot prop only while loading.
@@ -619,17 +627,39 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
             </button>
           )}
           {/* Report */}
-          {isAuth && targetUserId && (
+          {targetUserId && (
             <button
               onClick={handleReport}
               className={`flex-1 flex flex-col items-center gap-0.5 py-1.5 rounded-xl transition-colors cursor-pointer ${
-                reportState !== 'idle' ? 'text-orange-400' : 'text-slate-500 hover:text-orange-400'
+                reportState === 'done' ? 'text-orange-400' : 'text-slate-500 hover:text-orange-400'
               }`}
               style={{ background: 'none', border: 'none' }}
             >
               <AlertTriangle size={15} />
-              <span className="text-[9px]">{reportState === 'done' ? 'Reported' : reportState === 'confirm' ? 'Confirm?' : 'Report'}</span>
+              <span className="text-[9px]">{reportState === 'done' ? 'Reported' : 'Report'}</span>
             </button>
+          )}
+          {/* Report confirm modal */}
+          {confirmReport && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 rounded-2xl">
+              <div className="bg-[#0e0e1a] border border-white/10 rounded-2xl p-5 mx-4 flex flex-col gap-3 shadow-2xl">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle size={18} className="text-orange-400 flex-shrink-0" />
+                  <span className="text-white font-semibold text-sm">Report this user?</span>
+                </div>
+                <p className="text-slate-400 text-xs leading-relaxed">They will be reviewed by moderators. Misuse of reports may result in your account being restricted.</p>
+                <div className="flex gap-2 mt-1">
+                  <button
+                    onClick={() => setConfirmReport(false)}
+                    className="flex-1 py-2 rounded-xl bg-white/5 text-slate-300 text-sm font-medium hover:bg-white/10 transition-colors cursor-pointer"
+                  >Cancel</button>
+                  <button
+                    onClick={submitReport}
+                    className="flex-1 py-2 rounded-xl bg-orange-500/20 text-orange-400 text-sm font-semibold hover:bg-orange-500/30 transition-colors cursor-pointer border border-orange-500/20"
+                  >Report</button>
+                </div>
+              </div>
+            </div>
           )}
           {/* Block confirm dialog */}
           {confirmBlock && (

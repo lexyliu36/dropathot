@@ -94,7 +94,7 @@ export default function DMDrawer({ partner, onClose }) {
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
   const token = session?.supabaseToken
-  const myId = session?.userId
+  const myId = session?.id
 
   const loadMessages = useCallback(async () => {
     if (!token || !partner?.userId) return
