@@ -49,7 +49,7 @@ function LeaderboardHeart({ thot, session, onHype }) {
   )
 }
 
-export default function TopThots({ thots, session, onHype, onClose, onSelectThot, onCommentClick }) {
+export default function TopThots({ thots, session, onHype, onClose, onSelectThot, onCommentClick, onFlyTo }) {
   const [shareThot, setShareThot] = useState(null)
 
   const ranked = [...thots]
@@ -93,7 +93,13 @@ export default function TopThots({ thots, session, onHype, onClose, onSelectThot
                 #{i + 1}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
+                <button
+                  onClick={() => { onFlyTo?.(thot); onClose?.() }}
+                  className="w-full text-left hover:opacity-80 transition-opacity cursor-pointer"
+                  style={{ background: 'none', border: 'none', padding: 0 }}
+                >
+                  <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
+                </button>
                 {/* Row 1: pen name + timestamp */}
                 <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
                   {thot.pen_name ? (

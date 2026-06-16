@@ -803,6 +803,10 @@ export default function Map() {
             setOpenCommentForThotId(thot.id)
             setLeaderboardOpen(false)
           }}
+          onFlyTo={(thot) => {
+            mapInstanceRef.current?.flyTo({ center: [thot.lng, thot.lat], zoom: 17, duration: 700 })
+            setLeaderboardOpen(false)
+          }}
         />
       )}
 

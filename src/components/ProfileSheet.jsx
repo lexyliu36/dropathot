@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { getCached, setCached, appendCached, removeFromCache } from '../lib/thotCache'
 import { useNavigate } from 'react-router-dom'
-import { X, ShieldX, ShieldCheck, Heart, MessageCircle, Upload, Flag, Trash2, UserPlus, UserMinus, MessageSquare, AlertTriangle, MoreVertical, Eye, EyeOff } from 'lucide-react'
+import { X, ShieldX, ShieldCheck, Heart, MessageCircle, Upload, Flag, Trash2, UserPlus, UserMinus, MessageSquare, AlertTriangle, MoreVertical } from 'lucide-react'
 import { AnonAvatar } from './ThotPin'
 import CommentThread from './CommentThread'
 import ShareSheet from './ShareSheet'
@@ -110,7 +110,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
   return (
     <>
       <div
-        className="py-3 px-2 rounded-xl transition-colors relative"
+        className={`py-3 px-2 rounded-xl transition-all relative ${!isVisible ? 'opacity-50' : ''}`}
         style={highlighted ? {
           background: `${accentColor}0d`,
           border: `1px solid ${accentColor}28`,
@@ -118,20 +118,6 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
           borderBottom: '1px solid rgba(255,255,255,0.05)',
         }}
       >
-        {/* Visibility badge + locate button */}
-        <div className="absolute top-2.5 right-2 flex items-center gap-1.5">
-          {isVisible ? (
-            <span className="flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
-              style={{ background: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.2)' }}>
-              <Eye size={8} />Live
-            </span>
-          ) : (
-            <span className="flex items-center gap-0.5 text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
-              style={{ background: 'rgba(100,116,139,0.12)', color: '#64748b', border: '1px solid rgba(100,116,139,0.2)' }}>
-              <EyeOff size={8} />Hidden
-            </span>
-          )}
-        </div>
         {/* Header: avatar + name + timestamp — click to fly to pin when live */}
         <div
           className="flex items-start gap-2.5"

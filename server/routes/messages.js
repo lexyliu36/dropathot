@@ -30,7 +30,16 @@ router.get('/:userId', async (req, res) => {
     .update({ read_at: new Date().toISOString() })
     .eq('to_user_id', user.id).eq('from_user_id', userId).is('read_at', null)
 
-  res.json(data ?? [])
+  // Attach i_hyped so hearts persist across reloads
+  const messageIds = (data ?? []).map(m => m.id)
+  let hypedIds = new Set()
+  if (messageIds.length > 0) {
+    const { data: hypes } = await supabase.from('message_hypes')
+      .select('message_id').eq('user_id', user.id).in('message_id', messageIds)
+    hypedIds = new Set((hypes ?? []).map(h => h.message_id))
+  }
+
+  res.json((data ?? []).map(m => ({ ...m, i_hyped: hypedIds.has(m.id) })))
 })
 
 // GET /messages — list all conversations (most recent message per thread)

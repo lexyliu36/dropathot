@@ -296,15 +296,17 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
           {myThots.length === 0 ? (
             <p className="text-slate-600 text-xs text-center py-8">Nothing posted yet</p>
           ) : (
-            myThots.map(thot => (
-              <div key={thot.id} className="py-2.5 border-b border-white/5 last:border-0">
+            myThots.map(thot => {
+              const isActive = !thot.hidden && !thot.user_deleted && thot.expires_at && new Date(thot.expires_at) > new Date()
+              return <div key={thot.id} className="py-2.5 border-b border-white/5 last:border-0">
                 <button
-                  onClick={() => onFlyTo?.(thot)}
-                  className="w-full text-left cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => isActive && onFlyTo?.(thot)}
+                  disabled={!isActive}
+                  className={`w-full text-left transition-opacity ${isActive ? 'cursor-pointer hover:opacity-80' : 'cursor-default opacity-50'}`}
                   style={{ background: 'none', border: 'none', padding: 0 }}
                 >
                   <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
-                  <GeoLabel lat={thot.lat} lng={thot.lng} />
+                  {isActive ? <GeoLabel lat={thot.lat} lng={thot.lng} /> : <span className="text-slate-700 text-[10px] block mt-0.5">no longer on map</span>}
                 </button>
                 <div className="flex items-center mt-1.5">
                   <span className="text-slate-600 text-[10px] w-16 flex-shrink-0">{relativeTime(thot.created_at)}</span>
@@ -340,7 +342,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
                   </div>
                 </div>
               </div>
-            ))
+            })
           )}
           {/* Load more */}
           {myThots.length > 0 && myThots.length < myTotal && (
@@ -412,10 +414,19 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
           {likedThots.length === 0 ? (
             <p className="text-slate-600 text-xs text-center py-8">No liked thots yet</p>
           ) : (
-            likedThots.map(thot => (
+            likedThots.map(thot => {
+              const isActive = !thot.hidden && !thot.user_deleted && thot.expires_at && new Date(thot.expires_at) > new Date()
+              return (
               <div key={thot.id} className="py-2.5 border-b border-white/5 last:border-0">
-                <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
-                <GeoLabel lat={thot.lat} lng={thot.lng} />
+                <button
+                  onClick={() => isActive && onFlyTo?.(thot)}
+                  disabled={!isActive}
+                  className={`w-full text-left transition-opacity ${isActive ? 'cursor-pointer hover:opacity-80' : 'cursor-default opacity-50'}`}
+                  style={{ background: 'none', border: 'none', padding: 0 }}
+                >
+                  <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
+                  {isActive ? <GeoLabel lat={thot.lat} lng={thot.lng} /> : <span className="text-slate-700 text-[10px] block mt-0.5">no longer on map</span>}
+                </button>
                 <div className="flex items-center gap-2 mt-1.5">
                   {thot.pen_name ? (
                     <button
@@ -441,7 +452,8 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
                   </div>
                 </div>
               </div>
-            ))
+              )
+            })
           )}
         </>
       )}
@@ -889,7 +901,14 @@ function MessagesTab({ session, onOpenDM }) {
         return (
           <button
             key={convo.id}
-            onClick={() => onOpenDM?.({ userId: partnerId, penName: partnerName, accentColor: partnerColor })}
+            onClick={() => {
+              // Optimistically clear unread dot so it doesn't show stale after returning from DM
+              setConvos(prev => prev.map(c => {
+                const cPartnerId = c.from_user_id === session?.userId ? c.to_user_id : c.from_user_id
+                return cPartnerId === partnerId ? { ...c, unread: 0 } : c
+              }))
+              onOpenDM?.({ userId: partnerId, penName: partnerName, accentColor: partnerColor })
+            }}
             className="w-full flex items-start gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors cursor-pointer text-left border-b border-white/[0.04] last:border-0"
             style={{ background: 'none', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.04)' }}
           >

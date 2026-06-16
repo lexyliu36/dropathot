@@ -98,6 +98,23 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.18` — Navigation Polish & Messaging Fixes
+
+#### Click-to-fly Navigation
+- **Top Thots** — clicking thot content now flies the map to that pin's location and closes the panel; pen name click still opens the profile sheet as before
+- **Tools → Your drops** — thots with an active map pin are clickable to fly; expired, hidden, or user-deleted thots show "no longer on map" in dim text and are non-clickable (cursor default, 50% opacity)
+- **Tools → Liked** — same behaviour: active liked thots fly to their location on click; off-map ones are visually dimmed and non-interactive
+- **Consistency** — matches the existing fly-to behaviour in ProfileSheet and the "your profile" sheet, so all thot lists now behave the same way
+
+#### ProfileSheet — Hidden Thot Styling
+- **Removed Live / Hidden badges** — the green "Live" pill and grey "Hidden" pill are gone from thot cards in ProfileSheet
+- **Replaced with opacity** — hidden/expired thots now render at 50% opacity, matching the subtle approach in the Tools panel list; no visual clutter for active thots
+- **Removed unused imports** — `Eye` and `EyeOff` from lucide-react removed from ProfileSheet
+
+#### Messaging Bug Fixes
+- **Unread dot clears immediately on open** — previously the unread indicator in the Messages tab persisted after opening a conversation (MessagesTab fetched once on mount and never updated); clicking a conversation now optimistically sets `unread: 0` in local state so the dot disappears instantly without waiting for a refetch
+- **Message hearts persist across reloads** — `GET /messages/:userId` previously returned `select('*')` from the messages table; `i_hyped` is not a column there, so hearts always reset to false on DM reopen or the 8-second poll; server now fetches `message_hypes` for the current user and attaches `i_hyped: true/false` to each message in the response
+
 ### `v0.17` — Post-hardening `user_id` identity fixes
 
 #### Bug Fixes
