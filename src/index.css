@@ -124,11 +124,11 @@ body { background: #0a0a0f; color: #f1f5f9; font-family: 'Inter', sans-serif; ov
   .action-tip { display: none; }
 }
 
-/* Prevent mobile browsers from zooming on input focus (zoom triggers when font-size < 16px) */
-@media (max-width: 768px) {
-  input, textarea, select {
-    font-size: 16px !important;
-  }
+/* Prevent mobile browsers from zooming on input focus (zoom triggers when font-size < 16px).
+   Applied unconditionally — no media query — because viewport width can exceed 768px on
+   some iPhones depending on scale, causing the scoped rule to miss. */
+input, textarea, select {
+  font-size: 16px !important;
 }
 
 /* ProfileSheet: slides up on mobile, slides in from right on desktop */

@@ -657,7 +657,7 @@ export default function Map() {
             {/* Search — left */}
             <div className="flex items-center gap-2 pointer-events-auto">
               <button
-                onClick={() => { setSearchOpen(true); setLeaderboardOpen(false); setToolsOpen(false) }}
+                onClick={() => { setSearchOpen(true); setLeaderboardOpen(false); setToolsOpen(false); setSelectedThot(null); setShowYouProfile(false); setComposing(false) }}
                 className="w-9 h-9 rounded-full border border-white/15 bg-white/10 flex items-center justify-center text-slate-300 hover:bg-white/20 transition-colors cursor-pointer"
               >
                 <Search size={15} />
@@ -667,7 +667,7 @@ export default function Map() {
             <span className="absolute left-1/2 -translate-x-1/2 text-white font-black text-xl tracking-tight pointer-events-none">dropathot</span>
             <div className="flex items-center gap-2 pointer-events-auto ml-auto">
               <button
-                onClick={() => { setLeaderboardOpen(o => !o); setToolsOpen(false) }}
+                onClick={() => { setLeaderboardOpen(o => !o); setToolsOpen(false); setSelectedThot(null); setShowYouProfile(false); setComposing(false) }}
                 className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
                   leaderboardOpen
                     ? 'bg-amber-500/20 border-amber-500/50'
@@ -677,7 +677,7 @@ export default function Map() {
                 <Star size={15} style={{ fill: '#f59e0b', color: '#f59e0b' }} />
               </button>
               <button
-                onClick={() => { setToolsOpen(o => !o); setLeaderboardOpen(false) }}
+                onClick={() => { setToolsOpen(o => !o); setLeaderboardOpen(false); setSelectedThot(null); setShowYouProfile(false); setComposing(false) }}
                 className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
                   toolsOpen
                     ? 'bg-brand-purple/20 border-brand-purple/50 text-brand-purple'
