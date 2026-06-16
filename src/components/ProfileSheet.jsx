@@ -556,7 +556,10 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
             <p className="text-slate-500 text-xs leading-relaxed">You haven't dropped a thot yet.</p>
             {onCompose && (
               <button
-                onClick={onCompose}
+                onClick={() => {
+                  if (session?.type !== 'user') { window.dispatchEvent(new CustomEvent('thots:needs-auth')); return }
+                  onCompose()
+                }}
                 className="rounded-xl py-2 px-5 text-sm font-semibold cursor-pointer"
                 style={{ background: '#e11d48', color: '#fff', border: 'none' }}
               >

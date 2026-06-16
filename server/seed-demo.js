@@ -180,6 +180,8 @@ async function seed() {
       location:   `SRID=4326;POINT(${t.lng} ${t.lat})`,
       created_at: createdAt.toISOString(),
       expires_at: SEVEN_DAYS,
+      is_seed: true,
+      hidden: true,
     }
   })
 

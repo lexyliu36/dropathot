@@ -8,7 +8,6 @@ const TAGLINES = [
   "What's really going on around you.",
   "The city, unfiltered.",
   "Your neighborhood's inner monologue.",
-  "Drop it. Read it. Gone tomorrow.",
 ]
 
 function TaglineCycler() {
@@ -337,13 +336,22 @@ export default function Landing() {
               onClick={() => setMode("login")}
               className="w-full py-3.5 rounded-2xl bg-brand-blue text-white font-semibold text-base hover:bg-blue-500 transition-colors cursor-pointer"
             >
-              Log in
+              Log in to post
             </button>
             <button
               onClick={() => setMode("signup")}
               className="w-full py-3.5 rounded-2xl bg-white/10 border border-white/15 text-white font-semibold text-base hover:bg-white/15 transition-colors cursor-pointer"
             >
               Create account
+            </button>
+            <button
+              onClick={() => {
+                updateSession({ type: 'viewer', ageVerified: true })
+                navigate("/map")
+              }}
+              className="w-full py-2.5 text-slate-500 hover:text-slate-300 text-sm transition-colors cursor-pointer"
+            >
+              View map anonymously
             </button>
           </div>
         )}

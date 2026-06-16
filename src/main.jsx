@@ -31,7 +31,7 @@ import { getOrCreateSession } from "./lib/identity"
 
 function RequireAuth({ children }) {
   const session = getOrCreateSession()
-  const enrolled = session.ageVerified === true && session.type === "user"
+  const enrolled = session.ageVerified === true && (session.type === 'user' || session.type === 'viewer')
   if (!enrolled) return <Navigate to="/" replace />
   return children
 }

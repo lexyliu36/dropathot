@@ -657,7 +657,7 @@ export default function Map() {
             {/* Search — left */}
             <div className="flex items-center gap-2 pointer-events-auto">
               <button
-                onClick={() => { setSearchOpen(true); setLeaderboardOpen(false); setToolsOpen(false); setSelectedThot(null); setShowYouProfile(false); setComposing(false) }}
+                onClick={() => { if (session?.type !== 'user') { window.dispatchEvent(new CustomEvent('thots:needs-auth')); return }; setSearchOpen(true); setLeaderboardOpen(false); setToolsOpen(false); setSelectedThot(null); setShowYouProfile(false); setComposing(false) }}
                 className="w-9 h-9 rounded-full border border-white/15 bg-white/10 flex items-center justify-center text-slate-300 hover:bg-white/20 transition-colors cursor-pointer"
               >
                 <Search size={15} />

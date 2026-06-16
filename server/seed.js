@@ -54,6 +54,8 @@ async function seed() {
     location: `SRID=4326;POINT(${centerLng + OFFSETS[i][1]} ${centerLat + OFFSETS[i][0]})`,
     created_at: new Date(Date.now() - i * 4 * 60 * 1000).toISOString(),
     expires_at: new Date(Date.now() + 100 * 365.25 * 24 * 60 * 60 * 1000).toISOString(),
+    is_seed: true,
+    hidden: true,
   }))
 
   const { data, error } = await supabase.from('thots').insert(rows).select('id, content')

@@ -85,11 +85,12 @@ router.get('/', async (req, res) => {
     const offset = parseInt(req.query.offset) || 0
     const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted'
 
-    // Build query: own history uses session_id column, public profile uses user_id column
+    // Build query: own history uses session_id OR user_id (covers anon→registered transition),
+    // public profile uses user_id only (non-hidden posts only)
     let query = supabase.from('thots').select(COLS, { count: 'exact' })
     query = byUserId
       ? query.eq('user_id', rawId).eq('hidden', false).eq('user_deleted', false)
-      : query.eq('session_id', rawId).eq('user_deleted', false)
+      : query.or(`session_id.eq.${rawId},user_id.eq.${rawId}`).eq('user_deleted', false)
 
     let { data, error, count } = await query
       .order('created_at', { ascending: false })
@@ -100,7 +101,7 @@ router.get('/', async (req, res) => {
       query = supabase.from('thots').select(COLS, { count: 'exact' })
       query = byUserId
         ? query.eq('user_id', rawId).eq('hidden', false)
-        : query.eq('session_id', rawId).eq('hidden', false)
+        : query.or(`session_id.eq.${rawId},user_id.eq.${rawId}`).eq('hidden', false)
       ;({ data, error, count } = await query
         .order('created_at', { ascending: false })
         .range(offset, offset + limit - 1))

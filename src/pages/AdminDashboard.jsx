@@ -3,28 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 const TOKEN_KEY = 'dat_admin_token'
-const FAIL_KEY  = 'dat_admin_fails'
-
 const PERIODS = ['1h', '24h', '7d', '30d']
-
-// ── Lockout helpers ───────────────────────────────────────────────────────────
-
-function getFailState() {
-  try { return JSON.parse(localStorage.getItem(FAIL_KEY) || 'null') || { attempts: 0, lockedUntil: null } }
-  catch { return { attempts: 0, lockedUntil: null } }
-}
-
-function saveFailState(s) { localStorage.setItem(FAIL_KEY, JSON.stringify(s)) }
-
-function recordFail(current) {
-  const attempts = (current.attempts || 0) + 1
-  const lockedUntil = attempts >= 5 ? Date.now() + 10 * 60 * 1000 : (current.lockedUntil || null)
-  const next = { attempts, lockedUntil }
-  saveFailState(next)
-  return next
-}
-
-function clearFails() { localStorage.removeItem(FAIL_KEY) }
 
 // ── Time formatting ───────────────────────────────────────────────────────────
 
@@ -242,7 +221,7 @@ function LoginScreen({ onLogin, isLocked, countdown, attemptsLeft, loginError })
             {loginError && (
               <p className="text-red-400 text-xs">
                 {loginError}
-                {attemptsLeft > 0 && ` ${attemptsLeft} attempt${attemptsLeft !== 1 ? 's' : ''} remaining.`}
+                {attemptsLeft > 0 && attemptsLeft < 5 && ` ${attemptsLeft} attempt${attemptsLeft !== 1 ? 's' : ''} remaining.`}
               </p>
             )}
             <button
@@ -447,8 +426,9 @@ function ReviewPanel({ token, type, id, onDone }) {
 
 export default function AdminDashboard() {
   const [token, setToken]         = useState(() => sessionStorage.getItem(TOKEN_KEY) || '')
-  const [failState, setFailState] = useState(getFailState)
+  const [lockedUntil, setLockedUntil] = useState(null) // timestamp ms — set from server 429
   const [countdown, setCountdown] = useState(0)
+  const [attemptsLeft, setAttemptsLeft] = useState(5)
   const [period, setPeriod]       = useState('24h')
   const [stats, setStats]         = useState(null)
   const [error, setError]         = useState('')
@@ -456,29 +436,27 @@ export default function AdminDashboard() {
   const [lastRefresh, setLastRefresh] = useState(null)
   const [loginError, setLoginError]   = useState('')
   const [activeDetail, setActiveDetail] = useState(null)
+  const [seedVisible, setSeedVisible] = useState(null) // null=loading, true=visible, false=hidden
+  const [seedToggling, setSeedToggling] = useState(false)
   const detailRef = useRef(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const reviewType = searchParams.get('review') // 'thot' | 'user'
   const reviewId   = searchParams.get('id')
 
-  const isLocked = Boolean(failState.lockedUntil && Date.now() < failState.lockedUntil)
-  const attemptsLeft = Math.max(0, 5 - (failState.attempts || 0))
+  const isLocked = Boolean(lockedUntil && Date.now() < lockedUntil)
 
-  // Lockout countdown
+  // Lockout countdown — driven by server-returned retryAfter
   useEffect(() => {
-    if (!failState.lockedUntil) return
+    if (!lockedUntil) return
     function tick() {
-      const remaining = Math.max(0, failState.lockedUntil - Date.now())
+      const remaining = Math.max(0, lockedUntil - Date.now())
       setCountdown(Math.ceil(remaining / 1000))
-      if (remaining <= 0) {
-        clearFails()
-        setFailState({ attempts: 0, lockedUntil: null })
-      }
+      if (remaining <= 0) setLockedUntil(null)
     }
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [failState.lockedUntil])
+  }, [lockedUntil])
 
   const fetchStats = useCallback(async (tok, per) => {
     setLoading(true)
@@ -487,11 +465,18 @@ export default function AdminDashboard() {
       const res = await fetch(`${API_URL}/admin/stats?period=${per}`, {
         headers: { Authorization: `Bearer ${tok}` },
       })
-      if (res.status === 401) {
+      if (res.status === 429) {
+        const data = await res.json().catch(() => ({}))
+        setLockedUntil(Date.now() + (data.retryAfter ?? 600) * 1000)
         sessionStorage.removeItem(TOKEN_KEY)
-        const next = recordFail(failState)
-        setFailState(next)
         setToken('')
+        return
+      }
+      if (res.status === 401) {
+        const data = await res.json().catch(() => ({}))
+        sessionStorage.removeItem(TOKEN_KEY)
+        setToken('')
+        setAttemptsLeft(data.attemptsLeft ?? 0)
         setLoginError('Incorrect passcode.')
         return
       }
@@ -504,7 +489,29 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false)
     }
-  }, [failState])
+  }, [])
+
+  useEffect(() => {
+    if (!token) return
+    fetch(`${API_URL}/admin/seed/status`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json()).then(d => setSeedVisible(d.visible)).catch(() => {})
+  }, [token])
+
+  async function handleSeedToggle() {
+    setSeedToggling(true)
+    try {
+      const res = await fetch(`${API_URL}/admin/seed/toggle`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const data = await res.json()
+      setSeedVisible(data.visible)
+    } catch (e) {
+      setError('Seed toggle failed: ' + e.message)
+    } finally {
+      setSeedToggling(false)
+    }
+  }
 
   useEffect(() => {
     if (!token) return
@@ -513,8 +520,27 @@ export default function AdminDashboard() {
     return () => clearInterval(id)
   }, [token, period, fetchStats])
 
-  function handleLogin(passcode) {
+  async function handleLogin(passcode) {
     setLoginError('')
+    // Probe the server first — this will 429 if locked, 401 if wrong, 200 if correct
+    try {
+      const res = await fetch(`${API_URL}/admin/stats?period=1h`, {
+        headers: { Authorization: `Bearer ${passcode}` },
+      })
+      if (res.status === 429) {
+        const data = await res.json().catch(() => ({}))
+        setLockedUntil(Date.now() + (data.retryAfter ?? 600) * 1000)
+        setLoginError('Too many failed attempts.')
+        return
+      }
+      if (res.status === 401) {
+        const data = await res.json().catch(() => ({}))
+        setAttemptsLeft(data.attemptsLeft ?? 0)
+        setLoginError('Incorrect passcode.')
+        return
+      }
+      if (res.status === 503) { setLoginError('Admin not configured on server.'); return }
+    } catch { setLoginError('Could not reach server.'); return }
     sessionStorage.setItem(TOKEN_KEY, passcode)
     setToken(passcode)
   }
@@ -630,6 +656,26 @@ export default function AdminDashboard() {
           {card('total_thots',  'Total thots',       s?.total_thots  ?? null, 'text-white')}
           {card('total_users',  'Total users',       s?.total_users  ?? null, 'text-white')}
           {card('hidden_thots', 'Hidden by reports', s?.hidden_thots ?? null, 'text-red-700')}
+        </div>
+
+        {/* Seed data toggle */}
+        <div className="mt-6 flex items-center justify-between rounded-xl px-4 py-3" style={{ background: '#0e0e1a', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div>
+            <p className="text-sm text-white/70 font-medium">Seed data</p>
+            <p className="text-xs text-gray-600 mt-0.5">
+              {seedVisible === null ? 'Checking…' : seedVisible ? 'Currently visible on map' : 'Hidden from map'}
+            </p>
+          </div>
+          <button
+            onClick={handleSeedToggle}
+            disabled={seedToggling || seedVisible === null}
+            className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors disabled:opacity-40"
+            style={seedVisible
+              ? { background: '#7c3aed22', color: '#a78bfa', border: '1px solid #7c3aed55' }
+              : { background: '#e11d4822', color: '#fb7185', border: '1px solid #e11d4855' }}
+          >
+            {seedToggling ? 'Updating…' : seedVisible ? 'Hide seed data' : 'Show seed data'}
+          </button>
         </div>
 
         {/* Detail panel */}

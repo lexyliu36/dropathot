@@ -4,11 +4,42 @@ import { sendThotRestoredEmail, sendThotRemovedEmail, sendUserBannedEmail, sendU
 
 const router = Router()
 
+const MAX_ATTEMPTS = 5
+const LOCKOUT_MS = 10 * 60 * 1000 // 10 minutes
+const adminAttempts = new Map() // ip -> { attempts, lockedUntil }
+
 function requireAdmin(req, res, next) {
   const secret = process.env.ADMIN_SECRET
   if (!secret) return res.status(503).json({ error: 'Admin not configured — set ADMIN_SECRET env var' })
+
+  const ip = req.ip || req.socket?.remoteAddress || 'unknown'
+  const state = adminAttempts.get(ip) || { attempts: 0, lockedUntil: null }
+
+  // Check lockout
+  if (state.lockedUntil && Date.now() < state.lockedUntil) {
+    const retryAfter = Math.ceil((state.lockedUntil - Date.now()) / 1000)
+    return res.status(429).json({ error: 'Too many failed attempts', retryAfter })
+  }
+
+  // Reset expired lockout
+  if (state.lockedUntil && Date.now() >= state.lockedUntil) {
+    adminAttempts.delete(ip)
+  }
+
   const auth = req.headers.authorization || ''
-  if (auth !== `Bearer ${secret}`) return res.status(401).json({ error: 'Unauthorized' })
+  if (auth !== `Bearer ${secret}`) {
+    const attempts = (state.attempts || 0) + 1
+    const lockedUntil = attempts >= MAX_ATTEMPTS ? Date.now() + LOCKOUT_MS : state.lockedUntil
+    adminAttempts.set(ip, { attempts, lockedUntil })
+    if (lockedUntil) {
+      const retryAfter = Math.ceil(LOCKOUT_MS / 1000)
+      return res.status(429).json({ error: 'Too many failed attempts', retryAfter })
+    }
+    return res.status(401).json({ error: 'Unauthorized', attemptsLeft: MAX_ATTEMPTS - attempts })
+  }
+
+  // Correct — clear any prior failures for this IP
+  adminAttempts.delete(ip)
   next()
 }
 
@@ -177,6 +208,36 @@ router.get('/detail/sessions', requireAdmin, async (req, res) => {
   }
 
   res.json([...map.values()].sort((a, b) => b.thot_count - a.thot_count))
+})
+
+
+// GET /admin/seed/status — are seed thots currently visible?
+router.get('/seed/status', requireAdmin, async (req, res) => {
+  const { count } = await supabase
+    .from('thots')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_seed', true)
+    .eq('hidden', false)
+  res.json({ visible: (count ?? 0) > 0, count: count ?? 0 })
+})
+
+// POST /admin/seed/toggle — flip visibility of all seed thots
+router.post('/seed/toggle', requireAdmin, async (req, res) => {
+  // Check current state first
+  const { count: visibleCount } = await supabase
+    .from('thots')
+    .select('*', { count: 'exact', head: true })
+    .eq('is_seed', true)
+    .eq('hidden', false)
+
+  const nowHiding = (visibleCount ?? 0) > 0  // if any are visible, we hide; else we show
+  const { error } = await supabase
+    .from('thots')
+    .update({ hidden: nowHiding })
+    .eq('is_seed', true)
+
+  if (error) return res.status(500).json({ error: error.message })
+  res.json({ ok: true, visible: !nowHiding })
 })
 
 export default router
