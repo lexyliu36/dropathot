@@ -68,6 +68,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
   const [followerUsers, setFollowerUsers] = useState([])
   const [followerCount, setFollowerCount] = useState(0)
   const [deletingId, setDeletingId] = useState(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
   const PAGE = 20
 
@@ -159,7 +160,6 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
   }, [session?.id])
 
   async function handleDeleteThot(thotId) {
-    if (!window.confirm('Hide this thot? It will be removed from the map and your history.')) return
     setDeletingId(thotId)
     try {
       const s = useAppStore.getState()
@@ -176,11 +176,12 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
         setMyThots(prev => prev.filter(t => t.id !== thotId))
         setMyTotal(n => Math.max(0, n - 1))
         s.removeThot(thotId)
-        if (data.restored) {
+        // Let the pin disappear before the restored thot pops in
+        if (data.restored) setTimeout(() => {
           const restored = { ...data.restored, _isNew: true }
           s.addThot(restored)
           setMyThots(prev => [restored, ...prev.filter(t => t.id !== restored.id)])
-        }
+        }, 400)
       } else {
         const err = await r.json().catch(() => ({}))
         console.error('[delete thot] server error:', r.status, err)
@@ -289,6 +290,30 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
 
       {shareThot && <ShareSheet thot={shareThot} onClose={() => setShareThot(null)} />}
 
+      {/* Delete confirm modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setConfirmDeleteId(null)}>
+          <div className="bg-[#0e0e1a] border border-white/10 rounded-2xl p-5 mx-6 flex flex-col gap-3 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <Trash2 size={18} className="text-red-400 flex-shrink-0" />
+              <span className="text-white font-semibold text-sm">Delete this thot?</span>
+            </div>
+            <p className="text-slate-400 text-xs leading-relaxed">It will be removed from the map and your history. This can't be undone.</p>
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="flex-1 py-2 rounded-xl bg-white/5 text-slate-300 text-sm font-medium hover:bg-white/10 transition-colors cursor-pointer"
+                style={{ border: 'none' }}
+              >Cancel</button>
+              <button
+                onClick={() => { const id = confirmDeleteId; setConfirmDeleteId(null); handleDeleteThot(id) }}
+                className="flex-1 py-2 rounded-xl bg-red-500/20 text-red-400 text-sm font-semibold hover:bg-red-500/30 transition-colors cursor-pointer border border-red-500/20"
+              >Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Thots list */}
       {view === 'thots' && (
         <>
@@ -329,7 +354,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
                     <div className="flex-1 flex justify-center">
                       <div className="relative group/tip">
                         <button
-                          onClick={() => handleDeleteThot(thot.id)}
+                          onClick={() => setConfirmDeleteId(thot.id)}
                           disabled={deletingId === thot.id}
                           className="text-slate-700 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40"
                           style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}

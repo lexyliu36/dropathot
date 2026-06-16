@@ -98,6 +98,24 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.19` — UI Polish & Delete/Report Modals
+
+#### Custom Confirm Modals
+- **Delete thot (ProfileSheet)** — trash icon now opens an in-app "Delete this thot?" modal matching the block-user modal style; replaced browser `window.confirm`
+- **Delete thot (Tools → Your drops)** — same modal treatment for the trash icon in the Tools panel
+- **Report thot** — flag icon opens "Report this thot?" modal (orange theme); if already reported, same modal shows "Remove your report?" with appropriate copy
+- **Backdrop dismiss** — tapping outside any confirm modal cancels it; all three modals (block, delete, report) are now visually consistent
+
+#### Share Sheet Hype Count Fix
+- **ProfileSheet** — ShareSheet was passed the raw `thot` object with stale `hype_count`; now passes `{ ...thot, hype_count: hypeCount }` so likes made before opening share are reflected
+- **Top Thots** — same fix; share button now reads live hype count from Zustand store at click time before opening the sheet
+
+#### Delete Animation Sequencing
+- **ProfileSheet & Tools** — when deleting a thot that restores a previous one, `addThot` (restored pin pop-in) is now deferred 400 ms after `removeThot`; the deleted pin disappears first, then the old pin reappears, rather than both changes landing on the same frame
+
+#### Landing Page
+- Auto-redirect on mount now checks `session.type === 'user'` (strict equality) instead of truthy `session.type`; prevents anonymous sessions from being redirected past the landing page
+
 ### `v0.18` — Navigation Polish & Messaging Fixes
 
 #### Click-to-fly Navigation

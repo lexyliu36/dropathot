@@ -33,6 +33,8 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
   const [showShare, setShowShare] = useState(false)
   const [deleted, setDeleted] = useState(false)
   const [deleteError, setDeleteError] = useState(null)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [confirmReport, setConfirmReport] = useState(false)
   const commentCount = thot.comment_count ?? 0
   const isOwn = thot.session_id === session?.id || thot.user_id === session?.id
   const isVisible = useAppStore((s) => s.thots.some(t => t.id === thot.id))
@@ -48,8 +50,6 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
 
   async function handleReport() {
     if (reported) {
-      // Toggle off — remove the report
-      if (!window.confirm('Remove your report on this thot?')) return
       try {
         await fetch(`${API_URL}/reports/${thot.id}`, {
           method: 'DELETE',
@@ -61,7 +61,6 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
       }
       return
     }
-    if (!window.confirm('Report this thot? It will be reviewed by moderators.')) return
     try {
       const r = await fetch(`${API_URL}/reports`, {
         method: 'POST',
@@ -76,7 +75,6 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
   }
 
   async function handleDelete() {
-    if (!window.confirm('Hide this thot? It will be removed from the map and your history.')) return
     setDeleteError(null)
     try {
       const s = useAppStore.getState()
@@ -91,9 +89,10 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
         const data = await r.json()
         // removeThot also clears selectedThot, collapsing the ProfileSheet
         s.removeThot(thot.id)
-        if (data.restored) s.addThot({ ...data.restored, _isNew: true })
         onDelete?.(thot.id)
         setDeleted(true)
+        // Let the pin disappear before the restored thot pops in
+        if (data.restored) setTimeout(() => s.addThot({ ...data.restored, _isNew: true }), 400)
       } else {
         const err = await r.json().catch(() => ({}))
         console.error('[delete thot] server error:', r.status, err)
@@ -196,7 +195,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
                 <div className="flex flex-col items-end gap-1">
                   <div className="relative group/tip">
                     <button
-                      onClick={handleDelete}
+                      onClick={() => setConfirmDelete(true)}
                       className="flex items-center gap-1 transition-colors cursor-pointer text-slate-700 hover:text-red-400"
                       style={{ background: 'none', border: 'none', padding: 0 }}
                     >
@@ -212,7 +211,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
               {!isOwn && (
                 <div className="relative group/tip">
                   <button
-                    onClick={handleReport}
+                    onClick={() => setConfirmReport(true)}
                     className="flex items-center gap-1 transition-colors cursor-pointer"
                     style={{
                       background: 'none', border: 'none', padding: 0,
@@ -237,7 +236,57 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
         )}
       </div>
 
-      {showShare && <ShareSheet thot={thot} onClose={() => setShowShare(false)} />}
+      {/* Delete confirm modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setConfirmDelete(false)}>
+          <div className="bg-[#0e0e1a] border border-white/10 rounded-2xl p-5 mx-6 flex flex-col gap-3 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <Trash2 size={18} className="text-red-400 flex-shrink-0" />
+              <span className="text-white font-semibold text-sm">Delete this thot?</span>
+            </div>
+            <p className="text-slate-400 text-xs leading-relaxed">It will be removed from the map and your history. This can't be undone.</p>
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="flex-1 py-2 rounded-xl bg-white/5 text-slate-300 text-sm font-medium hover:bg-white/10 transition-colors cursor-pointer"
+                style={{ border: 'none' }}
+              >Cancel</button>
+              <button
+                onClick={() => { setConfirmDelete(false); handleDelete() }}
+                className="flex-1 py-2 rounded-xl bg-red-500/20 text-red-400 text-sm font-semibold hover:bg-red-500/30 transition-colors cursor-pointer border border-red-500/20"
+              >Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report / unreport confirm modal */}
+      {confirmReport && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setConfirmReport(false)}>
+          <div className="bg-[#0e0e1a] border border-white/10 rounded-2xl p-5 mx-6 flex flex-col gap-3 shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-2">
+              <Flag size={18} className={reported ? 'text-slate-400 flex-shrink-0' : 'text-orange-400 flex-shrink-0'} />
+              <span className="text-white font-semibold text-sm">{reported ? 'Remove your report?' : 'Report this thot?'}</span>
+            </div>
+            <p className="text-slate-400 text-xs leading-relaxed">
+              {reported ? 'This will remove your report. The thot will no longer be flagged by you.' : 'It will be reviewed by moderators. Misuse of reports may result in your account being restricted.'}
+            </p>
+            <div className="flex gap-2 mt-1">
+              <button
+                onClick={() => setConfirmReport(false)}
+                className="flex-1 py-2 rounded-xl bg-white/5 text-slate-300 text-sm font-medium hover:bg-white/10 transition-colors cursor-pointer"
+                style={{ border: 'none' }}
+              >Cancel</button>
+              <button
+                onClick={() => { setConfirmReport(false); handleReport() }}
+                className={`flex-1 py-2 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${reported ? 'bg-white/5 text-slate-300 hover:bg-white/10 border border-white/10' : 'bg-orange-500/20 text-orange-400 hover:bg-orange-500/30 border border-orange-500/20'}`}
+              >{reported ? 'Remove' : 'Report'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showShare && <ShareSheet thot={{ ...thot, hype_count: hypeCount }} onClose={() => setShowShare(false)} />}
     </>
   )
 }
@@ -280,7 +329,13 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   const PAGE = 20
 
   useEffect(() => {
-    if (!sessionId) { setHistory([]); setLoading(false); return }
+    if (!sessionId) {
+      // No lookup key available (seed data, or anon user after session_id was stripped).
+      // Fall back to showing at least the thot that was clicked.
+      setHistory(thot && !thot.user_deleted ? [thot] : [])
+      setLoading(false)
+      return
+    }
     const cached = getCached(sessionId)
     if (cached) {
       setHistory(cached.thots.filter(t => !t.user_deleted))

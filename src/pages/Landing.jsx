@@ -103,7 +103,7 @@ export default function Landing() {
   useEffect(() => {
     if (state?.openLogin || state?.openSignup) return;
     const session = getOrCreateSession();
-    if (session.ageVerified && session.type) navigate("/map", { replace: true });
+    if (session.ageVerified && session.type === 'user') navigate('/map', { replace: true });
   }, []);
 
   // Detect Supabase post-verification redirect: /#access_token=...&type=signup
@@ -345,7 +345,6 @@ export default function Landing() {
             >
               Create account
             </button>
-
           </div>
         )}
 

@@ -138,7 +138,10 @@ export default function TopThots({ thots, session, onHype, onClose, onSelectThot
                   {/* Share */}
                   <div className="relative group/tip">
                     <button
-                      onClick={() => setShareThot(thot)}
+                      onClick={() => {
+                        const liveCount = useAppStore.getState().thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0
+                        setShareThot({ ...thot, hype_count: liveCount })
+                      }}
                       className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
                       style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
                     >
