@@ -126,7 +126,7 @@ export default function TopThots({ thots, session, onHype, onClose, onSelectThot
                   {/* Comment slot — fixed 48px */}
                   <div className="relative group/tip" style={{ width: '48px', flexShrink: 0 }}>
                     <button
-                      onClick={() => onCommentClick?.(thot)}
+                      onClick={() => { onCommentClick?.(thot); onFlyTo?.(thot) }}
                       className="flex items-center gap-1 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
                       style={{ background: 'none', border: 'none', padding: 0 }}
                     >

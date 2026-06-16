@@ -293,8 +293,8 @@ export default function CommentThread({ thotId, accentColor, session, autoFocus 
               onKeyDown={e => {}}
               placeholder={replyingTo ? `@${replyingTo}…` : 'Comment…'}
               rows={1}
-              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder:text-slate-600 resize-none focus:outline-none focus:border-white/20 text-xs transition-colors"
-              style={{ minHeight: 34, maxHeight: 160, overflowY: 'auto' }}
+              className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white placeholder:text-slate-600 resize-none focus:outline-none focus:border-white/20 transition-colors"
+              style={{ minHeight: 34, maxHeight: 160, overflowY: 'auto', fontSize: 16 }}
             />
             <button
               onClick={postComment}

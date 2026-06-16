@@ -231,8 +231,8 @@ export default function DMDrawer({ partner, onClose }) {
           placeholder="Say something…"
           maxLength={1000}
           rows={1}
-          className="flex-1 bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 resize-none outline-none focus:border-white/20 transition-colors leading-relaxed"
-          style={{ minHeight: '36px', maxHeight: '100px', overflowY: 'auto' }}
+          className="flex-1 bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-white placeholder-slate-600 resize-none outline-none focus:border-white/20 transition-colors leading-relaxed"
+          style={{ minHeight: '36px', maxHeight: '100px', overflowY: 'auto', fontSize: 16 }}
         />
         <button
           type="submit"
