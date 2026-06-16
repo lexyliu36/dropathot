@@ -342,11 +342,11 @@ export default function Map() {
 
 
 
-  // 250m postable-range ring around your location
+  // 200m postable-range ring around your location
   useEffect(() => {
     const map = mapInstanceRef.current
     if (!map || !mapReady || !location) return
-    const geojson = makeCircleGeoJSON(location.lat, location.lng, 250)
+    const geojson = makeCircleGeoJSON(location.lat, location.lng, 200)
     if (map.getSource('range-ring')) {
       map.getSource('range-ring').setData(geojson)
     } else {
@@ -361,7 +361,7 @@ export default function Map() {
         id: 'range-ring-line',
         type: 'line',
         source: 'range-ring',
-        paint: { 'line-color': '#e11d48', 'line-opacity': 0.35, 'line-width': 1.5, 'line-dasharray': [3, 3] },
+        paint: { 'line-color': '#e11d48', 'line-opacity': 0.35, 'line-width': 1.5 },
       })
     }
   }, [location, mapReady])
