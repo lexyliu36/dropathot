@@ -98,6 +98,20 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.23` — iOS PWA Support for Push Notifications
+
+#### Progressive Web App (new)
+- **`public/manifest.json`** — PWA manifest with `display: "standalone"`, `theme_color: "#0a0a0f"`, and 192×192 / 512×512 icons; required for iOS to treat the app as installable
+- **`public/icon-180.png`** — Apple touch icon (180×180) referenced via `<link rel="apple-touch-icon">`
+- **`index.html`** — added `<link rel="manifest">`, `apple-mobile-web-app-capable`, `apple-mobile-web-app-status-bar-style: black-translucent`, `apple-mobile-web-app-title`, and `theme-color` meta tags
+
+#### iOS Push Notes
+- Web Push on iOS requires **Safari + Add to Home Screen** (iOS 16.4+); push does not work from in-browser Safari tabs
+- Users must: open site in Safari → Share → Add to Home Screen → open from Home Screen icon → enable push in Settings
+
+#### DB Fix
+- `push_subscriptions` — RLS disabled (`alter table push_subscriptions disable row level security`) since the table is server-only (service role); fixes "new row violates row-level security policy" 500 error on subscribe
+
 ### `v0.22` — Web Push Notifications & Auth Token Refresh
 
 #### Web Push (new feature)
