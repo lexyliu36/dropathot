@@ -9,36 +9,37 @@
   <body>
     <div id="root"></div>
     <script>
-      // Prevent iOS auto-zoom on input/textarea focus without disabling pinch-zoom
+      // Prevent iOS zoom-on-focus. Key insight: focusin fires AFTER iOS has already
+      // decided to zoom, so we must lock maximum-scale on touchstart instead.
       (function() {
-        var viewport = document.querySelector('meta[name="viewport"]');
-        var original = 'width=device-width, initial-scale=1.0';
-        var noZoom = 'width=device-width, initial-scale=1.0, maximum-scale=1.0';
-        document.addEventListener('focusin', function(e) {
-          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
-            viewport.setAttribute('content', noZoom);
-          }
-        });
+        var vp = document.querySelector('meta[name="viewport"]');
+        var base = 'width=device-width, initial-scale=1.0';
+        var locked = base + ', maximum-scale=1.0';
+
+        function isInput(el) {
+          var t = el && el.tagName;
+          return t === 'INPUT' || t === 'TEXTAREA';
+        }
+
+        // Lock BEFORE iOS zoom decision (touchstart fires first)
+        document.addEventListener('touchstart', function(e) {
+          if (isInput(e.target)) vp.setAttribute('content', locked);
+        }, { passive: true });
+
+        // Unlock after focus leaves — delay to handle focus-switch between fields
         document.addEventListener('focusout', function(e) {
-          if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
-            // Delay so focus-switching between inputs doesn't flash; also covers panel close
+          if (isInput(e.target)) {
             setTimeout(function() {
-              var a = document.activeElement;
-              if (!a || (a.tagName !== 'INPUT' && a.tagName !== 'TEXTAREA' && a.tagName !== 'SELECT')) {
-                viewport.setAttribute('content', original);
-              }
+              if (!isInput(document.activeElement)) vp.setAttribute('content', base);
             }, 150);
           }
         });
-        // Also reset on any touch outside an input (catches modal-close scenarios)
+
+        // Also unlock on touch outside any input (handles drawer-close edge cases)
         document.addEventListener('touchend', function(e) {
-          var t = e.target;
-          if (t.tagName !== 'INPUT' && t.tagName !== 'TEXTAREA' && t.tagName !== 'SELECT') {
+          if (!isInput(e.target)) {
             setTimeout(function() {
-              var a = document.activeElement;
-              if (!a || (a.tagName !== 'INPUT' && a.tagName !== 'TEXTAREA' && a.tagName !== 'SELECT')) {
-                viewport.setAttribute('content', original);
-              }
+              if (!isInput(document.activeElement)) vp.setAttribute('content', base);
             }, 200);
           }
         });
