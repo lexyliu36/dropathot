@@ -3,6 +3,7 @@ import { commentLimiter } from '../middleware/rateLimit.js'
 import { makeModerate } from '../middleware/moderate.js'
 import { supabase } from '../lib/supabase.js'
 import { enqueueNotification } from '../lib/notificationQueue.js'
+import { sendPush } from '../lib/webPush.js'
 
 const router = Router()
 
@@ -86,6 +87,7 @@ router.post('/', commentLimiter, moderateComment, async (req, res) => {
       const ownerId = thotRow?.user_id
       if (ownerId && ownerId !== user.id) {
         enqueueNotification(ownerId, 'comment', userData?.pen_name ?? 'Someone', thotRow.content, thot_id)
+        sendPush(ownerId, { title: `${userData?.pen_name ?? 'Someone'} commented on your thot`, body: thotRow.content?.slice(0, 80) ?? '', url: '/map' })
       }
     })
 

@@ -3,6 +3,7 @@ import { socialLimiter } from '../middleware/rateLimit.js'
 import { supabase } from '../lib/supabase.js'
 import { sendUserReviewEmail } from '../lib/email.js'
 import { enqueueNotification } from '../lib/notificationQueue.js'
+import { sendPush } from '../lib/webPush.js'
 
 const router = Router()
 
@@ -93,6 +94,7 @@ router.post('/:userId', socialLimiter, async (req, res) => {
   // Notify the followed user (async)
   const actorName = user.user_metadata?.pen_name ?? 'Someone'
   enqueueNotification(userId, 'follow', actorName, null, null)
+  sendPush(userId, { title: `${actorName} started following you`, body: 'Tap to view their profile', url: '/map' })
 
   res.json({ ok: true, isFollowing: true })
 })

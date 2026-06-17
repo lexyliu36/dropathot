@@ -107,18 +107,20 @@ async function runDMDigest() {
   const { data: authData } = await supabase.auth.admin.listUsers({ perPage: 1000 })
   const emailMap = new Map((authData?.users ?? []).map(u => [u.id, u.email]))
 
-  // 4. Fetch recipient pen_names
+  // 4. Fetch recipient pen_names + prefs
   const { data: recipientUsers } = await supabase
     .from('users')
-    .select('id, pen_name')
+    .select('id, pen_name, email_dm_digest')
     .in('id', recipientIds)
   const penNameMap = new Map((recipientUsers ?? []).map(u => [u.id, u.pen_name]))
+  const dmDigestOptOut = new Set((recipientUsers ?? []).filter(u => u.email_dm_digest === false).map(u => u.id))
 
   // 5. Send one email per recipient
   const emailedIds = []
   for (const [recipientId, bySender] of byRecipient) {
     const email = emailMap.get(recipientId)
     if (!email) continue
+    if (dmDigestOptOut.has(recipientId)) continue // user opted out
 
     const recipientPenName = penNameMap.get(recipientId) ?? 'there'
     const senderGroups = [...bySender.values()]

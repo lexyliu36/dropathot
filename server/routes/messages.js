@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { sendPush } from '../lib/webPush.js'
 import { socialLimiter } from '../middleware/rateLimit.js'
 import { supabase } from '../lib/supabase.js'
 
@@ -84,6 +85,11 @@ router.post('/:userId', socialLimiter, async (req, res) => {
     .insert({ from_user_id: user.id, to_user_id: userId, content: content.trim() })
     .select().single()
   if (error) return res.status(500).json({ error: 'Failed to send message' })
+
+  // Push notification to recipient
+  const senderName = user.user_metadata?.pen_name ?? 'Someone'
+  sendPush(userId, { title: `New message from ${senderName}`, body: content.trim().slice(0, 80), url: '/map' })
+
   res.status(201).json(data)
 })
 

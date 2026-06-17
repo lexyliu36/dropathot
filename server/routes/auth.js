@@ -52,7 +52,39 @@ router.get('/profile', async (req, res) => {
   const { data: { user }, error } = await supabase.auth.getUser(token)
   if (error || !user) return res.status(401).json({ error: 'invalid token' })
 
-  res.json({ pen_name: user.user_metadata?.pen_name ?? null, email: user.email ?? null })
+  // Also fetch notification prefs from users table
+  const { data: userRow } = await supabase
+    .from('users')
+    .select('email_dm_digest, email_activity_digest')
+    .eq('id', user.id)
+    .maybeSingle()
+
+  res.json({
+    pen_name: user.user_metadata?.pen_name ?? null,
+    email: user.email ?? null,
+    email_dm_digest: userRow?.email_dm_digest ?? true,
+    email_activity_digest: userRow?.email_activity_digest ?? true,
+  })
+})
+
+// PATCH /auth/preferences — update notification prefs
+router.patch('/preferences', async (req, res) => {
+  const token = req.headers.authorization?.replace('Bearer ', '').trim()
+  if (!token) return res.status(401).json({ error: 'unauthorized' })
+
+  const { data: { user }, error } = await supabase.auth.getUser(token)
+  if (error || !user) return res.status(401).json({ error: 'invalid token' })
+
+  const allowed = ['email_dm_digest', 'email_activity_digest']
+  const updates = {}
+  for (const key of allowed) {
+    if (typeof req.body[key] === 'boolean') updates[key] = req.body[key]
+  }
+  if (!Object.keys(updates).length) return res.status(400).json({ error: 'no valid fields' })
+
+  const { error: updateErr } = await supabase.from('users').update(updates).eq('id', user.id)
+  if (updateErr) return res.status(500).json({ error: updateErr.message })
+  res.json({ ok: true, ...updates })
 })
 
 // GET /auth/check-email?email= — returns { exists: bool } without revealing sensitive info
@@ -231,6 +263,23 @@ router.post('/login', loginLimiter, async (req, res) => {
   })
 })
 
+
+// POST /auth/refresh — exchange a refresh_token for a new access_token
+// Used by the frontend when the stored access_token has expired
+router.post('/refresh', async (req, res) => {
+  const { refresh_token } = req.body
+  if (!refresh_token) return res.status(400).json({ error: 'refresh_token required' })
+
+  const { data, error } = await supabase.auth.refreshSession({ refresh_token })
+  if (error || !data?.session) {
+    return res.status(401).json({ error: 'Session expired. Please sign in again.' })
+  }
+
+  res.json({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+  })
+})
 
 // POST /auth/logout — clear session cookie so /auth/anon issues a fresh UUID
 router.post('/logout', (req, res) => {

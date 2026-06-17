@@ -11,10 +11,11 @@ function GeoLabel({ lat, lng }) {
   return <span className="text-slate-600 text-[10px] block mt-0.5">{label}</span>
 }
 import { useNavigate } from 'react-router-dom'
-import { X, User, Settings, LogOut, Heart, Upload, Trash2, Mail, KeyRound, Users, MessageSquare, Send, Search } from 'lucide-react'
+import { X, User, Settings, LogOut, Heart, Upload, Trash2, Mail, KeyRound, Users, MessageSquare, Send, Search, Bell, BellOff } from 'lucide-react'
 import { clearSession } from '../lib/identity'
 import ShareSheet from './ShareSheet'
 import useAppStore from '../stores/useAppStore'
+import usePush from '../hooks/usePush'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
@@ -486,6 +487,94 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
   )
 }
 
+const API_URL_PREFS = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
+
+function ToggleSwitch({ on, onToggle, disabled }) {
+  return (
+    <button
+      onClick={onToggle}
+      disabled={disabled}
+      aria-checked={on}
+      role="switch"
+      style={{ WebkitTapHighlightColor: 'transparent' }}
+      className={`relative flex-shrink-0 w-11 h-6 rounded-full transition-colors duration-200 cursor-pointer disabled:opacity-40 focus:outline-none ${on ? 'bg-brand-purple' : 'bg-white/15'}`}
+    >
+      <span
+        className="absolute top-[3px] left-[3px] w-[18px] h-[18px] rounded-full bg-white shadow-sm transition-transform duration-200"
+        style={{ transform: on ? 'translateX(20px)' : 'translateX(0)' }}
+      />
+    </button>
+  )
+}
+
+function PushToggle({ session }) {
+  const { supported, subscribed, checking, acting, error, subscribe, unsubscribe } = usePush()
+  if (!supported) return null
+  const subtext = error
+    ? error
+    : checking
+      ? 'Checking…'
+      : subscribed ? 'On for this device' : 'Off for this device'
+  return (
+    <div className="flex items-center justify-between py-2">
+      <div className="flex items-center gap-2">
+        {subscribed ? <Bell size={13} className="text-brand-purple" /> : <BellOff size={13} className="text-slate-500" />}
+        <div>
+          <p className="text-[11px] text-white font-medium">Push notifications</p>
+          <p className={`text-[10px] mt-0.5 ${error ? 'text-red-400' : 'text-slate-500'}`}>{subtext}</p>
+        </div>
+      </div>
+      <ToggleSwitch on={subscribed} onToggle={subscribed ? unsubscribe : subscribe} disabled={checking || acting} />
+    </div>
+  )
+}
+
+function EmailToggle({ label, description, prefKey, session }) {
+  const [enabled, setEnabled] = useState(true)
+  const [loading, setLoading] = useState(false)
+
+  // Load current pref on mount
+  useEffect(() => {
+    if (!session?.supabaseToken) return
+    fetch(`${API_URL_PREFS}/auth/profile`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${session.supabaseToken}` },
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d && prefKey in d) setEnabled(!!d[prefKey]) })
+      .catch(() => {})
+  }, [session?.supabaseToken, prefKey])
+
+  async function toggle() {
+    if (!session?.supabaseToken) return
+    setLoading(true)
+    const next = !enabled
+    try {
+      await fetch(`${API_URL_PREFS}/auth/preferences`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.supabaseToken}` },
+        body: JSON.stringify({ [prefKey]: next }),
+      })
+      setEnabled(next)
+    } catch {}
+    setLoading(false)
+  }
+
+  return (
+    <div className="flex items-center justify-between py-2">
+      <div className="flex items-center gap-2">
+        <Mail size={13} className={enabled ? 'text-brand-purple' : 'text-slate-500'} />
+        <div>
+          <p className="text-[11px] text-white font-medium">{label}</p>
+          <p className="text-[10px] text-slate-500 mt-0.5">{description}</p>
+        </div>
+      </div>
+      <ToggleSwitch on={enabled} onToggle={toggle} disabled={loading} />
+    </div>
+  )
+}
+
 function SettingsPane({ session }) {
   const navigate = useNavigate()
   const isAuth = session?.type === 'user'
@@ -625,11 +714,15 @@ function SettingsPane({ session }) {
 
   return (
     <div className="flex flex-col gap-3 pt-1">
-      {/* Coming soon placeholder */}
-      <div className="bg-white/[0.07] border border-white/[0.04] rounded-xl p-3">
-        <p className="text-slate-500 text-xs font-medium mb-1">Preferences</p>
-        <p className="text-slate-700 text-[11px]">More settings coming soon</p>
-      </div>
+      {/* Preferences */}
+      {isAuth && (
+        <div className="bg-white/[0.07] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-1">
+          <p className="text-slate-500 text-xs font-medium mb-2">Preferences</p>
+          <PushToggle session={session} />
+          <EmailToggle label="DM digest emails" description="15-min summary of unread DMs" prefKey="email_dm_digest" session={session} />
+          <EmailToggle label="Activity digest emails" description="Hourly — hypes, comments, follows" prefKey="email_activity_digest" session={session} />
+        </div>
+      )}
 
       {/* Sign out */}
       <div className="bg-white/[0.07] border border-white/[0.04] rounded-xl p-3">

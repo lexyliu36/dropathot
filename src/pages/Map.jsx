@@ -130,15 +130,40 @@ export default function Map() {
       // setSession() returns immediately with a valid (possibly refreshed) token.
       const initAuth = async () => {
         let token = localSession.supabaseToken
-        if (supabase && localSession.supabaseRefreshToken) {
-          const { data } = await supabase.auth.setSession({
-            access_token: localSession.supabaseToken,
-            refresh_token: localSession.supabaseRefreshToken,
-          })
-          if (data?.session) {
-            token = data.session.access_token
-            updateSession({ supabaseToken: token, supabaseRefreshToken: data.session.refresh_token })
-            setSession({ ...localSession, supabaseToken: token })
+        let refreshToken = localSession.supabaseRefreshToken
+
+        // Try SDK setSession first; if it returns null the access_token is expired —
+        // fall back to /auth/refresh which uses the service-role client on the server.
+        if (supabase && refreshToken) {
+          try {
+            const { data } = await supabase.auth.setSession({
+              access_token: token,
+              refresh_token: refreshToken,
+            })
+            if (data?.session) {
+              token = data.session.access_token
+              refreshToken = data.session.refresh_token
+              updateSession({ supabaseToken: token, supabaseRefreshToken: refreshToken })
+              setSession({ ...localSession, supabaseToken: token, supabaseRefreshToken: refreshToken })
+            } else {
+              // SDK couldn't refresh — hit the server endpoint directly
+              throw new Error('setSession returned null')
+            }
+          } catch {
+            try {
+              const r = await fetch(`${API_URL}/auth/refresh`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ refresh_token: refreshToken }),
+              })
+              if (r.ok) {
+                const d = await r.json()
+                token = d.access_token
+                refreshToken = d.refresh_token
+                updateSession({ supabaseToken: token, supabaseRefreshToken: refreshToken })
+                setSession({ ...localSession, supabaseToken: token, supabaseRefreshToken: refreshToken })
+              }
+            } catch {}
           }
         }
         const headers = { Authorization: `Bearer ${token}` }
@@ -296,14 +321,18 @@ export default function Map() {
     }
   }, [])
 
-  // Pan to user location once available + force resize in case iOS blanked the canvas
+  // Pan to user location ONCE on first acquisition — never re-center on GPS updates
+  // (re-centering on every location tick is what causes the map to snap back when zoomed out)
+  const hasCenteredRef = useRef(false)
   useEffect(() => {
     const map = mapInstanceRef.current
     if (!map || !location) return
     map.resize()
-    map.easeTo({ center: [location.lng, location.lat], zoom: 16, duration: 800 })
-    // Second resize after browser UI fully settles on mobile
     const t = setTimeout(() => map.resize(), 300)
+    if (!hasCenteredRef.current) {
+      hasCenteredRef.current = true
+      map.easeTo({ center: [location.lng, location.lat], zoom: 16, duration: 800 })
+    }
     return () => clearTimeout(t)
   }, [location])
 

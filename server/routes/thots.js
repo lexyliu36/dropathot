@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { createHash } from 'crypto'
 import { supabase } from '../lib/supabase.js'
 import { enqueueNotification } from '../lib/notificationQueue.js'
+import { sendPush } from '../lib/webPush.js'
 import { neighborCells, latLngToH3 } from '../lib/geo.js'
 import { subnetLimit } from '../middleware/subnetLimit.js'
 import { smartRateLimit } from '../middleware/rateLimit.js'
@@ -205,6 +206,7 @@ router.post('/:id/hype', async (req, res) => {
         if (ownerId && ownerId !== user.id) {
           const actorName = user.user_metadata?.pen_name ?? 'Someone'
           enqueueNotification(ownerId, 'like', actorName, thotRow.content, thotId)
+          sendPush(ownerId, { title: `${actorName} hyped your thot`, body: thotRow.content?.slice(0, 80) ?? '', url: '/map' })
         }
       })
   }

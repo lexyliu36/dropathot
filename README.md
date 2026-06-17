@@ -98,6 +98,40 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.22` — Web Push Notifications & Auth Token Refresh
+
+#### Web Push (new feature)
+- **Service worker** (`public/sw.js`) — handles `push` events, shows system notifications with title/body/icon; `notificationclick` opens/focuses the app
+- **VAPID key pair** generated and stored in `.env` / Railway / Vercel env vars
+- **`server/lib/webPush.js`** — deferred VAPID init (runs on first send, after dotenv loads); `sendPush(userId, payload)` fans out to all subscriptions, auto-cleans stale endpoints on 410/404
+- **`server/routes/push.js`** — `GET /push/vapid-public-key`, `POST /push/subscribe` (upsert), `DELETE /push/subscribe`
+- **`src/hooks/usePush.js`** — registers SW, checks existing subscription on mount (`checking` state), exposes `subscribe`/`unsubscribe`; separate `checking` vs `acting` loading states so toggle is never stuck disabled
+- **Push fires on**: hype (`thots.js`), comment (`comments.js`), new follower (`follows.js`), new DM (`messages.js`)
+- **DB migration 018** — `push_subscriptions(user_id, endpoint, p256dh, auth)` with unique constraint on `(user_id, endpoint)`; RLS + service_role grant required in Supabase
+
+#### Notification Preferences (new feature)
+- **DB migration 019** — adds `email_dm_digest` and `email_activity_digest` boolean columns to `users` table (default `true`)
+- **`GET /auth/profile`** — now returns `email_dm_digest` and `email_activity_digest` alongside pen_name/email
+- **`PATCH /auth/preferences`** — updates `email_dm_digest` / `email_activity_digest` per user
+- **DM digest job** — respects `email_dm_digest = false` opt-out before sending
+- **Settings → Preferences panel** — replaces "coming soon" placeholder with three toggles: Push notifications (per-device), DM digest emails, Activity digest emails
+- **`ToggleSwitch`** component — fixed knob overflow; uses `translateX` inline style for reliable positioning across browsers
+
+#### Auth Token Refresh Fix
+- **`POST /auth/refresh`** — new server endpoint; accepts `refresh_token`, calls `supabase.auth.refreshSession()` server-side, returns fresh `access_token` + `refresh_token`
+- **`initAuth` in Map.jsx** — when `supabase.auth.setSession()` returns null (expired access token), falls back to `POST /auth/refresh`; updates both localStorage and Zustand store so all subsequent requests use the fresh token
+- Fixes 401 errors on `/auth/profile`, `/push/subscribe`, and other token-gated routes after 1-hour Supabase JWT expiry
+
+#### UX Fixes
+- **Push toggle label** — "On/Off for this device" (clarifies per-device semantics)
+- **Report user modal** — clicking Report now shows a confirm modal identical in style to Block, instead of inline "Confirm?" tab-bar state
+- **Search closes DM** — clicking the map search icon calls `setDmPartner(null)`
+- **Compose FAB closes search** — clicking the red compose button clears the search bar
+- **DM bubble alignment** — fixed `myId = session.userId` (undefined) → `session.id`
+- **Conversation partner name** — fixed double "Plato" bug; uses server-computed `convo.partner`
+- **Location updates continuously** — switched `getCurrentPosition` → `watchPosition` in `useLocation.js`
+- **Radius circle** — removed `line-dasharray`; border is now solid
+
 ### `v0.21` — DM Fixes, Search, Report Modal & UX Tweaks
 
 #### DM / Messaging

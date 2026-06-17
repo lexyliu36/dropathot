@@ -226,7 +226,7 @@ export default function DMDrawer({ partner, onClose }) {
           value={text}
           onChange={e => setText(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() }
+            if (e.key === 'Enter') e.preventDefault()
           }}
           placeholder="Say something…"
           maxLength={1000}
