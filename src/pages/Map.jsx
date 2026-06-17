@@ -777,7 +777,7 @@ export default function Map() {
                 window.dispatchEvent(new CustomEvent('thots:needs-auth'))
                 return
               }
-              setComposing(true)
+              setComposing(true); setSearchOpen(false); setSearchQuery(""); setSearchResults([])
             }}
             className="w-14 h-14 rounded-full bg-brand-red shadow-lg flex items-center justify-center text-white hover:bg-rose-500 transition-colors cursor-pointer"
             style={{ boxShadow: '0 0 24px #e11d4860' }}

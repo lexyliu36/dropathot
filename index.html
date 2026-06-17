@@ -9,8 +9,11 @@
   <body>
     <div id="root"></div>
     <script>
-      // Prevent iOS zoom-on-focus. Key insight: focusin fires AFTER iOS has already
-      // decided to zoom, so we must lock maximum-scale on touchstart instead.
+      // Prevent iOS zoom-on-focus.
+      // Problem: some inputs are focused programmatically (autoFocus, .focus() after
+      // a button tap) — not by touching the input directly. So we can't just watch
+      // touchstart on the input; we must lock on ANY single touch, then restore only
+      // after confirming no input ended up focused.
       (function() {
         var vp = document.querySelector('meta[name="viewport"]');
         var base = 'width=device-width, initial-scale=1.0';
@@ -21,26 +24,28 @@
           return t === 'INPUT' || t === 'TEXTAREA';
         }
 
-        // Lock BEFORE iOS zoom decision (touchstart fires first)
+        // Lock on any single-finger touch. This covers:
+        //   • Direct taps on inputs
+        //   • Taps on buttons that open a panel with autoFocus or .focus()
+        // Multi-touch (pinch-to-zoom) is excluded so map zoom still works.
         document.addEventListener('touchstart', function(e) {
-          if (isInput(e.target)) vp.setAttribute('content', locked);
+          if (e.touches.length === 1) vp.setAttribute('content', locked);
         }, { passive: true });
 
-        // Unlock after focus leaves — delay to handle focus-switch between fields
+        // Restore 300 ms after touch ends — long enough for programmatic .focus()
+        // calls (e.g. setTimeout(..., 100)) to have fired and been detected.
+        document.addEventListener('touchend', function() {
+          setTimeout(function() {
+            if (!isInput(document.activeElement)) vp.setAttribute('content', base);
+          }, 300);
+        });
+
+        // Also restore when an input explicitly loses focus.
         document.addEventListener('focusout', function(e) {
           if (isInput(e.target)) {
             setTimeout(function() {
               if (!isInput(document.activeElement)) vp.setAttribute('content', base);
             }, 150);
-          }
-        });
-
-        // Also unlock on touch outside any input (handles drawer-close edge cases)
-        document.addEventListener('touchend', function(e) {
-          if (!isInput(e.target)) {
-            setTimeout(function() {
-              if (!isInput(document.activeElement)) vp.setAttribute('content', base);
-            }, 200);
           }
         });
       })();

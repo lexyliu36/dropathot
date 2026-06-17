@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import useAppStore from '../stores/useAppStore'
 
 const ERROR_MESSAGES = {
@@ -13,14 +13,19 @@ export default function useLocation() {
   const setLocationError = useAppStore((s) => s.setLocationError)
   const location = useAppStore((s) => s.userLocation)
   const error = useAppStore((s) => s.locationError)
+  const watchId = useRef(null)
 
-  const request = useCallback(() => {
+  const startWatch = useCallback(() => {
     if (!navigator.geolocation) {
       setLocationError('Geolocation is not supported by this browser.')
       return
     }
+    // Clear any existing watcher before starting a new one
+    if (watchId.current != null) {
+      navigator.geolocation.clearWatch(watchId.current)
+    }
     setLoading(true)
-    navigator.geolocation.getCurrentPosition(
+    watchId.current = navigator.geolocation.watchPosition(
       (pos) => {
         setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude })
         setLoading(false)
@@ -33,5 +38,16 @@ export default function useLocation() {
     )
   }, [setUserLocation, setLocationError])
 
-  return { location, error, loading, retry: request, request }
+  // Auto-start watching on mount; clean up on unmount
+  useEffect(() => {
+    startWatch()
+    return () => {
+      if (watchId.current != null) {
+        navigator.geolocation.clearWatch(watchId.current)
+        watchId.current = null
+      }
+    }
+  }, [startWatch])
+
+  return { location, error, loading, retry: startWatch, request: startWatch }
 }
