@@ -28,12 +28,8 @@ export default function useThots() {
         if (!cancelled) setThots(data)
       } catch (err) {
         if (!cancelled) {
-          setThots(MOCK_THOTS.map((t) => ({
-            ...t,
-            lat: fetchCenter.lat + (t.lat - 40.7128),
-            lng: fetchCenter.lng + (t.lng - (-74.006)),
-          })))
-          setError('Using mock data — backend not running.')
+          setThots([])
+          setError('Could not load thots — check your connection.')
         }
       } finally {
         if (!cancelled) setLoading(false)
