@@ -905,7 +905,7 @@ export default function Map() {
             mapInstanceRef.current?.flyTo({ center: [thot.lng, thot.lat], zoom: 17, duration: 700 })
             setToolsOpen(false)
           }}
-          onOpenDM={partner => { setToolsOpen(false); setDmPartner(partner) }}
+          onOpenDM={partner => { setDmPartner(partner) }}
         />
       )}
 

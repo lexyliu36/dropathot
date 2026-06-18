@@ -196,7 +196,7 @@ export default function DMDrawer({ partner, onClose }) {
   const accentColor = partner?.accentColor || '#7c3aed'
 
   return (
-    <div className="absolute top-3 right-3 bottom-3 z-50 w-72 flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden panel-fade-overlay">
+    <div className="absolute top-3 bottom-3 left-3 right-3 z-50 flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden panel-fade-overlay sm:left-auto sm:w-72">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05] flex-shrink-0">
         <div className="flex items-center gap-2.5">
