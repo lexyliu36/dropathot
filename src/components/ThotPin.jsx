@@ -52,6 +52,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
 
   const accentColor = isYou ? '#e11d48' : thot.pen_name ? '#7c3aed' : '#64748b'
   const isNew = thot._isNew || (Date.now() - new Date(thot.created_at).getTime()) < 15_000
+  const mob = typeof window !== 'undefined' && window.innerWidth <= 640
 
   return (
     <div
@@ -68,6 +69,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
       {/* Bubble — floats above the avatar, visibility:hidden when dismissed to preserve layout */}
       <div
         onMouseEnter={() => !dismissed && setHovered(true)}
+        onTouchEnd={(e) => { if (!dismissed) { e.preventDefault(); onClick(thot) } }}
         onMouseLeave={() => setHovered(false)}
         onClick={() => !dismissed && onClick(thot)}
         className={`thot-bubble${isNew ? ' thot-bubble-pop' : ''}`}
@@ -136,10 +138,10 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
         {/* Meta row + hype button */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginTop: '6px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
-            <span style={{ fontSize: '12px', color: accentColor, fontWeight: 600, whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: mob ? '14px' : '12px', color: accentColor, fontWeight: 600, whiteSpace: 'nowrap' }}>
               {thot.pen_name || 'anon'}
             </span>
-            <span style={{ fontSize: '12px', color: '#475569', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: mob ? '14px' : '12px', color: '#475569', whiteSpace: 'nowrap' }}>
               {relativeTime(thot.created_at)}
             </span>
           </div>
@@ -160,7 +162,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
               border: 'none', borderRadius: '6px', padding: '2px 4px',
               cursor: isAuth ? 'pointer' : 'default',
               color: hyped ? accentColor : 'rgba(255,255,255,0.35)',
-              fontSize: '13px', pointerEvents: 'auto',
+              fontSize: mob ? '14px' : '13px', pointerEvents: 'auto',
               transition: 'color 0.15s, background 0.15s', lineHeight: 1,
             }}
           >

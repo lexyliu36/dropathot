@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { X, Send, User, Map } from 'lucide-react'
 
 // Place thot at approximately radiusM metres away in a random direction (±10% variance)
@@ -41,24 +41,6 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
   const [duration, setDuration] = useState(durationOptions[0].value)
   const [jitter, setJitter] = useState(0) // 0–100 → 0–200m
 
-  // Track keyboard height via Visual Viewport API so the drawer stays above the keyboard
-  const [keyboardOffset, setKeyboardOffset] = useState(0)
-  useEffect(() => {
-    const vv = window.visualViewport
-    if (!vv) return
-    function onVPChange() {
-      // keyboard height = total window height minus the visible viewport height/offset
-      const kb = Math.max(0, window.innerHeight - vv.height - vv.offsetTop)
-      setKeyboardOffset(kb)
-    }
-    vv.addEventListener('resize', onVPChange)
-    vv.addEventListener('scroll', onVPChange)
-    return () => {
-      vv.removeEventListener('resize', onVPChange)
-      vv.removeEventListener('scroll', onVPChange)
-    }
-  }, [])
-
   async function handlePost() {
     if (!text.trim() || posting) return
     setPosting(true)
@@ -77,7 +59,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
   }
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none" style={{ paddingBottom: keyboardOffset }} onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <div className="absolute inset-0 z-30 flex flex-col items-center justify-start pt-14 sm:justify-center sm:pt-0 pointer-events-none" onClick={(e) => e.target === e.currentTarget && onClose()}>
     <div className="w-full mx-5 sm:mx-0 sm:max-w-[550px] bg-[#0e0e1a] border border-white/10 rounded-3xl p-5 flex flex-col gap-4 shadow-2xl pointer-events-auto panel-slide-up">
       <div className="flex items-center justify-between">
         <span className="text-white font-semibold text-base">Drop a thot</span>
@@ -115,7 +97,6 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
       ) : (
         <>
           <textarea
-            autoFocus
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, MAX))}
             placeholder="What's on your mind?"
