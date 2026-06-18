@@ -67,9 +67,10 @@ export function explodeBubbleAt(cx, cy, onDone) {
  */
 export function explodeMarker(marker, map, onDone) {
   try {
-    // Instantly hide the bubble div so it doesn't linger during particle flight
-    const bubbleEl = marker.getElement().querySelector('.thot-bubble')
-    if (bubbleEl) bubbleEl.style.opacity = '0'
+    // Fade the entire marker (bubble + avatar pin) out in sync with the particle burst
+    const el = marker.getElement()
+    el.style.transition = 'opacity 0.18s ease'
+    el.style.opacity = '0'
 
     const lngLat = marker.getLngLat()
     const pt     = map.project(lngLat)
