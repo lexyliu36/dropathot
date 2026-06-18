@@ -3,7 +3,7 @@ import LegalLayout from './LegalLayout'
 export default function PrivacyPage() {
   return (
     <LegalLayout title="Privacy Policy" updated="June 9, 2026">
-      <p>dropathot ("we," "us," "our") is committed to being transparent about how we collect, use, and protect your information. This Privacy Policy explains our practices for our website at dropathot.com and all associated services (the "Service"). By using the Service, you agree to the collection and use of information in accordance with this Policy.</p>
+      <p>Dropathot LLC ("we," "us," "our") is committed to being transparent about how we collect, use, and protect your information. This Privacy Policy explains our practices for our website at dropathot.com and all associated services (the "Service"). By using the Service, you agree to the collection and use of information in accordance with this Policy.</p>
 
       <h2>1. Information We Collect</h2>
       <p><strong>Information you provide directly:</strong></p>
@@ -41,7 +41,7 @@ export default function PrivacyPage() {
       <ul>
         <li><strong>Service providers:</strong> we share data with Supabase (database and authentication), Railway (backend hosting), Vercel (frontend hosting), Google (Perspective API moderation), OpenAI (moderation), Resend (transactional email), and Mapbox (map rendering). Each of these providers processes data solely to perform services on our behalf and under confidentiality obligations.</li>
         <li><strong>Law enforcement:</strong> we will disclose session identifiers, hashed IPs, post content, timestamps, and associated location data to law enforcement agencies in response to valid legal process (subpoenas, warrants, court orders) or in emergency situations involving an imminent threat to life or safety.</li>
-        <li><strong>Business transfers:</strong> if dropathot is acquired, merged, or its assets are transferred, your information may be part of that transfer. We will notify you via a prominent notice on the Service prior to your information becoming subject to a different privacy policy.</li>
+        <li><strong>Business transfers:</strong> if dropathot™ is acquired, merged, or its assets are transferred, your information may be part of that transfer. We will notify you via a prominent notice on the Service prior to your information becoming subject to a different privacy policy.</li>
         <li><strong>With your consent:</strong> we may share information for other purposes with your explicit consent.</li>
       </ul>
       <p>Your <strong>public</strong> information — pen name (if registered), post content, location (shown on map), and post timestamp — is visible to other users of the Service by design. The Service requires a registered account to post content.</p>

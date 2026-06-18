@@ -18,10 +18,5 @@ export default defineConfig({
   ],
   build: {
     sourcemap: true, // required for Sentry source maps
-  },
-  test: {
-    environment: 'jsdom',
-    globals: true,
-    setupFiles: './src/test/setup.js',
-  },
+  }
 })

@@ -1,4 +1,4 @@
-# drop-a-thot
+# dropathot
 
 [![CI](https://github.com/lexyliu/Thots./actions/workflows/ci.yml/badge.svg)](https://github.com/lexyliu/Thots./actions/workflows/ci.yml)
 
@@ -112,6 +112,22 @@ Both commands clear all previous seed data before inserting, so re-running is al
 ---
 
 ## Changelog
+
+### `v0.25` — Legal Entity, DMCA Registration & Brand Update
+
+#### Business formation
+- **Dropathot LLC** formed in Delaware via Northwest Registered Agent
+- **EIN** obtained from IRS for Dropathot LLC
+- **DMCA designated agent** registered with U.S. Copyright Office ($6, valid 3 years) — provides Section 512 safe harbor
+
+#### Legal pages
+- `TermsPage.jsx`, `PrivacyPage.jsx`, `SafetyPage.jsx` — updated operator name from `dropathot` to `Dropathot LLC ("we," "us," "our")`
+- Added `dropathot™` on first brand mention in each legal page; capitalized sentence-starting instances to `Dropathot`
+- Removed "in the process of completing DMCA agent registration" placeholder from ToS — registration is now complete
+
+#### Docs
+- `CLAUDE.md` overhauled — replaced stale Phase 1 scaffold description with accurate v0.24 current state (all phases complete, full file listing, correct stack table, updated commands, added `push_subscriptions` RLS gotcha)
+
 
 ### `v0.24` — Sentry Error Tracking, GitHub Actions CI & Touch UX Fixes
 

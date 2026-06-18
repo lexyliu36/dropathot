@@ -4,11 +4,11 @@ export default function TermsPage() {
   return (
     <LegalLayout title="Terms of Service" updated="June 9, 2026">
       <div className="callout">
-        You must be 18 years of age or older to access or use dropathot. By continuing, you confirm that you meet this requirement and that you agree to these Terms in full.
+        You must be 18 years of age or older to access or use dropathot™. By continuing, you confirm that you meet this requirement and that you agree to these Terms in full.
       </div>
 
       <h2>1. Agreement to Terms</h2>
-      <p>These Terms of Service ("Terms") govern your access to and use of dropathot ("we," "us," "our"), including our website at dropathot.com and any associated services (collectively, the "Service"). By creating an account, posting content, or using the Service, you agree to be bound by these Terms and our <a href="/legal/privacy">Privacy Policy</a> and <a href="/legal/safety">Safety Policy</a>.</p>
+      <p>These Terms of Service ("Terms") govern your access to and use of Dropathot LLC ("we," "us," "our"), including our website at dropathot.com and any associated services (collectively, the "Service"). By creating an account, posting content, or using the Service, you agree to be bound by these Terms and our <a href="/legal/privacy">Privacy Policy</a> and <a href="/legal/safety">Safety Policy</a>.</p>
       <p>If you do not agree to these Terms, you may not access or use the Service. We reserve the right to update these Terms at any time. Continued use after any update constitutes your acceptance of the revised Terms.</p>
 
       <h2>2. Eligibility</h2>
@@ -47,7 +47,7 @@ export default function TermsPage() {
       <p>Registered users may post subject to per-session velocity limits, which we may adjust at any time to ensure service quality and prevent abuse.</p>
 
       <h2>8. Copyright and DMCA</h2>
-      <p>We respect intellectual property rights. To submit a DMCA takedown notice, email <strong>legal@dropathot.com</strong> with: (i) identification of the copyrighted work; (ii) location of the infringing material; (iii) your contact information; (iv) a good faith belief statement; and (v) a statement under penalty of perjury that you are authorized to act, with your electronic signature. We will process valid notices promptly. We are in the process of completing our DMCA agent registration with the U.S. Copyright Office.</p>
+      <p>We respect intellectual property rights. To submit a DMCA takedown notice, email <strong>legal@dropathot.com</strong> with: (i) identification of the copyrighted work; (ii) location of the infringing material; (iii) your contact information; (iv) a good faith belief statement; and (v) a statement under penalty of perjury that you are authorized to act, with your electronic signature. We will process valid notices promptly.</p>
 
       <h2>9. Privacy and Location Data</h2>
       <p>The Service is fundamentally location-based. When you post a thot, your approximate geographic coordinates are stored with the post and displayed on the map. We do not sell your location data to third parties. See our <a href="/legal/privacy">Privacy Policy</a> for full details.</p>

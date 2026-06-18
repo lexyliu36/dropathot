@@ -1,91 +1,89 @@
-# Thots. — Project Brief for Claude Code
+# Thots. / dropathot — Project Brief for Claude Code
 
 Anonymous location-based social network. Twitter-length posts ("thots") appear as pins on a live map, tied to where they were posted. Think Ender's Game pen names meets YikYak meets Sniffies UI.
 
+**Live:** [dropathot.com](https://dropathot.com) · API: [thots-production.up.railway.app](https://thots-production.up.railway.app/health)
+
 ---
 
-## What's Already Built (Phase 1)
+## Current State (v0.24 — fully deployed)
 
-- **React + Vite + Tailwind** scaffold (port 5173)
-- **Landing page** (`/`) — Log in / Create account / Use anonymously, dark theme
-- **Age gate** (`/age-gate`) — birth year scroll picker + ToS checkbox + drag CAPTCHA (2-step hard gate for legal cover)
-- **Map shell** (`/map`) — dark grid placeholder map, mock thot pins with anonymous SVG avatars, floating text bubbles, compose drawer, tap-to-expand detail sheet
-- **Identity lib** (`src/lib/identity.js`) — pen name generator, localStorage session management
+Everything in the original build phases is complete and live. See `README.md` changelog for full version history.
+
+**Frontend (src/)**
+- `pages/Landing.jsx` — log in / create account / use anonymously, dark theme
+- `pages/AgeGate.jsx` — birth year scroll picker + ToS checkbox + drag CAPTCHA
+- `pages/Map.jsx` — real Mapbox GL JS dark map, live thot pins, compose drawer
+- `pages/AdminDashboard.jsx` — moderation/admin UI
+- `pages/ThotPage.jsx`, `CommentPage.jsx`, `VerifyEmail.jsx` — supporting pages
+- `pages/legal/` — TermsPage, PrivacyPage, SafetyPage
+- `components/ThotPin.jsx` — real Mapbox custom marker
+- `components/ComposeDrawer.jsx`, `ProfileSheet.jsx`, `DMDrawer.jsx`, `ShareSheet.jsx`, `CommentThread.jsx`, `TopThots.jsx`, `ToolsPanel.jsx`, `AuthModal.jsx`
+- `hooks/useThots.js`, `useLocation.js`, `usePush.js`
+- `lib/supabase.js`, `socket.js`, `identity.js`, `auth.js`, `geocode.js`, `animations.js`, `thotCache.js`
+- `stores/useAppStore.js` — Zustand: session, radius, composing state
+
+**Backend (server/)**
+- `index.js` — Express + Socket.io + Sentry + CORS + helmet
+- `routes/` — thots, auth, comments, reports, admin, follows, users, messages, push
+- `middleware/` — moderate.js, rateLimit.js, subnetLimit.js
+- `lib/` — supabase.js, geo.js (H3), webPush.js, notificationQueue.js, email.js, deletionCron.js
+- `jobs/digestEmail.js`
 
 ---
 
 ## Full Stack
 
-| Layer | Choice | Why |
+| Layer | Choice | Notes |
 |---|---|---|
-| Frontend | React + Vite + Tailwind | Already scaffolded |
-| Map | Mapbox GL JS | Dark theme, custom markers, clustering |
-| State | Zustand | Lightweight, no boilerplate |
-| Backend | Node + Express (Railway) | Simple REST + WebSocket server |
-| Database | Supabase (Postgres + PostGIS) | Geo queries, Realtime, free tier |
-| Real-time | Socket.io | Broadcast new thots to nearby users by H3 tile |
-| Moderation | Google Perspective API + OpenAI Moderation API | Pre-screen posts before saving |
-| Auth | Supabase Auth (email/password) + anonymous sessions | Cookie-based persistence |
-| Deployment | Vercel (frontend) + Railway (backend) | |
+| Frontend | React + Vite + Tailwind | Deployed on Vercel |
+| Map | Mapbox GL JS | Dark theme (`mapbox://styles/mapbox/dark-v11`), custom markers |
+| State | Zustand | `useAppStore.js` |
+| Backend | Node + Express | Deployed on Railway |
+| Database | Supabase (Postgres + PostGIS) | Geo queries, RLS, Realtime |
+| Real-time | Socket.io | Broadcasts new thots by H3 tile |
+| Moderation | `moderate.js` middleware | Pre-screens posts before saving |
+| Auth | Supabase Auth (email/password) + anonymous sessions | Cookie-based |
+| Error tracking | Sentry (`@sentry/react` + `@sentry/node`) | No-op when DSN not set |
+| CI | GitHub Actions (`.github/workflows/ci.yml`) | Runs on push to main/dev |
+| Push notifications | Web Push API + `web-push` library | iOS requires PWA (Add to Home Screen) |
 
 ---
 
-## Environment Variables Needed
+## Environment Variables
 
+**`/.env`** (frontend)
 ```
-# Frontend (.env)
 VITE_MAPBOX_TOKEN=
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 VITE_API_URL=http://localhost:4000
+VITE_SENTRY_DSN=          # optional
+```
 
-# Backend (.env)
+**`/server/.env`** (backend)
+```
 SUPABASE_URL=
 SUPABASE_SERVICE_KEY=
-PERSPECTIVE_API_KEY=
-OPENAI_API_KEY=
+IP_SALT=
 PORT=4000
+SENTRY_DSN=               # optional
+FRONTEND_ORIGIN=          # comma-separated allowed origins
 ```
 
 ---
 
-## Folder Structure (target)
+## Commands
 
-```
-Thots./
-├── src/
-│   ├── pages/
-│   │   ├── Landing.jsx       ✅ done
-│   │   ├── AgeGate.jsx       ✅ done
-│   │   ├── Map.jsx           ✅ done (mock data, needs real Mapbox)
-│   │   └── Profile.jsx       ⬜ user/anon profile sheet
-│   ├── components/
-│   │   ├── ThotPin.jsx       ⬜ real Mapbox marker component
-│   │   ├── ComposeDrawer.jsx ⬜ extract from Map.jsx
-│   │   └── ProfileSheet.jsx  ⬜ slide-up profile with post history
-│   ├── lib/
-│   │   ├── identity.js       ✅ done
-│   │   ├── supabase.js       ⬜ Supabase client
-│   │   └── socket.js         ⬜ Socket.io client
-│   ├── hooks/
-│   │   ├── useThots.js       ⬜ fetch + subscribe to nearby thots
-│   │   └── useLocation.js    ⬜ browser geolocation hook
-│   └── stores/
-│       └── useAppStore.js    ⬜ Zustand: session, radius, composing state
-├── server/
-│   ├── index.js              ⬜ Express + Socket.io entry
-│   ├── routes/
-│   │   ├── thots.js          ⬜ POST /thots, GET /thots?lat&lng&radius
-│   │   ├── auth.js           ⬜ POST /auth/signup, /auth/login, /auth/anon
-│   │   └── profile.js        ⬜ GET /profile/:id, GET /profile/:id/thots
-│   ├── middleware/
-│   │   ├── moderate.js       ⬜ Perspective + OpenAI check before saving
-│   │   └── rateLimit.js      ⬜ 5 posts/hour per session
-│   └── lib/
-│       └── geo.js            ⬜ H3 tile helpers, ST_DWithin queries
-└── supabase/
-    └── migrations/
-        └── 001_init.sql      ⬜ schema below
+```bash
+npm run dev           # frontend dev server, port 5173
+npm run build         # production build
+npm test              # Vitest
+
+cd server
+npm run dev           # backend dev server, port 4000
+npm run seed -- --lat=LAT --lng=LNG   # seed 8 persistent thots at coords
+npm run seed:demo     # seed 85 thots across NYC neighborhoods
 ```
 
 ---
@@ -93,27 +91,22 @@ Thots./
 ## Database Schema
 
 ```sql
--- Enable PostGIS
 create extension if not exists postgis;
 
--- Thots table
 create table thots (
   id          uuid primary key default gen_random_uuid(),
   content     text not null check (char_length(content) <= 280),
-  pen_name    text,                          -- null = anonymous
-  session_id  uuid not null,                 -- for moderation/law enforcement
-  ip_hash     text not null,                 -- hashed IP, never plaintext
+  pen_name    text,
+  session_id  uuid not null,
+  ip_hash     text not null,
   location    geography(Point, 4326) not null,
   created_at  timestamptz default now(),
   expires_at  timestamptz default now() + interval '24 hours',
-  hidden      boolean default false          -- hidden if user posts again
+  hidden      boolean default false
 );
-
--- Index for geo queries
 create index thots_location_idx on thots using gist(location);
 create index thots_expires_idx on thots(expires_at);
 
--- Users table (only for signed-up users)
 create table users (
   id          uuid primary key references auth.users,
   pen_name    text unique not null,
@@ -122,117 +115,64 @@ create table users (
   is_banned   boolean default false
 );
 
--- Reports table
 create table reports (
-  id          uuid primary key default gen_random_uuid(),
-  thot_id     uuid references thots(id),
+  id               uuid primary key default gen_random_uuid(),
+  thot_id          uuid references thots(id),
   reporter_session uuid,
-  reason      text,
-  created_at  timestamptz default now()
+  reason           text,
+  created_at       timestamptz default now()
 );
--- Auto-hide thot when 3+ reports
-create or replace function check_report_threshold()
-returns trigger as $$
-begin
-  if (select count(*) from reports where thot_id = NEW.thot_id) >= 3 then
-    update thots set hidden = true where id = NEW.thot_id;
-  end if;
-  return NEW;
-end;
-$$ language plpgsql;
-create trigger report_threshold after insert on reports
-  for each row execute function check_report_threshold();
+-- Auto-hide thot at 3+ reports (trigger in 001_init.sql)
 ```
 
----
-
-## Build Phases (remaining)
-
-### Phase 2 — Real Map + Live Data
-- Replace mock map in `Map.jsx` with real Mapbox GL JS
-- Wire `useLocation.js` hook (request browser geolocation on mount)
-- `useThots.js` — fetch thots within radius via `GET /thots?lat&lng&radius`
-- Real `ThotPin` component as a Mapbox custom marker
-- Pin clustering with `mapbox-gl-cluster`
-
-### Phase 3 — Backend + Auth
-- Express server with Supabase client
-- `POST /thots` — moderate → save → broadcast via Socket.io to H3 neighbors
-- `GET /thots` — `ST_DWithin` geo query, exclude expired/hidden
-- Supabase Auth for signed-up users; UUID cookie for anonymous users
-- Rate limiting: 5 thots/hour per session_id
-
-### Phase 4 — Profile Sheet
-- Tap any avatar → slide-up `ProfileSheet`
-- Shows: pen name (or "Anonymous"), post history (non-expired thots), badges, online status
-- DM button (future), Block button (hides their thots locally)
-- Your own profile shows all your thots including hidden-on-map ones
-
-### Phase 5 — Moderation + Legal
-- `moderate.js` middleware: run Perspective API toxicity check + OpenAI moderation before every `POST /thots`
-- Block posts scoring >0.85 toxicity or flagging `THREAT` / `SEVERE_TOXICITY`
-- Log all blocked attempts with session_id + ip_hash for law enforcement subpoenas
-- Add report button to every thot detail sheet
-- DMCA agent registration (copyright.gov, ~$6)
-- Add to ToS: IP/session logging, law enforcement cooperation policy
-
-### Phase 6 — Ship
-- Deploy frontend to Vercel
-- Deploy backend to Railway
-- Set up Supabase prod project
-- Cloudflare in front of everything (DDoS, rate limiting at edge)
-- Set up Sentry for error tracking
+Full schema + RLS policies in `supabase/migrations/001_init.sql`.
 
 ---
 
 ## Key Design Decisions
 
-- **Thots expire after 6 hours** on the map. Still visible in profile history.
-- **One active thot per user** on the map — posting again hides the previous pin.
-- **Anonymous ≠ untraceable** — session IDs and hashed IPs are logged server-side, never exposed to other users. Required for legal cooperation.
-- **Section 230 protection** — never editorially alter post content. Moderation blocks/flags, doesn't edit.
-- **Pen names are optional** — only signed-up users have them. Anonymous users show as "anon" with a generic avatar. Both can post.
-- **No photos** — text only. Keeps it simple, avoids CSAM risk.
+- **Thots expire after 24 hours** on the map. Still visible in profile history.
+- **One active thot per user** — posting again hides the previous pin.
+- **Anonymous ≠ untraceable** — session IDs and hashed IPs logged server-side, never exposed to users. Required for legal cooperation.
+- **Section 230 protection** — moderation blocks/flags, never edits content.
+- **Pen names are optional** — only signed-up users have them. Anonymous shows as "anon" with SVG avatar.
+- **No photos** — text only. Avoids CSAM risk.
+- **PWA required for iOS push** — Web Push on iOS needs Safari + Add to Home Screen (iOS 16.4+).
 
 ---
 
 ## Design System
 
 - **Font:** Inter (all weights)
-- **Background:** `#0a0a0f` (near black)
+- **Background:** `#0a0a0f`
 - **Card background:** `#0e0e1a`
 - **Brand red:** `#e11d48` — your pin, post button
 - **Brand purple:** `#7c3aed` — named users, accents
 - **Brand blue:** `#2563eb` — CTAs, age gate
-- **Map style:** Mapbox `mapbox://styles/mapbox/dark-v11`
+- **Map style:** `mapbox://styles/mapbox/dark-v11`
 - **Avatar:** anonymous SVG (no photos ever)
-- **Bubble tail:** bottom-left pointing down from text to avatar
-
----
-
-## Commands
-
-```bash
-npm run dev       # frontend dev server, port 5173
-npm run build     # production build
-node server/index.js  # backend, port 4000 (once created)
-```
 
 ---
 
 ## Gotchas / Lessons Learned
 
 ### Never create a Supabase client directly in server files
-**Rule:** Always `import { supabase } from '../lib/supabase.js'` (or the correct relative path). Never call `createClient()` directly in route or middleware files.
+**Rule:** Always `import { supabase } from '../lib/supabase.js'`. Never call `createClient()` directly in route or middleware files.
 
-**Why:** Railway runs Node 18. The `@supabase/supabase-js` Realtime client requires native WebSocket (Node 20+) or an explicit `ws` transport. `server/lib/supabase.js` is the one place that wires up `{ realtime: { transport: ws } }` correctly. Any file that calls `createClient()` directly will crash on startup with:
+**Why:** Railway runs Node 18. The `@supabase/supabase-js` Realtime client requires native WebSocket (Node 20+) or an explicit `ws` transport. `server/lib/supabase.js` is the one place that wires up `{ realtime: { transport: ws } }` correctly. Direct `createClient()` calls crash on startup:
 ```
 Error: Node.js 18 detected without native WebSocket support.
 ```
 
-**Files that got this wrong (already fixed):**
-- `server/middleware/moderate.js` — was importing createClient, now uses shared client
-- `server/routes/reports.js` — same fix
-
 ### Git commits must be done from the user's terminal
-Claude's sandbox can stage files (`git add`) but cannot commit — the git identity isn't configured in the sandbox and the index.lock is often held by Claude Code's background process. Always ask Lexy to run `git commit` + `git push` from her terminal.
+Claude's sandbox can stage files (`git add`) but cannot commit — git identity isn't configured in the sandbox and index.lock is often held by Claude Code's background process. Always ask Lexy to run `git commit` + `git push` from her terminal.
+
+### `push_subscriptions` table has RLS disabled
+Table is server-only (service role); RLS is intentionally off. Do not re-enable — it breaks push subscription on signup.
+
+### Multi-agent coordination — always update the changelog
+When multiple Claude agents work on this repo in separate sessions, they have no shared memory. The README.md changelog is the source of truth for what has changed and why.
+
+**Rule:** At the end of every session where code or docs are modified, add a `### vX.XX — ...` entry to the `## Changelog` section in `README.md` describing what changed. Future agents (and Lexy) will read the changelog to understand prior work before making new changes.
+
+This applies to any change — code, legal pages, config, docs. If you touched it, log it.
