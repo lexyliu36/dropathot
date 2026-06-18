@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { X, Send, User, Map } from 'lucide-react'
 
 // Place thot at approximately radiusM metres away in a random direction (±10% variance)
@@ -40,6 +40,15 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
   const durationOptions = isAuth ? AUTH_OPTIONS : ANON_OPTIONS
   const [duration, setDuration] = useState(durationOptions[0].value)
   const [jitter, setJitter] = useState(0) // 0–100 → 0–200m
+
+  // Focus textarea after drawer animation without triggering iOS scroll-into-view shift
+  const textareaRef = useRef(null)
+  useEffect(() => {
+    const t = setTimeout(() => {
+      textareaRef.current?.focus({ preventScroll: true })
+    }, 320) // after panel-slide-up animation (240ms) completes
+    return () => clearTimeout(t)
+  }, [])
 
   async function handlePost() {
     if (!text.trim() || posting) return
@@ -97,6 +106,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
       ) : (
         <>
           <textarea
+            ref={textareaRef}
             value={text}
             onChange={(e) => setText(e.target.value.slice(0, MAX))}
             placeholder="What's on your mind?"
