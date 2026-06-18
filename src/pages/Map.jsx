@@ -699,9 +699,9 @@ export default function Map() {
             <div className="flex items-center gap-2 pointer-events-auto">
               <button
                 onClick={() => { if (session?.type !== 'user') { window.dispatchEvent(new CustomEvent('thots:needs-auth')); return }; setSearchOpen(true); setLeaderboardOpen(false); setToolsOpen(false); setSelectedThot(null); setShowYouProfile(false); setComposing(false); setDmPartner(null) }}
-                className="w-9 h-9 rounded-full border border-white/15 bg-white/10 flex items-center justify-center text-slate-300 hover:bg-white/20 transition-colors cursor-pointer"
+                className="w-11 h-11 rounded-full border border-white/15 bg-white/10 flex items-center justify-center text-slate-300 hover:bg-white/20 transition-colors cursor-pointer"
               >
-                <Search size={15} />
+                <Search size={18} />
               </button>
             </div>
             {/* Logo — absolute center */}
@@ -709,23 +709,23 @@ export default function Map() {
             <div className="flex items-center gap-2 pointer-events-auto ml-auto">
               <button
                 onClick={() => { setLeaderboardOpen(o => !o); setToolsOpen(false); setSelectedThot(null); setShowYouProfile(false); setComposing(false) }}
-                className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
+                className={`w-11 h-11 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
                   leaderboardOpen
                     ? 'bg-amber-500/20 border-amber-500/50'
                     : 'bg-white/10 border-white/15 hover:bg-white/20'
                 }`}
               >
-                <Star size={15} style={{ fill: '#f59e0b', color: '#f59e0b' }} />
+                <Star size={18} style={{ fill: '#f59e0b', color: '#f59e0b' }} />
               </button>
               <button
                 onClick={() => { setToolsOpen(o => !o); setLeaderboardOpen(false); setSelectedThot(null); setShowYouProfile(false); setComposing(false) }}
-                className={`w-9 h-9 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
+                className={`w-11 h-11 rounded-full border flex items-center justify-center transition-colors cursor-pointer ${
                   toolsOpen
                     ? 'bg-brand-purple/20 border-brand-purple/50 text-brand-purple'
                     : 'bg-white/10 border-white/15 text-slate-300 hover:bg-white/20'
                 }`}
               >
-                <SlidersHorizontal size={15} />
+                <SlidersHorizontal size={18} />
               </button>
             </div>
           </div>
@@ -755,11 +755,11 @@ export default function Map() {
         {location && (
           <button
             onClick={() => mapInstanceRef.current?.flyTo({ center: [location.lng, location.lat], zoom: 16, pitch: 0, bearing: 0, duration: 600 })}
-            className="w-9 h-9 rounded-xl bg-[#0e0e1a]/90 border border-white/10 shadow-lg flex items-center justify-center transition-colors cursor-pointer"
+            className="w-11 h-11 rounded-xl bg-[#0e0e1a]/90 border border-white/10 shadow-lg flex items-center justify-center transition-colors cursor-pointer"
             style={{ color: '#e11d48' }}
             aria-label="Recenter on me"
           >
-            <LocateFixed size={15} />
+            <LocateFixed size={18} />
           </button>
         )}
 
@@ -767,14 +767,14 @@ export default function Map() {
         <div className="flex flex-col rounded-xl overflow-hidden border border-white/10 shadow-lg">
           <button
             onClick={() => mapInstanceRef.current?.zoomIn({ duration: 200 })}
-            className="w-9 h-9 bg-[#0e0e1a]/90 text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center text-lg font-light transition-colors cursor-pointer border-b border-white/10"
+            className="w-11 h-11 bg-[#0e0e1a]/90 text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center text-xl font-light transition-colors cursor-pointer border-b border-white/10"
             aria-label="Zoom in"
           >
             +
           </button>
           <button
             onClick={() => mapInstanceRef.current?.zoomOut({ duration: 200 })}
-            className="w-9 h-9 bg-[#0e0e1a]/90 text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center text-lg font-light transition-colors cursor-pointer"
+            className="w-11 h-11 bg-[#0e0e1a]/90 text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center text-xl font-light transition-colors cursor-pointer"
             aria-label="Zoom out"
           >
             −
