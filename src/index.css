@@ -142,3 +142,13 @@ input, textarea {
     animation: slideInFromRight 0.22s cubic-bezier(0.32, 0.72, 0, 1) both;
   }
 }
+
+/* ── Mobile font scaling ─────────────────────────────────────── */
+/* iOS Safari renders rem-based text smaller than Chrome DevTools emulation.
+   Bumping the root font-size on touch/mobile screens ensures the phone view
+   matches what DevTools shows. All Tailwind rem classes (text-xs, text-sm,
+   text-base…) scale proportionally. Fixed-px values (e.g. input font-size:16px)
+   are unaffected. */
+@media (max-width: 640px) {
+  html { font-size: 112.5%; } /* 16px → 18px base */
+}

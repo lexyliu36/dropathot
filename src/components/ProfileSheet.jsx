@@ -475,18 +475,18 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
                 {penName || 'Anonymous'}
               </span>
               {isYou && (
-                <span className="text-[13px] px-1 py-0.5 rounded-full font-medium leading-none flex-shrink-0"
+                <span className="text-xs px-1 py-0.5 rounded-full font-medium leading-none flex-shrink-0"
                   style={{ background: 'rgba(225,29,72,0.15)', color: '#e11d48', border: '1px solid rgba(225,29,72,0.3)' }}>
                   you
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-slate-600 text-[13px]">
+              <p className="text-slate-600 text-xs">
                 {loading ? '…' : allThots.length === 0 ? 'no drops yet' : `${allThots.length} drop${allThots.length !== 1 ? 's' : ''}`}
               </p>
               {targetUserId && (
-                <p className="text-slate-600 text-[13px]">
+                <p className="text-slate-600 text-xs">
                   · <span className="text-slate-400">{followers}</span> follower{followers !== 1 ? 's' : ''}
                 </p>
               )}
@@ -575,7 +575,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
               </button>
             )}
             {!isAuth && (
-              <p className="text-slate-600 text-[13px]">
+              <p className="text-slate-600 text-xs">
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('thots:open-auth', { detail: 'signup' }))}
                   className="underline cursor-pointer"
@@ -623,7 +623,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
               style={{ background: 'none', border: 'none' }}
             >
               <MessageSquare size={15} />
-              <span className="text-[13px]">Message</span>
+              <span className="text-xs">Message</span>
             </button>
           )}
           {/* Report */}
@@ -636,7 +636,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
               style={{ background: 'none', border: 'none' }}
             >
               <AlertTriangle size={15} />
-              <span className="text-[13px]">{reportState === 'done' ? 'Reported' : 'Report'}</span>
+              <span className="text-xs">{reportState === 'done' ? 'Reported' : 'Report'}</span>
             </button>
           )}
           {/* Report confirm modal */}
@@ -693,7 +693,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
             style={{ background: 'none', border: 'none' }}
           >
             {isBlocked ? <ShieldCheck size={15} /> : <ShieldX size={15} />}
-            <span className="text-[13px]">{isBlocked ? 'Unblock' : 'Block'}</span>
+            <span className="text-xs">{isBlocked ? 'Unblock' : 'Block'}</span>
           </button>
         </div>
       )}
