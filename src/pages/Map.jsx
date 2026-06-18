@@ -430,6 +430,36 @@ export default function Map() {
       }
     })
 
+    // Re-render existing markers so isYou / session-dependent props stay fresh
+    // (e.g. after sign-in, own thots must flip from purple → red)
+    existingIds.forEach((id) => {
+      if (!markersRef.current[id]) return
+      const { root, thot } = markersRef.current[id]
+      const isYou = thot.session_id === session?.id || thot.user_id === session?.userId || (thot.pen_name && thot.pen_name === session?.penName)
+      root.render(
+        <ThotPin
+          thot={thot}
+          isYou={isYou}
+          session={session}
+          onHype={handleHype}
+          onClick={(t) => {
+            if (t.lat != null && t.lng != null) {
+              mapInstanceRef.current?.flyTo({ center: [t.lng, t.lat], zoom: 17, duration: 700 })
+            }
+            if (t.session_id === session?.id || t.user_id === session?.userId || (t.pen_name && t.pen_name === session?.penName)) {
+              setShowYouProfile(true)
+              setYouHighlightThotId(t.id)
+              setSelectedThot(null)
+            } else {
+              setSelectedThot(t)
+              setShowYouProfile(false)
+            }
+            setToolsOpen(false)
+          }}
+        />
+      )
+    })
+
     // Add new — oldest first so newer pins are later in the DOM and
     // naturally win pointer-event ties without relying solely on z-index
     const newThots = visibleThots
@@ -437,7 +467,7 @@ export default function Map() {
       .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 
     newThots.forEach((thot) => {
-      const isYou = thot.session_id === session?.id || thot.user_id === session?.id
+      const isYou = thot.session_id === session?.id || thot.user_id === session?.userId || (thot.pen_name && thot.pen_name === session?.penName)
 
       const el = document.createElement('div')
       el.style.cssText = 'pointer-events: none; overflow: visible;'
@@ -452,7 +482,7 @@ export default function Map() {
             if (t.lat != null && t.lng != null) {
               mapInstanceRef.current?.flyTo({ center: [t.lng, t.lat], zoom: 17, duration: 700 })
             }
-            if (t.session_id === session?.id || t.user_id === session?.id) {
+            if (t.session_id === session?.id || t.user_id === session?.userId || (t.pen_name && t.pen_name === session?.penName)) {
               setShowYouProfile(true)
               setYouHighlightThotId(t.id)
               setSelectedThot(null)
@@ -478,7 +508,7 @@ export default function Map() {
     // Re-insert YouPin's element last so it wins click ties by DOM order
     const youEl = youMarkerRef.current?.marker?.getElement()
     if (youEl?.parentElement) youEl.parentElement.appendChild(youEl)
-  }, [visibleThots, mapReady, session?.id])
+  }, [visibleThots, mapReady, session?.id, session?.userId, session?.type, session?.penName])
 
   function handleHype(thotId) {
     const s = useAppStore.getState()
@@ -883,7 +913,7 @@ export default function Map() {
       {selectedThot && !composing && (
         <ProfileSheet
           thot={selectedThot}
-          isYouProfile={selectedThot?.user_id === session?.id}
+          isYouProfile={selectedThot?.user_id === session?.userId}
           session={session}
           onHype={handleHype}
           onClose={() => { setSelectedThot(null); setOpenCommentForThotId(null) }}
