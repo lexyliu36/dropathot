@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useLayoutEffect } from 'react'
 import { X, Send, User, Map } from 'lucide-react'
 
 // Place thot at approximately radiusM metres away in a random direction (±10% variance)
@@ -43,11 +43,10 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
 
   // Focus textarea after drawer animation without triggering iOS scroll-into-view shift
   const textareaRef = useRef(null)
-  useEffect(() => {
-    const t = setTimeout(() => {
-      textareaRef.current?.focus({ preventScroll: true })
-    }, 320) // after panel-slide-up animation (240ms) completes
-    return () => clearTimeout(t)
+  useLayoutEffect(() => {
+    // Keyboard is already open (hidden input in Map.jsx was focused synchronously
+    // in the tap handler). Just transfer focus to the real textarea — keyboard stays open.
+    textareaRef.current?.focus({ preventScroll: true })
   }, [])
 
   async function handlePost() {

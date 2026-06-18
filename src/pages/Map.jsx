@@ -85,6 +85,7 @@ export default function Map() {
   const navigate = useNavigate()
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
+  const hiddenInputRef = useRef(null)
   const markersRef = useRef({})        // { [thotId]: { marker, root } }
   const youMarkerRef = useRef(null)
   const [mapReady, setMapReady] = useState(false)
@@ -797,6 +798,15 @@ export default function Map() {
         )}
       </div>
 
+      {/* Hidden input — iOS keyboard bootstrap (focused synchronously on compose tap) */}
+      <input
+        ref={hiddenInputRef}
+        type="text"
+        aria-hidden="true"
+        readOnly
+        style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 1, height: 1, top: 0, left: 0 }}
+      />
+
       {/* Compose button */}
       {!composing && (
         <div className="absolute bottom-6 right-5 z-20">
@@ -806,6 +816,7 @@ export default function Map() {
                 window.dispatchEvent(new CustomEvent('thots:needs-auth'))
                 return
               }
+              hiddenInputRef.current?.focus() // open iOS keyboard within gesture
               setComposing(true); setSearchOpen(false); setSearchQuery(""); setSearchResults([])
             }}
             className="w-14 h-14 rounded-full bg-brand-red shadow-lg flex items-center justify-center text-white hover:bg-rose-500 transition-colors cursor-pointer"

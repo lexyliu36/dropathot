@@ -90,10 +90,11 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
           visibility: dismissed ? 'hidden' : 'visible',
         }}
       >
-        {/* Dismiss button — top-right on hover */}
-        {hovered && !dismissed && (
+        {/* Dismiss button — always visible */}
+        {!dismissed && (
           <button
             onClick={(e) => { e.stopPropagation(); setDismissed(true); setHovered(false) }}
+            onTouchEnd={(e) => { e.stopPropagation(); e.preventDefault(); setDismissed(true); setHovered(false) }}
             style={{
               position: 'absolute',
               top: '-10px',
@@ -103,7 +104,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
               borderRadius: '50%',
               background: '#1a1a2e',
               border: '1px solid rgba(255,255,255,0.2)',
-              color: 'rgba(255,255,255,0.7)',
+              color: hovered ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.45)',
               fontSize: '14px',
               lineHeight: 1,
               cursor: 'pointer',
@@ -113,6 +114,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
               pointerEvents: 'auto',
               zIndex: 2,
               padding: 0,
+              transition: 'color 0.15s',
             }}
           >
             <span style={{ display: 'block', transform: 'translateY(-1px)' }}>×</span>
@@ -125,7 +127,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
           lineHeight: '1.45',
           margin: 0,
           display: '-webkit-box',
-          WebkitLineClamp: 3,
+          WebkitLineClamp: 4,
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
           wordBreak: 'break-word',
