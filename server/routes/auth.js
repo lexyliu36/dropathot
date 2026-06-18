@@ -60,6 +60,7 @@ router.get('/profile', async (req, res) => {
     .maybeSingle()
 
   res.json({
+    user_id: user.id,
     pen_name: user.user_metadata?.pen_name ?? null,
     email: user.email ?? null,
     email_dm_digest: userRow?.email_dm_digest ?? true,

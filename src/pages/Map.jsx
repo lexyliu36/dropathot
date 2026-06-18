@@ -172,9 +172,11 @@ export default function Map() {
           .then(r => r.ok ? r.json() : null)
           .then(d => {
             if (d?.pen_name) {
-              updateSession({ penName: d.pen_name })
+              const updates = { penName: d.pen_name }
+              if (d.user_id) updates.userId = d.user_id
+              updateSession(updates)
               // setSession takes a value, not a functional updater — read current state explicitly
-              setSession({ ...useAppStore.getState().session, penName: d.pen_name })
+              setSession({ ...useAppStore.getState().session, ...updates })
             }
           })
           .catch(() => {})

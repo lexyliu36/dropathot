@@ -1079,9 +1079,9 @@ function MessagesTab({ session, onOpenDM }) {
         // Server already computes the correct partner — use it directly
         const partner = convo.partner
         const partnerName = partner?.pen_name ?? null
-        const partnerId = partner?.id ?? (convo.from_user_id === session?.id ? convo.to_user_id : convo.from_user_id)
+        const partnerId = partner?.id ?? (convo.from_user_id === session?.userId ? convo.to_user_id : convo.from_user_id)
         const partnerColor = partnerName ? '#7c3aed' : '#64748b'
-        const isFromMe = convo.from_user_id === session?.id
+        const isFromMe = convo.from_user_id === session?.userId
         const unread = convo.unread > 0
         return (
           <button
@@ -1089,7 +1089,7 @@ function MessagesTab({ session, onOpenDM }) {
             onClick={() => {
               // Optimistically clear unread dot so it doesn't show stale after returning from DM
               setConvos(prev => prev.map(c => {
-                const cPartnerId = c.partner?.id ?? (c.from_user_id === session?.id ? c.to_user_id : c.from_user_id)
+                const cPartnerId = c.partner?.id ?? (c.from_user_id === session?.userId ? c.to_user_id : c.from_user_id)
                 return cPartnerId === partnerId ? { ...c, unread: 0 } : c
               }))
               onOpenDM?.({ userId: partnerId, penName: partnerName, accentColor: partnerColor })
