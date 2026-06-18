@@ -8,8 +8,8 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest run --config vitest.client.config.js && vitest run --config vitest.server.config.js",
+    "test:watch": "vitest --config vitest.client.config.js"
   },
   "dependencies": {
     "@sentry/react": "^10.58.0",
