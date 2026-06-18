@@ -9,7 +9,7 @@ function GeoLabel({ lat, lng }) {
   if (!label) return null
   return <span className="text-slate-600 text-[10px]">{label}</span>
 }
-import { X, Heart, Upload, Star, MessageCircle } from 'lucide-react'
+import { X, Heart, Upload, Star, MessageCircle, Clock } from 'lucide-react'
 import ShareSheet from './ShareSheet'
 import useAppStore from '../stores/useAppStore'
 
@@ -49,7 +49,73 @@ function LeaderboardHeart({ thot, session, onHype }) {
   )
 }
 
+function ThotRow({ thot, rank, session, onHype, onFlyTo, onClose, onSelectThot, onCommentClick, setShareThot }) {
+  return (
+    <div className="flex items-start gap-3 py-3 border-b border-white/5 last:border-0">
+      {rank != null && (
+        <span className="text-slate-600 text-sm font-mono w-5 mt-0.5 flex-shrink-0">
+          #{rank + 1}
+        </span>
+      )}
+      <div className="flex-1 min-w-0">
+        <button
+          onClick={() => { onFlyTo?.(thot); onClose?.() }}
+          className="w-full text-left hover:opacity-80 transition-opacity cursor-pointer"
+          style={{ background: 'none', border: 'none', padding: 0 }}
+        >
+          <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
+        </button>
+        <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
+          {thot.pen_name ? (
+            <button
+              onClick={() => onSelectThot?.(thot)}
+              className="text-xs sm:text-sm font-semibold cursor-pointer hover:opacity-75 transition-opacity truncate"
+              style={{ background: 'none', border: 'none', padding: 0, color: '#7c3aed' }}
+            >
+              {thot.pen_name}
+            </button>
+          ) : (
+            <span className="text-xs sm:text-sm font-semibold truncate" style={{ color: '#475569' }}>anon</span>
+          )}
+          <span className="text-slate-600 text-[10px] flex-shrink-0">{relativeTime(thot.created_at)}</span>
+        </div>
+        <div className="-mt-1.5 mb-1.5"><GeoLabel lat={thot.lat} lng={thot.lng} /></div>
+        <div className="flex items-center">
+          <div style={{ width: '48px', flexShrink: 0 }}>
+            <LeaderboardHeart thot={thot} session={session} onHype={onHype} />
+          </div>
+          <div className="relative group/tip" style={{ width: '48px', flexShrink: 0 }}>
+            <button
+              onClick={() => { onCommentClick?.(thot); onFlyTo?.(thot) }}
+              className="flex items-center gap-1 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
+              style={{ background: 'none', border: 'none', padding: 0 }}
+            >
+              <MessageCircle size={17} style={{ flexShrink: 0 }} />
+              <span className="text-xs tabular-nums">{formatCount(thot.comment_count ?? 0)}</span>
+            </button>
+            <span className="action-tip">Comments</span>
+          </div>
+          <div className="relative group/tip">
+            <button
+              onClick={() => {
+                const liveCount = useAppStore.getState().thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0
+                setShareThot({ ...thot, hype_count: liveCount })
+              }}
+              className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
+              style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+            >
+              <Upload size={17} />
+            </button>
+            <span className="action-tip">Share</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function TopThots({ thots, session, onHype, onClose, onSelectThot, onCommentClick, onFlyTo }) {
+  const [tab, setTab] = useState('top') // 'top' | 'latest'
   const [shareThot, setShareThot] = useState(null)
 
   const ranked = [...thots]
@@ -59,13 +125,19 @@ export default function TopThots({ thots, session, onHype, onClose, onSelectThot
     )
     .slice(0, 10)
 
+  const latest = [...thots]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, 20)
+
+  const list = tab === 'top' ? ranked : latest
+
   return (
     <div className="absolute top-3 right-3 bottom-3 z-30 w-72 flex flex-col bg-[#0e0e1a] border border-white/[0.06] rounded-2xl shadow-2xl overflow-hidden panel-slide-right">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05] flex-shrink-0">
         <div className="flex items-center gap-2">
           <Star size={16} style={{ fill: '#f59e0b', color: '#f59e0b' }} />
-          <span className="text-white font-bold text-sm tracking-tight">Top Thots</span>
+          <span className="text-white font-bold text-sm tracking-tight">Nearby Thots</span>
         </div>
         <button
           onClick={onClose}
@@ -76,82 +148,60 @@ export default function TopThots({ thots, session, onHype, onClose, onSelectThot
         </button>
       </div>
 
+      {/* Tab switcher */}
+      <div className="flex border-b border-white/[0.05] flex-shrink-0">
+        <button
+          onClick={() => setTab('top')}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors cursor-pointer"
+          style={{
+            background: 'none', border: 'none',
+            color: tab === 'top' ? '#f59e0b' : '#64748b',
+            borderBottom: tab === 'top' ? '2px solid #f59e0b' : '2px solid transparent',
+          }}
+        >
+          <Star size={12} style={{ fill: tab === 'top' ? '#f59e0b' : 'none', color: tab === 'top' ? '#f59e0b' : '#64748b' }} />
+          Top
+        </button>
+        <button
+          onClick={() => setTab('latest')}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-semibold transition-colors cursor-pointer"
+          style={{
+            background: 'none', border: 'none',
+            color: tab === 'latest' ? '#7c3aed' : '#64748b',
+            borderBottom: tab === 'latest' ? '2px solid #7c3aed' : '2px solid transparent',
+          }}
+        >
+          <Clock size={12} />
+          Latest
+        </button>
+      </div>
+
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
         <p className="text-slate-500 text-[11px] mb-3 leading-relaxed">
-          Top thots in the current view — zooming out surfaces the best from a wider area.
+          {tab === 'top'
+            ? 'Top thots in the current view — zooming out surfaces the best from a wider area.'
+            : 'Most recent drops in the current view.'}
         </p>
 
         {shareThot && <ShareSheet thot={shareThot} onClose={() => setShareThot(null)} />}
 
-        {ranked.length === 0 ? (
+        {list.length === 0 ? (
           <p className="text-slate-600 text-sm text-center py-10">No drops nearby yet</p>
         ) : (
-          ranked.map((thot, i) => (
-            <div key={thot.id} className="flex items-start gap-3 py-3 border-b border-white/5 last:border-0">
-              <span className="text-slate-600 text-sm font-mono w-5 mt-0.5 flex-shrink-0">
-                #{i + 1}
-              </span>
-              <div className="flex-1 min-w-0">
-                <button
-                  onClick={() => { onFlyTo?.(thot); onClose?.() }}
-                  className="w-full text-left hover:opacity-80 transition-opacity cursor-pointer"
-                  style={{ background: 'none', border: 'none', padding: 0 }}
-                >
-                  <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
-                </button>
-                {/* Row 1: pen name + timestamp */}
-                <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
-                  {thot.pen_name ? (
-                    <button
-                      onClick={() => onSelectThot?.(thot)}
-                      className="text-xs sm:text-sm font-semibold cursor-pointer hover:opacity-75 transition-opacity truncate"
-                      style={{ background: 'none', border: 'none', padding: 0, color: '#7c3aed' }}
-                    >
-                      {thot.pen_name}
-                    </button>
-                  ) : (
-                    <span className="text-xs sm:text-sm font-semibold truncate" style={{ color: '#475569' }}>anon</span>
-                  )}
-                  <span className="text-slate-600 text-[10px] flex-shrink-0">{relativeTime(thot.created_at)}</span>
-                </div>
-                {/* Location */}
-                <div className="-mt-1.5 mb-1.5"><GeoLabel lat={thot.lat} lng={thot.lng} /></div>
-                {/* Row 2: fixed-width slots so icons always align vertically */}
-                <div className="flex items-center">
-                  {/* Heart slot — fixed 48px */}
-                  <div style={{ width: '48px', flexShrink: 0 }}>
-                    <LeaderboardHeart thot={thot} session={session} onHype={onHype} />
-                  </div>
-                  {/* Comment slot — fixed 48px */}
-                  <div className="relative group/tip" style={{ width: '48px', flexShrink: 0 }}>
-                    <button
-                      onClick={() => { onCommentClick?.(thot); onFlyTo?.(thot) }}
-                      className="flex items-center gap-1 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
-                      style={{ background: 'none', border: 'none', padding: 0 }}
-                    >
-                      <MessageCircle size={17} style={{ flexShrink: 0 }} />
-                      <span className="text-xs tabular-nums">{formatCount(thot.comment_count ?? 0)}</span>
-                    </button>
-                    <span className="action-tip">Comments</span>
-                  </div>
-                  {/* Share */}
-                  <div className="relative group/tip">
-                    <button
-                      onClick={() => {
-                        const liveCount = useAppStore.getState().thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0
-                        setShareThot({ ...thot, hype_count: liveCount })
-                      }}
-                      className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
-                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
-                    >
-                      <Upload size={17} />
-                    </button>
-                    <span className="action-tip">Share</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+          list.map((thot, i) => (
+            <ThotRow
+              key={thot.id}
+              thot={thot}
+              rank={tab === 'top' ? i : null}
+              session={session}
+              onHype={onHype}
+              onFlyTo={onFlyTo}
+              onClose={onClose}
+              onSelectThot={onSelectThot}
+              onCommentClick={onCommentClick}
+              setShareThot={setShareThot}
+            />
           ))
         )}
       </div>
