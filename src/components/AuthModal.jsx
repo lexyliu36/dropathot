@@ -64,7 +64,7 @@ export default function AuthModal({ initialMode = 'login', onClose, onSuccess })
     try {
       const data = await signIn(form.email, form.password)
       clearSession()
-      updateSession({
+      const newSession = updateSession({
         id: data.session_id,
         type: 'user',
         ageVerified: true,
@@ -74,7 +74,7 @@ export default function AuthModal({ initialMode = 'login', onClose, onSuccess })
         supabaseToken: data.access_token,
         supabaseRefreshToken: data.refresh_token,
       })
-      onSuccess?.()
+      onSuccess?.(newSession)
       onClose()
     } catch (err) {
       if (err.message?.toLowerCase().includes('email not confirmed')) {

@@ -931,7 +931,7 @@ export default function Map() {
         <AuthModal
           initialMode={authModal}
           onClose={() => setAuthModal(null)}
-          onSuccess={() => setAuthModal(null)}
+          onSuccess={(newSession) => { if (newSession) setSession(newSession); setAuthModal(null) }}
         />
       )}
     </div>
