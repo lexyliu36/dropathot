@@ -8,7 +8,7 @@ function GeoLabel({ lat, lng }) {
     if (lat != null && lng != null) reverseGeocode(lat, lng).then(l => { if (l) setLabel(l) })
   }, [lat, lng])
   if (!label) return null
-  return <span className="text-slate-600 text-[10px] block mt-0.5">{label}</span>
+  return <span className="text-slate-600 text-xs block mt-0.5">{label}</span>
 }
 import { useNavigate } from 'react-router-dom'
 import { X, User, Settings, LogOut, Heart, Upload, Trash2, Mail, KeyRound, Users, MessageSquare, Send, Search, Bell, BellOff } from 'lucide-react'
@@ -223,7 +223,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
                 {isAuth ? 'Member' : 'Anonymous'}
               </p>
             )}
-            <p className="text-slate-500 text-[10px] mt-0.5">
+            <p className="text-slate-500 text-xs mt-0.5">
               {isAuth ? 'member' : 'guest · 3 thots/hr'}
             </p>
           </div>
@@ -237,7 +237,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
               style={{ background: 'none', border: 'none', padding: 0 }}
             >
               <p className="text-white text-sm font-bold">{myThots.length}</p>
-              <p className="text-[10px]" style={{ color: view === 'thots' ? '#7c3aed' : '#475569' }}>thots</p>
+              <p className="text-xs" style={{ color: view === 'thots' ? '#7c3aed' : '#475569' }}>thots</p>
             </button>
             <button
               onClick={() => setView('likes')}
@@ -245,7 +245,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
               style={{ background: 'none', border: 'none', padding: 0 }}
             >
               <p className="text-white text-sm font-bold">{likedThots.length}</p>
-              <p className="text-[10px]" style={{ color: view === 'likes' ? '#e11d48' : '#475569' }}>liked</p>
+              <p className="text-xs" style={{ color: view === 'likes' ? '#e11d48' : '#475569' }}>liked</p>
             </button>
             <button
               onClick={() => setView('following')}
@@ -253,7 +253,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
               style={{ background: 'none', border: 'none', padding: 0 }}
             >
               <p className="text-white text-sm font-bold">{followingUsers.length}</p>
-              <p className="text-[10px]" style={{ color: view === 'following' ? '#7c3aed' : '#475569' }}>following</p>
+              <p className="text-xs" style={{ color: view === 'following' ? '#7c3aed' : '#475569' }}>following</p>
             </button>
             <button
               onClick={() => setView('followers')}
@@ -261,7 +261,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
               style={{ background: 'none', border: 'none', padding: 0 }}
             >
               <p className="text-white text-sm font-bold">{followerCount}</p>
-              <p className="text-[10px]" style={{ color: view === 'followers' ? '#7c3aed' : '#475569' }}>followers</p>
+              <p className="text-xs" style={{ color: view === 'followers' ? '#7c3aed' : '#475569' }}>followers</p>
             </button>
           </div>
         )}
@@ -270,19 +270,19 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
       {/* Sign up nudge for anon */}
       {!isAuth && (
         <div className="bg-brand-purple/10 border border-brand-purple/20 rounded-xl p-3 mb-4">
-          <p className="text-white text-xs font-semibold mb-1">Get a pen name</p>
-          <p className="text-slate-400 text-[11px] leading-relaxed mb-3">
+          <p className="text-white text-sm font-semibold mb-1">Get a pen name</p>
+          <p className="text-slate-400 text-xs leading-relaxed mb-3">
             Sign up to claim a pen name and track your likes across sessions.
           </p>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('thots:open-auth', { detail: 'signup' }))}
-            className="w-full py-2 rounded-lg bg-brand-purple text-white text-xs font-semibold hover:bg-violet-500 transition-colors cursor-pointer"
+            className="w-full py-2 rounded-lg bg-brand-purple text-white text-sm font-semibold hover:bg-violet-500 transition-colors cursor-pointer"
           >
             Create account
           </button>
           <button
             onClick={() => window.dispatchEvent(new CustomEvent('thots:open-auth', { detail: 'login' }))}
-            className="w-full py-1.5 mt-1.5 rounded-lg text-brand-purple text-xs hover:text-violet-400 transition-colors cursor-pointer underline"
+            className="w-full py-1.5 mt-1.5 rounded-lg text-brand-purple text-sm hover:text-violet-400 transition-colors cursor-pointer underline"
           >
             Already have an account? Sign in
           </button>
@@ -299,7 +299,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
               <Trash2 size={18} className="text-red-400 flex-shrink-0" />
               <span className="text-white font-semibold text-sm">Delete this thot?</span>
             </div>
-            <p className="text-slate-400 text-xs leading-relaxed">It will be removed from the map and your history. This can't be undone.</p>
+            <p className="text-slate-400 text-sm leading-relaxed">It will be removed from the map and your history. This can't be undone.</p>
             <div className="flex gap-2 mt-1">
               <button
                 onClick={() => setConfirmDeleteId(null)}
@@ -318,9 +318,9 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
       {/* Thots list */}
       {view === 'thots' && (
         <>
-          <p className="text-slate-500 text-[11px] mb-2">Your drops ({myTotal || myThots.length})</p>
+          <p className="text-slate-500 text-xs mb-2">Your drops ({myTotal || myThots.length})</p>
           {myThots.length === 0 ? (
-            <p className="text-slate-600 text-xs text-center py-8">Nothing posted yet</p>
+            <p className="text-slate-600 text-sm text-center py-8">Nothing posted yet</p>
           ) : (
             myThots.map(thot => {
               const isActive = !thot.hidden && !thot.user_deleted && thot.expires_at && new Date(thot.expires_at) > new Date()
@@ -331,11 +331,11 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
                   className={`w-full text-left transition-opacity ${isActive ? 'cursor-pointer hover:opacity-80' : 'cursor-default opacity-50'}`}
                   style={{ background: 'none', border: 'none', padding: 0 }}
                 >
-                  <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
-                  {isActive ? <GeoLabel lat={thot.lat} lng={thot.lng} /> : <span className="text-slate-700 text-[10px] block mt-0.5">no longer on map</span>}
+                  <p className="text-white text-sm leading-snug line-clamp-2">{thot.content}</p>
+                  {isActive ? <GeoLabel lat={thot.lat} lng={thot.lng} /> : <span className="text-slate-700 text-xs block mt-0.5">no longer on map</span>}
                 </button>
                 <div className="flex items-center mt-1.5">
-                  <span className="text-slate-600 text-[10px] w-16 flex-shrink-0">{relativeTime(thot.created_at)}</span>
+                  <span className="text-slate-600 text-xs w-16 flex-shrink-0">{relativeTime(thot.created_at)}</span>
                   <div className="flex flex-1 items-center">
                     <div className="flex-1 flex justify-center">
                       <ProfileHeart thot={thot} onHype={onHype} session={session} />
@@ -376,7 +376,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
               <button
                 onClick={loadMoreMyThots}
                 disabled={myLoadingMore}
-                className="text-[11px] text-slate-400 hover:text-slate-200 px-4 py-1.5 rounded-full border border-white/10 hover:border-white/20 transition-colors disabled:opacity-50"
+                className="text-xs text-slate-400 hover:text-slate-200 px-4 py-1.5 rounded-full border border-white/10 hover:border-white/20 transition-colors disabled:opacity-50"
               >
                 {myLoadingMore ? 'Loading…' : `Load more (${myTotal - myThots.length} left)`}
               </button>
@@ -388,9 +388,9 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
       {/* Following users list */}
       {view === 'following' && (
         <>
-          <p className="text-slate-500 text-[11px] mb-2">Following ({followingUsers.length})</p>
+          <p className="text-slate-500 text-xs mb-2">Following ({followingUsers.length})</p>
           {followingUsers.length === 0 ? (
-            <p className="text-slate-600 text-xs text-center py-8">Not following anyone yet</p>
+            <p className="text-slate-600 text-sm text-center py-8">Not following anyone yet</p>
           ) : (
             followingUsers.map(u => (
               <button
@@ -402,7 +402,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
                 <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#7c3aed22', border: '1px solid #7c3aed55' }}>
                   <Users size={13} className="text-brand-purple" />
                 </div>
-                <span className="text-white text-xs font-medium">{u.pen_name}</span>
+                <span className="text-white text-sm font-medium">{u.pen_name}</span>
               </button>
             ))
           )}
@@ -412,9 +412,9 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
       {/* Followers list */}
       {view === 'followers' && (
         <>
-          <p className="text-slate-500 text-[11px] mb-2">Followers ({followerUsers.length})</p>
+          <p className="text-slate-500 text-xs mb-2">Followers ({followerUsers.length})</p>
           {followerUsers.length === 0 ? (
-            <p className="text-slate-600 text-xs text-center py-8">No followers yet</p>
+            <p className="text-slate-600 text-sm text-center py-8">No followers yet</p>
           ) : (
             followerUsers.map(u => (
               <button
@@ -426,7 +426,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
                 <div className="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: '#7c3aed22', border: '1px solid #7c3aed55' }}>
                   <Users size={13} className="text-brand-purple" />
                 </div>
-                <span className="text-white text-xs font-medium">{u.pen_name}</span>
+                <span className="text-white text-sm font-medium">{u.pen_name}</span>
               </button>
             ))
           )}
@@ -436,9 +436,9 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
       {/* Liked thots list */}
       {view === 'likes' && (
         <>
-          <p className="text-slate-500 text-[11px] mb-2">Thots you liked ({likedThots.length})</p>
+          <p className="text-slate-500 text-xs mb-2">Thots you liked ({likedThots.length})</p>
           {likedThots.length === 0 ? (
-            <p className="text-slate-600 text-xs text-center py-8">No liked thots yet</p>
+            <p className="text-slate-600 text-sm text-center py-8">No liked thots yet</p>
           ) : (
             likedThots.map(thot => {
               const isActive = !thot.hidden && !thot.user_deleted && thot.expires_at && new Date(thot.expires_at) > new Date()
@@ -450,22 +450,22 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
                   className={`w-full text-left transition-opacity ${isActive ? 'cursor-pointer hover:opacity-80' : 'cursor-default opacity-50'}`}
                   style={{ background: 'none', border: 'none', padding: 0 }}
                 >
-                  <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
-                  {isActive ? <GeoLabel lat={thot.lat} lng={thot.lng} /> : <span className="text-slate-700 text-[10px] block mt-0.5">no longer on map</span>}
+                  <p className="text-white text-sm leading-snug line-clamp-2">{thot.content}</p>
+                  {isActive ? <GeoLabel lat={thot.lat} lng={thot.lng} /> : <span className="text-slate-700 text-xs block mt-0.5">no longer on map</span>}
                 </button>
                 <div className="flex items-center gap-2 mt-1.5">
                   {thot.pen_name ? (
                     <button
                       onClick={() => onOpenProfile?.(thot)}
-                      className="text-xs font-semibold cursor-pointer hover:opacity-80 transition-opacity"
+                      className="text-sm font-semibold cursor-pointer hover:opacity-80 transition-opacity"
                       style={{ background: 'none', border: 'none', padding: 0, color: '#7c3aed' }}
                     >
                       {thot.pen_name}
                     </button>
                   ) : (
-                    <span className="text-slate-600 text-xs">anon</span>
+                    <span className="text-slate-600 text-sm">anon</span>
                   )}
-                  <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
+                  <span className="text-slate-600 text-xs">{relativeTime(thot.created_at)}</span>
                   <div className="relative group/tip ml-auto">
                     <button
                       onClick={() => setShareThot(thot)}
@@ -520,8 +520,8 @@ function PushToggle({ session }) {
       <div className="flex items-center gap-2">
         {subscribed ? <Bell size={13} className="text-brand-purple" /> : <BellOff size={13} className="text-slate-500" />}
         <div>
-          <p className="text-[11px] text-white font-medium">Push notifications</p>
-          <p className={`text-[10px] mt-0.5 ${error ? 'text-red-400' : 'text-slate-500'}`}>{subtext}</p>
+          <p className="text-sm text-white font-medium">Push notifications</p>
+          <p className={`text-xs mt-0.5 ${error ? 'text-red-400' : 'text-slate-500'}`}>{subtext}</p>
         </div>
       </div>
       <ToggleSwitch on={subscribed} onToggle={subscribed ? unsubscribe : subscribe} disabled={checking || acting} />
@@ -566,8 +566,8 @@ function EmailToggle({ label, description, prefKey, session }) {
       <div className="flex items-center gap-2">
         <Mail size={13} className={enabled ? 'text-brand-purple' : 'text-slate-500'} />
         <div>
-          <p className="text-[11px] text-white font-medium">{label}</p>
-          <p className="text-[10px] text-slate-500 mt-0.5">{description}</p>
+          <p className="text-sm text-white font-medium">{label}</p>
+          <p className="text-xs text-slate-500 mt-0.5">{description}</p>
         </div>
       </div>
       <ToggleSwitch on={enabled} onToggle={toggle} disabled={loading} />
@@ -717,7 +717,7 @@ function SettingsPane({ session }) {
       {/* Preferences */}
       {isAuth && (
         <div className="bg-white/[0.07] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-1">
-          <p className="text-slate-500 text-xs font-medium mb-2">Preferences</p>
+          <p className="text-slate-500 text-sm font-medium mb-2">Preferences</p>
           <PushToggle session={session} />
           <EmailToggle label="DM digest emails" description="15-min summary of unread DMs" prefKey="email_dm_digest" session={session} />
           <EmailToggle label="Activity digest emails" description="Hourly — hypes, comments, follows" prefKey="email_activity_digest" session={session} />
@@ -726,9 +726,9 @@ function SettingsPane({ session }) {
 
       {/* Sign out */}
       <div className="bg-white/[0.07] border border-white/[0.04] rounded-xl p-3">
-        <p className="text-slate-500 text-xs font-medium mb-2">Account</p>
+        <p className="text-slate-500 text-sm font-medium mb-2">Account</p>
         {isAuth && session.penName && (
-          <p className="text-slate-400 text-[11px] mb-3">
+          <p className="text-slate-400 text-xs mb-3">
             Signed in as <span className="text-brand-purple font-semibold">{session.penName}</span>
           </p>
         )}
@@ -739,7 +739,7 @@ function SettingsPane({ session }) {
             {emailForm === 'idle' ? (
               <button
                 onClick={() => { setEmailForm('open'); setPasswordForm('idle') }}
-                className="w-full text-left py-2 px-2.5 rounded-lg text-slate-400 text-[11px] hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-2"
+                className="w-full text-left py-2 px-2.5 rounded-lg text-slate-400 text-xs hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-2"
                 style={{ background: 'none', border: '1px solid rgba(255,255,255,0.06)' }}
               >
                 <Mail size={11} className="flex-shrink-0" />
@@ -747,11 +747,11 @@ function SettingsPane({ session }) {
               </button>
             ) : (
               <div className="flex flex-col gap-2 p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <p className="text-white text-[11px] font-semibold">Change email</p>
+                <p className="text-white text-sm font-semibold">Change email</p>
                 {currentEmail && (
                   <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <Mail size={10} className="text-slate-600 flex-shrink-0" />
-                    <span className="text-slate-500 text-[11px] truncate">{currentEmail}</span>
+                    <span className="text-slate-500 text-xs truncate">{currentEmail}</span>
                   </div>
                 )}
                 <input
@@ -759,27 +759,27 @@ function SettingsPane({ session }) {
                   placeholder="Current password"
                   value={emailFields.currentPassword}
                   onChange={e => setEmailFields(f => ({ ...f, currentPassword: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-[11px] placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
                 />
                 <input
                   type="email"
                   placeholder="New email address"
                   value={emailFields.newEmail}
                   onChange={e => setEmailFields(f => ({ ...f, newEmail: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-[11px] placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
                 />
                 {emailMsg && (
-                  <p className={`text-[10px] ${emailMsg.ok ? 'text-green-400' : 'text-red-400'}`}>{emailMsg.text}</p>
+                  <p className={`text-xs ${emailMsg.ok ? 'text-green-400' : 'text-red-400'}`}>{emailMsg.text}</p>
                 )}
                 <div className="flex gap-1.5">
                   <button
                     onClick={() => { setEmailForm('idle'); setEmailFields({ currentPassword: '', newEmail: '' }); setEmailMsg(null) }}
-                    className="flex-1 py-1.5 rounded-lg border border-white/10 text-slate-400 text-[11px] hover:bg-white/5 transition-colors cursor-pointer"
+                    className="flex-1 py-1.5 rounded-lg border border-white/10 text-slate-400 text-xs hover:bg-white/5 transition-colors cursor-pointer"
                   >Cancel</button>
                   <button
                     onClick={handleEmailChange}
                     disabled={emailBusy || !emailFields.currentPassword || !emailFields.newEmail}
-                    className="flex-1 py-1.5 rounded-lg bg-brand-purple/20 border border-brand-purple/30 text-brand-purple text-[11px] font-semibold hover:bg-brand-purple/30 transition-colors cursor-pointer disabled:opacity-40"
+                    className="flex-1 py-1.5 rounded-lg bg-brand-purple/20 border border-brand-purple/30 text-brand-purple text-xs font-semibold hover:bg-brand-purple/30 transition-colors cursor-pointer disabled:opacity-40"
                   >{emailBusy ? 'Saving…' : 'Update email'}</button>
                 </div>
               </div>
@@ -793,7 +793,7 @@ function SettingsPane({ session }) {
             {passwordForm === 'idle' ? (
               <button
                 onClick={() => { setPasswordForm('open'); setEmailForm('idle') }}
-                className="w-full text-left py-2 px-2.5 rounded-lg text-slate-400 text-[11px] hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-2"
+                className="w-full text-left py-2 px-2.5 rounded-lg text-slate-400 text-xs hover:bg-white/5 transition-colors cursor-pointer flex items-center gap-2"
                 style={{ background: 'none', border: '1px solid rgba(255,255,255,0.06)' }}
               >
                 <KeyRound size={11} className="flex-shrink-0" />
@@ -801,40 +801,40 @@ function SettingsPane({ session }) {
               </button>
             ) : (
               <div className="flex flex-col gap-2 p-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                <p className="text-white text-[11px] font-semibold">Change password</p>
+                <p className="text-white text-sm font-semibold">Change password</p>
                 <input
                   type="password"
                   placeholder="Current password"
                   value={passwordFields.currentPassword}
                   onChange={e => setPasswordFields(f => ({ ...f, currentPassword: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-[11px] placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
                 />
                 <input
                   type="password"
                   placeholder="New password (min 8 chars)"
                   value={passwordFields.newPassword}
                   onChange={e => setPasswordFields(f => ({ ...f, newPassword: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-[11px] placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
                 />
                 <input
                   type="password"
                   placeholder="Confirm new password"
                   value={passwordFields.confirmPassword}
                   onChange={e => setPasswordFields(f => ({ ...f, confirmPassword: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-[11px] placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
+                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2.5 py-1.5 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-brand-purple/50"
                 />
                 {passwordMsg && (
-                  <p className={`text-[10px] ${passwordMsg.ok ? 'text-green-400' : 'text-red-400'}`}>{passwordMsg.text}</p>
+                  <p className={`text-xs ${passwordMsg.ok ? 'text-green-400' : 'text-red-400'}`}>{passwordMsg.text}</p>
                 )}
                 <div className="flex gap-1.5">
                   <button
                     onClick={() => { setPasswordForm('idle'); setPasswordFields({ currentPassword: '', newPassword: '', confirmPassword: '' }); setPasswordMsg(null) }}
-                    className="flex-1 py-1.5 rounded-lg border border-white/10 text-slate-400 text-[11px] hover:bg-white/5 transition-colors cursor-pointer"
+                    className="flex-1 py-1.5 rounded-lg border border-white/10 text-slate-400 text-xs hover:bg-white/5 transition-colors cursor-pointer"
                   >Cancel</button>
                   <button
                     onClick={handlePasswordChange}
                     disabled={passwordBusy || !passwordFields.currentPassword || !passwordFields.newPassword || !passwordFields.confirmPassword}
-                    className="flex-1 py-1.5 rounded-lg bg-brand-purple/20 border border-brand-purple/30 text-brand-purple text-[11px] font-semibold hover:bg-brand-purple/30 transition-colors cursor-pointer disabled:opacity-40"
+                    className="flex-1 py-1.5 rounded-lg bg-brand-purple/20 border border-brand-purple/30 text-brand-purple text-xs font-semibold hover:bg-brand-purple/30 transition-colors cursor-pointer disabled:opacity-40"
                   >{passwordBusy ? 'Saving…' : 'Update password'}</button>
                 </div>
               </div>
@@ -852,7 +852,7 @@ function SettingsPane({ session }) {
           </button>
         ) : (
           <div className="flex flex-col gap-2">
-            <p className="text-slate-400 text-[11px] text-center">
+            <p className="text-slate-400 text-xs text-center">
               {isAuth ? "You'll need to sign in again to post." : 'Your anonymous session will be cleared.'}
             </p>
             <div className="flex gap-2">
@@ -878,7 +878,7 @@ function SettingsPane({ session }) {
         <div className="bg-white/[0.07] border border-white/[0.04] rounded-xl p-3">
           <p className="text-slate-500 text-xs font-medium mb-1">Delete account</p>
           {!deletionStatus?.pending && !showDeleteConfirm && (
-            <p className="text-slate-600 text-[10px] leading-relaxed mb-3">
+            <p className="text-slate-600 text-xs leading-relaxed mb-3">
               You'll have 30 days to change your mind. After that your pen name is released and your thots become anonymous.
             </p>
           )}
@@ -887,8 +887,8 @@ function SettingsPane({ session }) {
             /* Pending deletion banner */
             <div className="flex flex-col gap-2">
               <div className="bg-red-500/10 border border-red-500/25 rounded-lg p-2.5">
-                <p className="text-red-400 text-[11px] font-semibold mb-0.5">Deletion scheduled</p>
-                <p className="text-slate-400 text-[10px] leading-relaxed">
+                <p className="text-red-400 text-xs font-semibold mb-0.5">Deletion scheduled</p>
+                <p className="text-slate-400 text-xs leading-relaxed">
                   Your account will be permanently deleted in{' '}
                   <span className="text-white font-semibold">{deletionStatus.days_left ?? 30} day{(deletionStatus.days_left ?? 30) !== 1 ? 's' : ''}</span>.
                   Your thots will be anonymised and remain on the map until they expire.
@@ -914,8 +914,8 @@ function SettingsPane({ session }) {
           ) : deleteStep === 1 ? (
             /* Step 1 — consequences warning */
             <div className="flex flex-col gap-2">
-              <p className="text-white text-[11px] font-semibold">Before you go…</p>
-              <p className="text-slate-400 text-[10px] leading-relaxed">
+              <p className="text-white text-sm font-semibold">Before you go…</p>
+              <p className="text-slate-400 text-xs leading-relaxed">
                 Your account will enter a <span className="text-white">30-day grace period</span>. Sign back in at any time to cancel.
                 After 30 days your pen name is released, your hypes are deleted, and your thots are anonymised (they stay on the map until they naturally expire).
               </p>
@@ -937,7 +937,7 @@ function SettingsPane({ session }) {
           ) : (
             /* Step 2 — final confirm */
             <div className="flex flex-col gap-2">
-              <p className="text-slate-400 text-[11px] text-center">
+              <p className="text-slate-400 text-xs text-center">
                 Schedule deletion of{' '}
                 <span className="text-brand-purple font-semibold">{session.penName}</span>?
               </p>
@@ -1058,7 +1058,7 @@ function MessagesTab({ session, onOpenDM }) {
             >
               <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ background: '#7c3aed22', border: '1px solid #7c3aed44' }}>
-                <span className="text-[10px] font-bold text-brand-purple">
+                <span className="text-xs font-bold text-brand-purple">
                   {u.pen_name[0].toUpperCase()}
                 </span>
               </div>
@@ -1100,7 +1100,7 @@ function MessagesTab({ session, onOpenDM }) {
             {/* Avatar placeholder */}
             <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
               style={{ background: `${partnerColor}22`, border: `1px solid ${partnerColor}44` }}>
-              <span className="text-[10px] font-bold" style={{ color: partnerColor }}>
+              <span className="text-xs font-bold" style={{ color: partnerColor }}>
                 {(partnerName || '?')[0].toUpperCase()}
               </span>
             </div>
@@ -1109,9 +1109,9 @@ function MessagesTab({ session, onOpenDM }) {
                 <span className="text-sm font-semibold truncate" style={{ color: unread ? '#fff' : partnerColor }}>
                   {partnerName || 'Anonymous'}
                 </span>
-                <span className="text-[10px] text-slate-600 flex-shrink-0">{relativeTimeDM(convo.created_at)}</span>
+                <span className="text-xs text-slate-600 flex-shrink-0">{relativeTimeDM(convo.created_at)}</span>
               </div>
-              <p className={`text-xs truncate mt-0.5 ${unread ? 'text-slate-300' : 'text-slate-600'}`}>
+              <p className={`text-sm truncate mt-0.5 ${unread ? 'text-slate-300' : 'text-slate-600'}`}>
                 {isFromMe && <span className="text-slate-600 mr-1">You:</span>}
                 {convo.content}
               </p>
@@ -1148,7 +1148,7 @@ export default function ToolsPanel({ onClose, thots, session, onHype, onOpenProf
           <button
             key={id}
             onClick={() => setActiveTab(id)}
-            className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors cursor-pointer border-b-2 ${
+            className={`flex-1 flex flex-col items-center gap-1 py-2.5 text-xs font-medium transition-colors cursor-pointer border-b-2 ${
               activeTab === id
                 ? 'text-white border-brand-purple'
                 : 'text-slate-500 border-transparent hover:text-slate-300'

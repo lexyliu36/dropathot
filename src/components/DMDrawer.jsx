@@ -13,7 +13,23 @@ function relativeTime(isoString) {
   return `${Math.floor(diff / 86400)}d`
 }
 
-function MessageBubble({ msg, isOwn }) {
+const CLUMP_MS = 60_000 // messages within 60s from same sender are grouped
+
+function clumpMessages(messages) {
+  return messages.map((msg, i) => {
+    const prev = messages[i - 1]
+    const next = messages[i + 1]
+    const clumpedWithPrev = prev &&
+      prev.from_user_id === msg.from_user_id &&
+      new Date(msg.created_at) - new Date(prev.created_at) < CLUMP_MS
+    const clumpedWithNext = next &&
+      next.from_user_id === msg.from_user_id &&
+      new Date(next.created_at) - new Date(msg.created_at) < CLUMP_MS
+    return { ...msg, isFirst: !clumpedWithPrev, isLast: !clumpedWithNext }
+  })
+}
+
+function MessageBubble({ msg, isOwn, isFirst, isLast }) {
   const [hyped, setHyped] = useState(msg.i_hyped ?? false)
   const [count, setCount] = useState(msg.hype_count ?? 0)
   const [heartAnim, setHeartAnim] = useState(false)
@@ -48,13 +64,23 @@ function MessageBubble({ msg, isOwn }) {
     }, 350)
   }
 
+  // Border radius: "tail" corner is on last bubble in a group; middle bubbles lose both same-side corners
+  const ownRadius = isFirst && isLast ? 'rounded-2xl rounded-tr-sm'
+    : isFirst ? 'rounded-2xl rounded-tr-sm rounded-br-sm'
+    : isLast  ? 'rounded-2xl'
+    : 'rounded-2xl rounded-r-[5px]'
+  const otherRadius = isFirst && isLast ? 'rounded-2xl rounded-tl-sm'
+    : isFirst ? 'rounded-2xl rounded-tl-sm rounded-bl-sm'
+    : isLast  ? 'rounded-2xl'
+    : 'rounded-2xl rounded-l-[5px]'
+
   return (
-    <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} mb-5`}>
+    <div className={`flex flex-col ${isOwn ? 'items-end' : 'items-start'} ${isLast ? 'mb-4' : 'mb-0.5'}`}>
       <div
-        className={`relative group max-w-[85%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
+        className={`relative group max-w-[85%] px-3 py-2 text-sm leading-relaxed ${
           isOwn
-            ? 'bg-brand-red/20 text-white rounded-tr-sm'
-            : 'bg-white/[0.07] text-slate-200 rounded-tl-sm'
+            ? `bg-brand-red/20 text-white ${ownRadius}`
+            : `bg-white/[0.07] text-slate-200 ${otherRadius}`
         }`}
       >
         {msg.content}
@@ -79,7 +105,7 @@ function MessageBubble({ msg, isOwn }) {
           </div>
         </button>
       </div>
-      <span className="text-slate-700 text-[9px] mt-1.5 px-1">{relativeTime(msg.created_at)}</span>
+      {isLast && <span className="text-slate-700 text-[9px] mt-1.5 px-1">{relativeTime(msg.created_at)}</span>}
     </div>
   )
 }
@@ -205,11 +231,13 @@ export default function DMDrawer({ partner, onClose }) {
             </p>
           </div>
         ) : (
-          messages.map(msg => (
+          clumpMessages(messages).map(msg => (
             <MessageBubble
               key={msg.id}
               msg={msg}
               isOwn={msg.from_user_id === myId}
+              isFirst={msg.isFirst}
+              isLast={msg.isLast}
             />
           ))
         )}

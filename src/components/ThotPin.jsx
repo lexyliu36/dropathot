@@ -119,7 +119,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
 
         <p style={{
           color: '#fff',
-          fontSize: '12px',
+          fontSize: '14px',
           lineHeight: '1.45',
           margin: 0,
           display: '-webkit-box',
@@ -136,10 +136,10 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
         {/* Meta row + hype button */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginTop: '6px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
-            <span style={{ fontSize: '10px', color: accentColor, fontWeight: 600, whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: '12px', color: accentColor, fontWeight: 600, whiteSpace: 'nowrap' }}>
               {thot.pen_name || 'anon'}
             </span>
-            <span style={{ fontSize: '10px', color: '#475569', whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: '12px', color: '#475569', whiteSpace: 'nowrap' }}>
               {relativeTime(thot.created_at)}
             </span>
           </div>
@@ -160,7 +160,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
               border: 'none', borderRadius: '6px', padding: '2px 4px',
               cursor: isAuth ? 'pointer' : 'default',
               color: hyped ? accentColor : 'rgba(255,255,255,0.35)',
-              fontSize: '11px', pointerEvents: 'auto',
+              fontSize: '13px', pointerEvents: 'auto',
               transition: 'color 0.15s, background 0.15s', lineHeight: 1,
             }}
           >

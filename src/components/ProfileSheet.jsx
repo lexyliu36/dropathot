@@ -129,19 +129,19 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-xs sm:text-sm font-semibold leading-tight" style={{ color: accentColor }}>
+              <span className="text-sm font-semibold leading-tight" style={{ color: accentColor }}>
                 {thot.pen_name || 'anon'}
               </span>
-              <span className="text-slate-600 text-[10px]">{relativeTime(thot.created_at)}</span>
+              <span className="text-slate-600 text-xs">{relativeTime(thot.created_at)}</span>
             </div>
 
             {/* Location label */}
             {locationLabel && (
-              <span className="text-slate-500 text-[10px] block">{locationLabel}</span>
+              <span className="text-slate-500 text-xs block">{locationLabel}</span>
             )}
 
             {/* Content */}
-            <p className="text-white/90 text-xs sm:text-sm leading-relaxed mt-1 break-words">{thot.content}</p>
+            <p className="text-white/90 text-sm leading-relaxed mt-1 break-words">{thot.content}</p>
 
             {/* Action row */}
             <div className="flex items-center mt-3">
@@ -205,7 +205,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
                     <span className="action-tip">Delete</span>
                   </div>
                   {deleteError && (
-                    <span className="text-[10px]" style={{ color: '#f87171' }}>{deleteError}</span>
+                    <span className="text-xs" style={{ color: '#f87171' }}>{deleteError}</span>
                   )}
                 </div>
               )}
@@ -248,7 +248,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
               <Trash2 size={18} className="text-red-400 flex-shrink-0" />
               <span className="text-white font-semibold text-sm">Delete this thot?</span>
             </div>
-            <p className="text-slate-400 text-xs leading-relaxed">It will be removed from the map and your history. This can't be undone.</p>
+            <p className="text-slate-400 text-sm leading-relaxed">It will be removed from the map and your history. This can't be undone.</p>
             <div className="flex gap-2 mt-1">
               <button
                 onClick={() => setConfirmDelete(false)}
@@ -272,7 +272,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
               <Flag size={18} className={reported ? 'text-slate-400 flex-shrink-0' : 'text-orange-400 flex-shrink-0'} />
               <span className="text-white font-semibold text-sm">{reported ? 'Remove your report?' : 'Report this thot?'}</span>
             </div>
-            <p className="text-slate-400 text-xs leading-relaxed">
+            <p className="text-slate-400 text-sm leading-relaxed">
               {reported ? 'This will remove your report. The thot will no longer be flagged by you.' : 'It will be reviewed by moderators. Misuse of reports may result in your account being restricted.'}
             </p>
             <div className="flex gap-2 mt-1">
@@ -464,7 +464,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   const allThots = history ?? (thot ? [thot] : [])
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-30 h-[45vh] sm:bottom-3 sm:top-3 sm:left-auto sm:right-3 sm:w-72 sm:h-auto flex flex-col bg-[#0e0e1a] border-t border-white/10 sm:border rounded-t-2xl sm:rounded-2xl shadow-2xl overflow-hidden profile-sheet-anim">
+    <div className="absolute bottom-3 left-3 right-3 z-30 h-[45vh] sm:bottom-3 sm:top-3 sm:left-auto sm:right-3 sm:w-72 sm:h-auto flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden profile-sheet-anim">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05] flex-shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
@@ -475,18 +475,18 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
                 {penName || 'Anonymous'}
               </span>
               {isYou && (
-                <span className="text-[9px] px-1 py-0.5 rounded-full font-medium leading-none flex-shrink-0"
+                <span className="text-[13px] px-1 py-0.5 rounded-full font-medium leading-none flex-shrink-0"
                   style={{ background: 'rgba(225,29,72,0.15)', color: '#e11d48', border: '1px solid rgba(225,29,72,0.3)' }}>
                   you
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2 mt-0.5">
-              <p className="text-slate-600 text-[10px]">
+              <p className="text-slate-600 text-[13px]">
                 {loading ? '…' : allThots.length === 0 ? 'no drops yet' : `${allThots.length} drop${allThots.length !== 1 ? 's' : ''}`}
               </p>
               {targetUserId && (
-                <p className="text-slate-600 text-[10px]">
+                <p className="text-slate-600 text-[13px]">
                   · <span className="text-slate-400">{followers}</span> follower{followers !== 1 ? 's' : ''}
                 </p>
               )}
@@ -499,7 +499,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
                 onClick={toggleFollow}
                 disabled={followLoading}
                 title={isFollowing ? 'Following' : 'Follow'}
-                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer disabled:opacity-40 ${
+                className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 ${
                   isFollowing
                     ? 'bg-brand-purple/20 text-brand-purple border border-brand-purple/30 hover:bg-brand-purple/10'
                     : 'bg-white/[0.06] text-slate-300 border border-white/10 hover:bg-brand-purple/15 hover:text-brand-purple hover:border-brand-purple/30'
@@ -524,7 +524,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
       <div className="flex-1 overflow-y-auto px-3 py-2">
         {loading && (
           <div className="flex items-center justify-center py-8">
-            <span className="text-slate-600 text-xs">Loading…</span>
+            <span className="text-slate-600 text-sm">Loading…</span>
           </div>
         )}
 
@@ -551,7 +551,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
             <button
               onClick={loadMore}
               disabled={loadingMore}
-              className="text-[11px] text-slate-400 hover:text-slate-200 px-4 py-1.5 rounded-full border border-white/10 hover:border-white/20 transition-colors disabled:opacity-50"
+              className="text-xs text-slate-400 hover:text-slate-200 px-4 py-1.5 rounded-full border border-white/10 hover:border-white/20 transition-colors disabled:opacity-50"
             >
               {loadingMore ? 'Loading…' : `Load more (${total - allThots.length} left)`}
             </button>
@@ -561,7 +561,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
         {/* Empty state */}
         {!loading && allThots.length === 0 && isYou && (
           <div className="flex flex-col items-center justify-center h-full gap-4 py-10 text-center">
-            <p className="text-slate-500 text-xs leading-relaxed">You haven't dropped a thot yet.</p>
+            <p className="text-slate-500 text-sm leading-relaxed">You haven't dropped a thot yet.</p>
             {onCompose && (
               <button
                 onClick={() => {
@@ -575,7 +575,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
               </button>
             )}
             {!isAuth && (
-              <p className="text-slate-600 text-[10px]">
+              <p className="text-slate-600 text-[13px]">
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('thots:open-auth', { detail: 'signup' }))}
                   className="underline cursor-pointer"
@@ -587,7 +587,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
         )}
 
         {!loading && allThots.length > 0 && !isAuth && (
-          <p className="text-slate-600 text-[10px] text-center py-3">
+          <p className="text-slate-600 text-xs text-center py-3">
             <button
               onClick={() => window.dispatchEvent(new CustomEvent('thots:open-auth', { detail: 'signup' }))}
               className="underline cursor-pointer"
@@ -623,7 +623,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
               style={{ background: 'none', border: 'none' }}
             >
               <MessageSquare size={15} />
-              <span className="text-[9px]">Message</span>
+              <span className="text-[13px]">Message</span>
             </button>
           )}
           {/* Report */}
@@ -636,7 +636,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
               style={{ background: 'none', border: 'none' }}
             >
               <AlertTriangle size={15} />
-              <span className="text-[9px]">{reportState === 'done' ? 'Reported' : 'Report'}</span>
+              <span className="text-[13px]">{reportState === 'done' ? 'Reported' : 'Report'}</span>
             </button>
           )}
           {/* Report confirm modal */}
@@ -647,7 +647,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
                   <AlertTriangle size={18} className="text-orange-400 flex-shrink-0" />
                   <span className="text-white font-semibold text-sm">Report this user?</span>
                 </div>
-                <p className="text-slate-400 text-xs leading-relaxed">They will be reviewed by moderators. Misuse of reports may result in your account being restricted.</p>
+                <p className="text-slate-400 text-sm leading-relaxed">They will be reviewed by moderators. Misuse of reports may result in your account being restricted.</p>
                 <div className="flex gap-2 mt-1">
                   <button
                     onClick={() => setConfirmReport(false)}
@@ -669,7 +669,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
                   <ShieldX size={18} className="text-red-400 flex-shrink-0" />
                   <span className="text-white font-semibold text-sm">Block this user?</span>
                 </div>
-                <p className="text-slate-400 text-xs leading-relaxed">Their thots will be hidden from your map. You can unblock them from their profile.</p>
+                <p className="text-slate-400 text-sm leading-relaxed">Their thots will be hidden from your map. You can unblock them from their profile.</p>
                 <div className="flex gap-2 mt-1">
                   <button
                     onClick={() => setConfirmBlock(false)}
@@ -693,7 +693,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
             style={{ background: 'none', border: 'none' }}
           >
             {isBlocked ? <ShieldCheck size={15} /> : <ShieldX size={15} />}
-            <span className="text-[9px]">{isBlocked ? 'Unblock' : 'Block'}</span>
+            <span className="text-[13px]">{isBlocked ? 'Unblock' : 'Block'}</span>
           </button>
         </div>
       )}
