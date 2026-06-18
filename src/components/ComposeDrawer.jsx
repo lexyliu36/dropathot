@@ -120,6 +120,11 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
                 <p className="text-orange-200/80 text-[11px] leading-relaxed">{error.message}</p>
                 <p className="text-orange-200/50 text-[10px] mt-1.5">This prevents one network from flooding a location. Limit resets after 1 hour.</p>
               </div>
+            ) : error.code === 'OUTSIDE_US' ? (
+              <div className="rounded-xl border border-blue-500/30 bg-blue-500/10 p-3">
+                <p className="text-blue-300 text-xs font-semibold mb-1">🇺🇸 US only</p>
+                <p className="text-blue-200/80 text-[11px] leading-relaxed">dropathot is only available in the United States right now.</p>
+              </div>
             ) : (
               <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3">
                 <p className="text-red-300 text-xs">{error.message}</p>

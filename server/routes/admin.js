@@ -1,4 +1,5 @@
 import { Router } from 'express'
+import { CITY_SEED_IDS } from '../lib/seed-ids.js'
 import { supabase } from '../lib/supabase.js'
 import { sendThotRestoredEmail, sendThotRemovedEmail, sendUserBannedEmail, sendUserUnbannedEmail, sendUserReportsDismissedEmail } from '../lib/email.js'
 
@@ -211,33 +212,41 @@ router.get('/detail/sessions', requireAdmin, async (req, res) => {
 })
 
 
-// GET /admin/seed/status — are seed thots currently visible?
+// GET /admin/seed/status — visibility status for all seed cities
 router.get('/seed/status', requireAdmin, async (req, res) => {
-  const { count } = await supabase
-    .from('thots')
-    .select('*', { count: 'exact', head: true })
-    .eq('is_seed', true)
-    .eq('hidden', false)
-  res.json({ visible: (count ?? 0) > 0, count: count ?? 0 })
+  const cities = Object.keys(CITY_SEED_IDS)
+  const results = {}
+  await Promise.all(cities.map(async (city) => {
+    const { count } = await supabase
+      .from('thots')
+      .select('*', { count: 'exact', head: true })
+      .in('session_id', CITY_SEED_IDS[city])
+      .eq('hidden', false)
+    results[city] = { visible: (count ?? 0) > 0, count: count ?? 0 }
+  }))
+  res.json(results)
 })
 
-// POST /admin/seed/toggle — flip visibility of all seed thots
-router.post('/seed/toggle', requireAdmin, async (req, res) => {
-  // Check current state first
+// POST /admin/seed/toggle/:city — flip visibility for one city's seed data
+router.post('/seed/toggle/:city', requireAdmin, async (req, res) => {
+  const { city } = req.params
+  const ids = CITY_SEED_IDS[city]
+  if (!ids) return res.status(400).json({ error: `Unknown city: ${city}` })
+
   const { count: visibleCount } = await supabase
     .from('thots')
     .select('*', { count: 'exact', head: true })
-    .eq('is_seed', true)
+    .in('session_id', ids)
     .eq('hidden', false)
 
-  const nowHiding = (visibleCount ?? 0) > 0  // if any are visible, we hide; else we show
+  const nowHiding = (visibleCount ?? 0) > 0
   const { error } = await supabase
     .from('thots')
     .update({ hidden: nowHiding })
-    .eq('is_seed', true)
+    .in('session_id', ids)
 
   if (error) return res.status(500).json({ error: error.message })
-  res.json({ ok: true, visible: !nowHiding })
+  res.json({ ok: true, city, visible: !nowHiding })
 })
 
 export default router

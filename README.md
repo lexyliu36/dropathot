@@ -113,10 +113,31 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.29` — US-only posting restriction + UX fixes
+
+- `server/lib/geo.js` — added `isInUsa(lat, lng)` with bounding boxes for CONUS, Alaska, Hawaii, Puerto Rico, USVI
+- `server/routes/thots.js` — POST `/thots` now rejects coordinates outside US with `403 OUTSIDE_US`
+- `src/components/ComposeDrawer.jsx` — friendly "🇺🇸 US only" error card for `OUTSIDE_US` code
+- `src/pages/legal/TermsPage.jsx` — added Geographic Restriction clause to Section 2 (Eligibility)
+- `src/components/TopThots.jsx` — fixed phantom space below clamped thots on iOS Safari (moved `line-clamp-2` from `<p>` inside `<button>` directly onto the `<button>`)
+- `src/components/DMDrawer.jsx` — textarea auto-expands as you type; Enter inserts newline, send button is the only way to send
+- `src/pages/Map.jsx` — deferred `root.unmount()` to avoid React synchronous-unmount warning
+- `server/package.json` — upgraded `socket.io` to `^4.8.3` to match client; ran `npm audit fix` (0 vulnerabilities)
+
 ### `v0.28` — DM textarea UX + seed-demo fix
 
 - `src/components/DMDrawer.jsx` — textarea auto-expands as you type (max 160px); Enter key now inserts a newline; send button is the only way to send
 - `server/seed-demo.js` — fixed broken file structure from prior Python replacement; `seed()` and `updateNames()` are now separate clean functions; `--update-names` flag works correctly
+
+### `v0.28` — Multi-city seed data + per-city admin toggles
+
+- `server/seed-weho.js` — 75 thots across West Hollywood (Boys Town, Sunset Strip, Melrose, Design District, Laurel Canyon, Fairfax, nightlife, Silver Lake edge, Los Feliz)
+- `server/seed-sf.js` — 75 thots across San Francisco (Castro, Mission, SoMa, North Beach, Haight, Hayes Valley, Embarcadero, Richmond, Sunset, Noe Valley, Bernal, GGP, Presidio)
+- `server/seed-pittsburgh.js` — 75 thots across Pittsburgh (Shadyside, Oakland, Squirrel Hill, Lawrenceville, East Liberty, Bloomfield, Strip District, Downtown, Mt Washington, North Side, South Side, bridges, sports)
+- `server/lib/seed-ids.js` — added c/ (WeHo), d/ (SF), e/ (Pittsburgh) session_id prefix ranges; exported `CITY_SEED_IDS` map for targeted DB operations
+- `server/routes/admin.js` — `GET /admin/seed/status` now returns per-city `{visible, count}` map; `POST /admin/seed/toggle/:city` toggles one city at a time
+- `src/pages/AdminDashboard.jsx` — seed section replaced with 4-row per-city toggle panel (NYC, WeHo, SF, Pittsburgh); each shows pin count when visible
+- `server/package.json` — added `seed:weho`, `seed:sf`, `seed:pittsburgh` npm scripts
 
 ### `v0.27` — Real-time DM notifications via Socket.io (fixed)
 

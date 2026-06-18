@@ -7,6 +7,9 @@
     "dev": "node --env-file=.env --watch index.js",
     "seed": "node --env-file=.env seed.js",
     "seed:demo": "node --env-file=.env seed-demo.js",
+    "seed:weho": "node --env-file=.env seed-weho.js",
+    "seed:sf": "node --env-file=.env seed-sf.js",
+    "seed:pittsburgh": "node --env-file=.env seed-pittsburgh.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

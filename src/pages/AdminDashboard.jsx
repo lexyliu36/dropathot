@@ -436,8 +436,8 @@ export default function AdminDashboard() {
   const [lastRefresh, setLastRefresh] = useState(null)
   const [loginError, setLoginError]   = useState('')
   const [activeDetail, setActiveDetail] = useState(null)
-  const [seedVisible, setSeedVisible] = useState(null) // null=loading, true=visible, false=hidden
-  const [seedToggling, setSeedToggling] = useState(false)
+  const [seedStatus, setSeedStatus] = useState({})   // { nyc: {visible,count}, weho:..., sf:..., pittsburgh:... }
+  const [seedToggling, setSeedToggling] = useState(null) // city key being toggled, or null
   const detailRef = useRef(null)
   const [searchParams, setSearchParams] = useSearchParams()
   const reviewType = searchParams.get('review') // 'thot' | 'user'
@@ -494,22 +494,22 @@ export default function AdminDashboard() {
   useEffect(() => {
     if (!token) return
     fetch(`${API_URL}/admin/seed/status`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json()).then(d => setSeedVisible(d.visible)).catch(() => {})
+      .then(r => r.json()).then(d => setSeedStatus(d)).catch(() => {})
   }, [token])
 
-  async function handleSeedToggle() {
-    setSeedToggling(true)
+  async function handleSeedToggle(city) {
+    setSeedToggling(city)
     try {
-      const res = await fetch(`${API_URL}/admin/seed/toggle`, {
+      const res = await fetch(`${API_URL}/admin/seed/toggle/${city}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
       const data = await res.json()
-      setSeedVisible(data.visible)
+      setSeedStatus(prev => ({ ...prev, [city]: { ...prev[city], visible: data.visible } }))
     } catch (e) {
       setError('Seed toggle failed: ' + e.message)
     } finally {
-      setSeedToggling(false)
+      setSeedToggling(null)
     }
   }
 
@@ -658,24 +658,41 @@ export default function AdminDashboard() {
           {card('hidden_thots', 'Hidden by reports', s?.hidden_thots ?? null, 'text-red-700')}
         </div>
 
-        {/* Seed data toggle */}
-        <div className="mt-6 flex items-center justify-between rounded-xl px-4 py-3" style={{ background: '#0e0e1a', border: '1px solid rgba(255,255,255,0.07)' }}>
-          <div>
-            <p className="text-sm text-white/70 font-medium">Seed data</p>
-            <p className="text-xs text-gray-600 mt-0.5">
-              {seedVisible === null ? 'Checking…' : seedVisible ? 'Currently visible on map' : 'Hidden from map'}
-            </p>
-          </div>
-          <button
-            onClick={handleSeedToggle}
-            disabled={seedToggling || seedVisible === null}
-            className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors disabled:opacity-40"
-            style={seedVisible
-              ? { background: '#7c3aed22', color: '#a78bfa', border: '1px solid #7c3aed55' }
-              : { background: '#e11d4822', color: '#fb7185', border: '1px solid #e11d4855' }}
-          >
-            {seedToggling ? 'Updating…' : seedVisible ? 'Hide seed data' : 'Show seed data'}
-          </button>
+        {/* Seed data toggles — per city */}
+        <div className="mt-6 rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+          {[
+            { key: 'nyc',        label: 'NYC',         sub: 'New York City + NJ' },
+            { key: 'weho',       label: 'WeHo',        sub: 'West Hollywood' },
+            { key: 'sf',         label: 'SF',          sub: 'San Francisco' },
+            { key: 'pittsburgh', label: 'Pittsburgh',  sub: 'Shadyside + surrounds' },
+          ].map(({ key, label, sub }, i, arr) => {
+            const s = seedStatus[key]
+            const vis = s?.visible ?? null
+            const toggling = seedToggling === key
+            return (
+              <div key={key}
+                className="flex items-center justify-between px-4 py-3"
+                style={{ background: '#0e0e1a', borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none' }}
+              >
+                <div>
+                  <p className="text-sm text-white/70 font-medium">{label} seed data</p>
+                  <p className="text-xs text-gray-600 mt-0.5">
+                    {sub} · {vis === null ? 'Checking…' : vis ? `${s.count} pins visible` : 'Hidden from map'}
+                  </p>
+                </div>
+                <button
+                  onClick={() => handleSeedToggle(key)}
+                  disabled={toggling || vis === null}
+                  className="px-4 py-1.5 rounded-full text-sm font-medium transition-colors disabled:opacity-40"
+                  style={vis
+                    ? { background: '#7c3aed22', color: '#a78bfa', border: '1px solid #7c3aed55' }
+                    : { background: '#e11d4822', color: '#fb7185', border: '1px solid #e11d4855' }}
+                >
+                  {toggling ? 'Updating…' : vis ? 'Hide' : 'Show'}
+                </button>
+              </div>
+            )
+          })}
         </div>
 
         {/* Detail panel */}

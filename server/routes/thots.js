@@ -3,7 +3,7 @@ import { createHash } from 'crypto'
 import { supabase } from '../lib/supabase.js'
 import { enqueueNotification } from '../lib/notificationQueue.js'
 import { sendPush } from '../lib/webPush.js'
-import { neighborCells, latLngToH3 } from '../lib/geo.js'
+import { neighborCells, latLngToH3, isInUsa } from '../lib/geo.js'
 import { subnetLimit } from '../middleware/subnetLimit.js'
 import { smartRateLimit } from '../middleware/rateLimit.js'
 import { moderate } from '../middleware/moderate.js'
@@ -244,6 +244,9 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
   const claimedLng = parseFloat(lng)
   if (claimedLat < -90 || claimedLat > 90 || claimedLng < -180 || claimedLng > 180) {
     return res.status(400).json({ error: 'invalid coordinates' })
+  }
+  if (!isInUsa(claimedLat, claimedLng)) {
+    return res.status(403).json({ error: 'dropathot is only available in the United States.', code: 'OUTSIDE_US' })
   }
   if (!session_id || !/^[0-9a-f-]{36}$/.test(session_id)) {
     return res.status(400).json({ error: 'valid session_id is required' })

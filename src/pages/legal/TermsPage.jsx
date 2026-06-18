@@ -12,6 +12,7 @@ export default function TermsPage() {
       <p>If you do not agree to these Terms, you may not access or use the Service. We reserve the right to update these Terms at any time. Continued use after any update constitutes your acceptance of the revised Terms.</p>
 
       <h2>2. Eligibility</h2>
+      <p><strong>Geographic Restriction:</strong> dropathot is intended for use in the United States only, including its territories (Puerto Rico, U.S. Virgin Islands) and Alaska and Hawaii. Posting is technically restricted to US coordinates. If you are located outside the United States, you may browse the map but you may not post content. We make no representation that the Service is appropriate or available in other jurisdictions. Accessing the Service from outside the US is at your own risk and you are responsible for compliance with local laws.</p>
       <p>You must be at least 18 years old to use dropathot. By using the Service, you represent and warrant that you are 18 or older. If we discover or reasonably suspect that you are under 18, we will terminate your access immediately and without notice. We do not knowingly collect personal information from anyone under 18.</p>
       <p>You may not use the Service if you have previously been banned, are prohibited from receiving our services under applicable law, or if your account has been suspended or terminated for any reason.</p>
 
