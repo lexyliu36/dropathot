@@ -158,24 +158,8 @@ const AREAS = [
   { name: 'NJ + Scattered',       count: 8  },
 ]
 
-async function async function updateNames() {
-  console.log(`Updating pen names for ${THOTS.length} seed thots…`)
-  let ok = 0, fail = 0
-  for (let i = 0; i < THOTS.length; i++) {
-    const session_id = `${DEMO_PREFIX}${String(i).padStart(12, '0')}`
-    const { error } = await supabase
-      .from('thots')
-      .update({ pen_name: THOTS[i].pen_name })
-      .eq('session_id', session_id)
-    if (error) { console.warn(`  ✗ ${session_id}: ${error.message}`); fail++ }
-    else ok++
-  }
-  console.log(`\n✓ Updated ${ok} pen names${fail ? `, ${fail} failed` : ''}`)
-}
 
-const mode = process.argv[2]
-if (mode === '--update-names') updateNames()
-else seed() {
+async function seed() {
   console.log('Clearing all seed data…')
   const { error: delErr } = await supabase.from('thots').delete().in('session_id', ALL_SEED_IDS)
   if (delErr) console.warn('Warning — could not clear seed data:', delErr.message)
