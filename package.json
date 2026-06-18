@@ -8,7 +8,7 @@
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run --config vitest.client.config.js && vitest run --config vitest.server.config.js",
+    "test": "vitest run --config vitest.client.config.js",
     "test:watch": "vitest --config vitest.client.config.js"
   },
   "dependencies": {

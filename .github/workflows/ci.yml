@@ -60,6 +60,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Run server tests
+        run: npm test
+
       - name: Syntax check (dry run)
         run: node --input-type=module --check < index.js || node --check index.js
         # Catches import errors and syntax failures without starting the server
