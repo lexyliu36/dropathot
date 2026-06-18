@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { sendPush } from '../lib/webPush.js'
 import { socialLimiter } from '../middleware/rateLimit.js'
 import { supabase } from '../lib/supabase.js'
+import { getIo } from '../lib/io.js'
 
 const router = Router()
 
@@ -89,6 +90,14 @@ router.post('/:userId', socialLimiter, async (req, res) => {
   // Push notification to recipient
   const senderName = user.user_metadata?.pen_name ?? 'Someone'
   sendPush(userId, { title: `New message from ${senderName}`, body: content.trim().slice(0, 80), url: '/map' })
+
+  // Real-time socket notification — wake up recipient's Messages tab instantly
+  const io = getIo()
+  if (io) {
+    io.to(`user:${userId}`).emit('dm:new', { from: user.id })
+    // Also notify sender's other sessions so they stay in sync
+    io.to(`user:${user.id}`).emit('dm:new', { from: user.id })
+  }
 
   res.status(201).json(data)
 })

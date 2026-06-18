@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect } from 'react'
+import { useCallback, useState, useEffect, useRef } from 'react'
 import { getCached, setCached, appendCached, removeFromCache } from '../lib/thotCache'
 import { reverseGeocode } from '../lib/geocode.js'
 
@@ -965,6 +965,7 @@ function SettingsPane({ session }) {
 }
 
 
+import { getSocket } from '../lib/socket'
 const API_URL_DM = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
 function relativeTimeDM(iso) {
@@ -1022,9 +1023,17 @@ function MessagesTab({ session, onOpenDM }) {
   // Initial load
   useEffect(() => { fetchConvos(true) }, [fetchConvos])
 
-  // Re-fetch every 15s so list stays fresh after returning from a DM
+  // Socket: re-fetch immediately when server pushes dm:new
   useEffect(() => {
-    const id = setInterval(() => fetchConvos(false), 15_000)
+    const socket = getSocket()
+    const handler = () => fetchConvos(false)
+    socket.on('dm:new', handler)
+    return () => socket.off('dm:new', handler)
+  }, [fetchConvos])
+
+  // Fallback poll every 30s (catches missed events / tab re-focus)
+  useEffect(() => {
+    const id = setInterval(() => fetchConvos(false), 30_000)
     return () => clearInterval(id)
   }, [fetchConvos])
 

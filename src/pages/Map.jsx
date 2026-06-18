@@ -16,6 +16,7 @@ import ProfileSheet from '../components/ProfileSheet'
 import DMDrawer from '../components/DMDrawer'
 import AuthModal from '../components/AuthModal'
 import { getOrCreateSession, updateSession } from '../lib/identity'
+import { joinUserRoom } from '../lib/socket'
 import { explodeMarker } from '../lib/animations'
 import { supabase } from '../lib/supabase'
 
@@ -108,6 +109,16 @@ export default function Map() {
   const thots = useAppStore((s) => s.thots)
   const [visibleThots, setVisibleThots] = useState([])
   const session = useAppStore((s) => s.session)
+
+  // Join personal socket room whenever we have a logged-in token.
+  // Runs at app level (not inside MessagesTab) so dm:new events are
+  // received regardless of which panel or tab is open.
+  useEffect(() => {
+    if (session?.type === 'user' && session?.supabaseToken) {
+      joinUserRoom(session.supabaseToken)
+    }
+  }, [session?.supabaseToken])
+
   const composing = useAppStore((s) => s.composing)
   const setComposing = useAppStore((s) => s.setComposing)
   const selectedThot = useAppStore((s) => s.selectedThot)
@@ -355,8 +366,10 @@ export default function Map() {
       .addTo(map)
 
     if (youMarkerRef.current) {
-      youMarkerRef.current.root.unmount()
-      youMarkerRef.current.marker.remove()
+      const prev = youMarkerRef.current
+      youMarkerRef.current = null
+      setTimeout(() => prev.root.unmount(), 0)
+      prev.marker.remove()
     }
     youMarkerRef.current = { marker, root }
   }, [location, mapReady])

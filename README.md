@@ -113,6 +113,47 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.28` — DM textarea UX + seed-demo fix
+
+- `src/components/DMDrawer.jsx` — textarea auto-expands as you type (max 160px); Enter key now inserts a newline; send button is the only way to send
+- `server/seed-demo.js` — fixed broken file structure from prior Python replacement; `seed()` and `updateNames()` are now separate clean functions; `--update-names` flag works correctly
+
+### `v0.27` — Real-time DM notifications via Socket.io (fixed)
+
+- `src/lib/socket.js` — `_userToken` stored on `joinUserRoom`; `connect` handler re-emits `user:join` on every reconnect (network drop, server restart)
+- `src/pages/Map.jsx` — `joinUserRoom` called at app level when session token is available, not inside MessagesTab; fires whenever `session.supabaseToken` changes
+- `src/components/ToolsPanel.jsx` — removed `joinUserRoom` call (now handled by Map.jsx); kept `dm:new` socket listener
+
+### `v0.27-initial` — Real-time DM notifications via Socket.io
+
+- `server/lib/io.js` — shared Socket.io singleton (avoids circular imports between index.js and routes)
+- `server/index.js` — `setIo(io)` wires singleton; `user:join` socket event verifies auth token and adds socket to personal `user:<id>` room
+- `server/routes/messages.js` — after successful POST, emits `dm:new` to recipient and sender rooms so all sessions update instantly
+- `src/lib/socket.js` — added `joinUserRoom(token)`: emits `user:join` once after auth, connects socket if needed
+- `src/components/ToolsPanel.jsx` — calls `joinUserRoom` on mount; listens for `dm:new` to refresh convo list immediately; fallback poll reduced from 15s to 30s
+- `src/components/DMDrawer.jsx` — listens for `dm:new` and reloads messages when the event involves the active partner; fallback poll reduced from 8s to 30s
+
+### `v0.26` — Mobile UX, DM reliability, CI fixes
+
+#### Mobile UX
+- `src/index.css` — added `html { font-size: 112.5% }` on ≤640px for larger base text
+- `ThotPin.jsx` — mobile font sizes bumped (content 16px, meta 14px), line clamp 3→4
+- `ProfileSheet.jsx` — replaced fixed `text-[13px]` with `text-xs` so rem scaling applies
+- `ComposeDrawer.jsx` — hidden `<input>` bootstraps iOS keyboard on compose button tap; textarea steals focus via `useLayoutEffect`; container top-aligns on mobile to avoid keyboard overlap
+- `Map.jsx` — hidden input ref + synchronous `.focus()` in compose button click handler
+- `ThotPin.jsx` — touch guards: movement threshold (>8px) and multi-touch (`wasPinch`) prevent accidental ProfileSheet opens during map pan/pinch-zoom
+
+#### DM reliability
+- `DMDrawer.jsx` — poll merge preserves optimistic messages (`opt-*` IDs) until server confirms; no wipe on error
+- `ToolsPanel.jsx` — `fetchConvos` extracted as `useCallback`, 15s polling, keeps existing convos on any error
+
+#### CI / testing
+- `vitest.client.config.js` — separate Vitest config for client tests (jsdom + React plugin)
+- `.github/workflows/ci.yml` — added server `npm ci` + `npm test` step so server tests run in CI
+- `package.json` — root test script targets client config only
+- `src/test/dm.test.js` — pure logic tests: mergeMessages, fetchConvos error handling, 15s poll cadence
+- `src/test/dm.test.jsx` — component smoke tests: send/confirm/fail UI behaviour, convo list reliability
+
 ### `v0.25` — Legal Entity, DMCA Registration & Brand Update
 
 #### Business formation

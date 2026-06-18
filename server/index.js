@@ -17,6 +17,8 @@ import cors from 'cors'
 import helmet from 'helmet'
 import cookieParser from 'cookie-parser'
 import { latLngToH3 } from './lib/geo.js'
+import { setIo } from './lib/io.js'
+import { supabase } from './lib/supabase.js'
 import thotsRouter from './routes/thots.js'
 import authRouter from './routes/auth.js'
 import commentsRouter from './routes/comments.js'
@@ -38,6 +40,7 @@ const io = new Server(httpServer, {
   cors: { origin: FRONTEND_ORIGIN, methods: ['GET', 'POST'] },
 })
 
+setIo(io)
 app.use(helmet({ crossOriginResourcePolicy: false }))
 
 const corsOptions = { origin: FRONTEND_ORIGIN, credentials: true, optionsSuccessStatus: 204 }
@@ -78,6 +81,15 @@ io.on('connection', (socket) => {
       socket.leave(socket.data.cell)
       socket.data.cell = null
     }
+  })
+
+  // Personal room — authenticated users join user:<id> for DM push
+  socket.on('user:join', async ({ token }) => {
+    if (!token) return
+    const { data: { user }, error } = await supabase.auth.getUser(token)
+    if (error || !user) return
+    socket.join(`user:${user.id}`)
+    socket.data.userId = user.id
   })
 })
 

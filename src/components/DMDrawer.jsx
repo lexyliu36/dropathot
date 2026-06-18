@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { X, Send, Heart } from 'lucide-react'
 import { AnonAvatar } from './ThotPin'
 import useAppStore from '../stores/useAppStore'
+import { getSocket } from '../lib/socket'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
@@ -119,6 +120,14 @@ export default function DMDrawer({ partner, onClose }) {
   const [sending, setSending] = useState(false)
   const bottomRef = useRef(null)
   const inputRef = useRef(null)
+
+  // Auto-resize textarea
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 160) + 'px'
+  }, [text])
   const token = session?.supabaseToken
   const myId = session?.userId
 
@@ -154,8 +163,20 @@ export default function DMDrawer({ partner, onClose }) {
   }, [messages])
 
   // poll every 8s for new messages
+  // Socket: reload instantly when server pushes dm:new for this conversation
   useEffect(() => {
-    const id = setInterval(loadMessages, 8000)
+    const socket = getSocket()
+    const handler = ({ from }) => {
+      // Reload if the incoming event involves our partner
+      if (from === partner.userId || from === session?.userId) loadMessages()
+    }
+    socket.on('dm:new', handler)
+    return () => socket.off('dm:new', handler)
+  }, [loadMessages, partner.userId, session?.userId])
+
+  // Fallback poll every 30s (catches missed events)
+  useEffect(() => {
+    const id = setInterval(loadMessages, 30_000)
     return () => clearInterval(id)
   }, [loadMessages])
 
@@ -258,14 +279,11 @@ export default function DMDrawer({ partner, onClose }) {
           ref={inputRef}
           value={text}
           onChange={e => setText(e.target.value)}
-          onKeyDown={e => {
-            if (e.key === 'Enter') e.preventDefault()
-          }}
+          onKeyDown={e => {}}
           placeholder="Say something…"
           maxLength={1000}
-          rows={1}
           className="flex-1 bg-white/[0.05] border border-white/10 rounded-xl px-3 py-2 text-white placeholder-slate-600 resize-none outline-none focus:border-white/20 transition-colors leading-relaxed"
-          style={{ minHeight: '36px', maxHeight: '100px', overflowY: 'auto', fontSize: 16 }}
+          style={{ minHeight: '40px', maxHeight: '160px', overflowY: 'auto', fontSize: 16, height: '40px' }}
         />
         <button
           type="submit"
