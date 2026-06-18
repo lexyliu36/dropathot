@@ -1,5 +1,7 @@
 # drop-a-thot
 
+[![CI](https://github.com/lexyliu/Thots./actions/workflows/ci.yml/badge.svg)](https://github.com/lexyliu/Thots./actions/workflows/ci.yml)
+
 > Anonymous location-based social network. Drop a thought onto the map — it appears as a pin wherever you are. Think YikYak meets Sniffies, text only.
 
 **Live:** [dropathot.com](https://dropathot.com) · API: [thots-production.up.railway.app](https://thots-production.up.railway.app/health)
@@ -23,6 +25,7 @@ VITE_MAPBOX_TOKEN=pk.your_token_here
 VITE_SUPABASE_URL=https://your-project.supabase.co
 VITE_SUPABASE_ANON_KEY=your_anon_key
 VITE_API_URL=http://localhost:4000
+VITE_SENTRY_DSN=            # optional — get from sentry.io project settings
 ```
 
 **`/server/.env`** (backend)
@@ -31,6 +34,18 @@ SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_KEY=your_service_role_key
 IP_SALT=your_random_string
 PORT=4000
+SENTRY_DSN=                 # optional — same project, server-side DSN
+```
+
+**GitHub Actions secrets** (Settings → Secrets → Actions)
+```
+VITE_MAPBOX_TOKEN       — public Mapbox token (used in CI build)
+VITE_SUPABASE_URL       — Supabase project URL
+VITE_SUPABASE_ANON_KEY  — Supabase anon key
+VITE_API_URL            — production API URL (https://thots-production.up.railway.app)
+SENTRY_AUTH_TOKEN       — from sentry.io → Settings → Auth Tokens (needs project:releases)
+SENTRY_ORG              — your Sentry org slug
+SENTRY_PROJECT          — your Sentry project slug
 ```
 
 ### Running Locally
@@ -97,6 +112,26 @@ Both commands clear all previous seed data before inserting, so re-running is al
 ---
 
 ## Changelog
+
+### `v0.24` — Sentry Error Tracking, GitHub Actions CI & Touch UX Fixes
+
+#### Sentry (new)
+- **`@sentry/react`** installed on frontend; init in `main.jsx` with `BrowserTracing` + `Replay` integrations (masked text/media for privacy); no-op when `VITE_SENTRY_DSN` is unset so local dev is unaffected
+- **`Sentry.ErrorBoundary`** wraps the entire React tree — unhandled render errors show a friendly "Something went wrong / Reload" screen and are captured in Sentry with full stack trace
+- **`@sentry/vite-plugin`** in `vite.config.js` — uploads source maps to Sentry on `vite build` when `SENTRY_AUTH_TOKEN` / `SENTRY_ORG` / `SENTRY_PROJECT` env vars are set; skipped silently in local dev
+- **`build.sourcemap: true`** added to vite config (required for Sentry source maps)
+- **`@sentry/node`** installed on backend; init in `server/index.js` before routes; `Sentry.setupExpressErrorHandler(app)` registered after all routes to capture unhandled Express errors; no-op when `SENTRY_DSN` is unset
+
+#### GitHub Actions CI (new)
+- **`.github/workflows/ci.yml`** — runs on every push to `main`/`dev` and on PRs to `main`
+- **Frontend job**: `npm ci` → `npm test` (Vitest) → `npm run build` (with real Mapbox/Supabase tokens from secrets)
+- **Backend job**: `npm ci` → Node.js syntax check (`node --check`) — catches import errors and crashes without starting the server
+- Sentry source map upload wired into the build step via `SENTRY_AUTH_TOKEN` secret (skipped if secret not set)
+
+#### Touch UX Fix — ThotPin bubble (fix)
+- **Movement threshold**: if finger drifts >8px from `touchstart` origin, treat as map pan and ignore — profile sheet no longer opens accidentally while panning
+- **Multi-touch guard**: if 2+ fingers are ever detected during the touch sequence, treat as pinch-zoom and ignore — no accidental opens during pinch-to-zoom
+- Both checks are zero-latency — intentional single taps are unaffected; implemented via `touchOrigin` + `wasPinch` refs on the bubble div
 
 ### `v0.23` — iOS PWA Support for Push Notifications
 

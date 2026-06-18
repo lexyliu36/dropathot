@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Heart } from 'lucide-react'
 import useAppStore from '../stores/useAppStore'
 
@@ -54,6 +54,12 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
   const isNew = thot._isNew || (Date.now() - new Date(thot.created_at).getTime()) < 15_000
   const mob = typeof window !== 'undefined' && window.innerWidth <= 640
 
+  // Accidental-tap guards:
+  //   touchOrigin — records where the finger landed so we can measure drift
+  //   wasPinch    — set true if >1 finger was ever on screen during this touch sequence
+  const touchOrigin = useRef(null)
+  const wasPinch = useRef(false)
+
   return (
     <div
       style={{
@@ -69,7 +75,24 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
       {/* Bubble — floats above the avatar, visibility:hidden when dismissed to preserve layout */}
       <div
         onMouseEnter={() => !dismissed && setHovered(true)}
-        onTouchEnd={(e) => { if (!dismissed) { e.preventDefault(); onClick(thot) } }}
+        onTouchStart={(e) => {
+          wasPinch.current = e.touches.length > 1
+          touchOrigin.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+        }}
+        onTouchMove={(e) => {
+          if (e.touches.length > 1) wasPinch.current = true
+        }}
+        onTouchEnd={(e) => {
+          if (dismissed) return
+          if (wasPinch.current) return // pinch-zoom — ignore
+          const o = touchOrigin.current
+          if (o) {
+            const t = e.changedTouches[0]
+            if (Math.hypot(t.clientX - o.x, t.clientY - o.y) > 8) return // pan — ignore
+          }
+          e.preventDefault()
+          onClick(thot)
+        }}
         onMouseLeave={() => setHovered(false)}
         onClick={() => !dismissed && onClick(thot)}
         className={`thot-bubble${isNew ? ' thot-bubble-pop' : ''}`}

@@ -1,4 +1,15 @@
 import 'dotenv/config'
+import * as Sentry from '@sentry/node'
+
+// Init Sentry — no-op when SENTRY_DSN is not set
+if (process.env.SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.SENTRY_DSN,
+    environment: process.env.NODE_ENV || 'production',
+    tracesSampleRate: 0.2,
+  })
+}
+
 import { createServer } from 'http'
 import { Server } from 'socket.io'
 import express from 'express'
@@ -69,6 +80,12 @@ io.on('connection', (socket) => {
     }
   })
 })
+
+// Sentry error handler — must be registered after all routes
+if (process.env.SENTRY_DSN) {
+  Sentry.setupExpressErrorHandler(app)
+}
+
 
 const PORT = process.env.PORT || 4000
 startDeletionCron()
