@@ -60,10 +60,10 @@ function ThotRow({ thot, rank, session, onHype, onFlyTo, onClose, onSelectThot, 
       <div className="flex-1 min-w-0">
         <button
           onClick={() => { onFlyTo?.(thot); onClose?.() }}
-          className="w-full text-left hover:opacity-80 transition-opacity cursor-pointer"
+          className="w-full text-left hover:opacity-80 transition-opacity cursor-pointer text-white text-xs sm:text-sm leading-snug line-clamp-2"
           style={{ background: 'none', border: 'none', padding: 0 }}
         >
-          <p className="text-white text-xs sm:text-sm leading-snug line-clamp-2">{thot.content}</p>
+          {thot.content}
         </button>
         <div className="flex items-center gap-1.5 mt-0.5 min-w-0">
           {thot.pen_name ? (
