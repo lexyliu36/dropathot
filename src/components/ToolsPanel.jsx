@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useState, useEffect } from 'react'
 import { getCached, setCached, appendCached, removeFromCache } from '../lib/thotCache'
 import { reverseGeocode } from '../lib/geocode.js'
 
@@ -1000,17 +1000,33 @@ function MessagesTab({ session, onOpenDM }) {
     return () => clearTimeout(t)
   }, [searchQuery, token])
 
-  useEffect(() => {
-    if (!token) { setLoading(false); return }
-    fetch(`${API_URL_DM}/messages`, {
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(r => r.ok ? r.json() : [])
-      .then(data => setConvos(data))
-      .catch(() => setConvos([]))
-      .finally(() => setLoading(false))
+  const fetchConvos = useCallback(async (isInitial = false) => {
+    if (!token) { if (isInitial) setLoading(false); return }
+    try {
+      const r = await fetch(`${API_URL_DM}/messages`, {
+        credentials: 'include',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (r.ok) {
+        const data = await r.json()
+        setConvos(data)
+      }
+      // on error: keep existing convos, don't wipe them
+    } catch {
+      // network error — keep existing convos
+    } finally {
+      if (isInitial) setLoading(false)
+    }
   }, [token])
+
+  // Initial load
+  useEffect(() => { fetchConvos(true) }, [fetchConvos])
+
+  // Re-fetch every 15s so list stays fresh after returning from a DM
+  useEffect(() => {
+    const id = setInterval(() => fetchConvos(false), 15_000)
+    return () => clearInterval(id)
+  }, [fetchConvos])
 
   if (!session || session.type !== 'user') {
     return <p className="text-slate-600 text-xs text-center mt-8">Sign in to view messages.</p>

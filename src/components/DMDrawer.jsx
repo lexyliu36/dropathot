@@ -131,7 +131,12 @@ export default function DMDrawer({ partner, onClose }) {
       })
       if (res.ok) {
         const data = await res.json()
-        setMessages(data)
+        setMessages(prev => {
+          // Keep any optimistic messages still in flight (not yet confirmed by server)
+          const serverIds = new Set(data.map(m => m.id))
+          const pending = prev.filter(m => String(m.id).startsWith('opt-') && !serverIds.has(m.id))
+          return [...data, ...pending]
+        })
       }
     } catch (e) {
       console.error('DM load failed', e)
