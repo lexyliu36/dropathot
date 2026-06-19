@@ -141,8 +141,8 @@ Full schema + RLS policies in `supabase/migrations/001_init.sql`.
 
 ## Key Design Decisions
 
-- **Thots expire after 24 hours** on the map. Still visible in profile history.
-- **One active thot per user** — posting again hides the previous pin.
+- **Thots expire after up to 72 hours** — default is 3 days; users can shorten via a duration dropdown in ComposeDrawer (options below 72h). Still visible in profile history after expiry.
+- **One active thot per 200m radius per user** — a user can have multiple active thots on the map as long as they are more than 200m apart. Posting within 200m of an existing thot by the same user hides that prior pin.
 - **Registered account required to post** — anonymous browsing is allowed, but `POST /thots` requires a Supabase-authenticated user. There is no anonymous posting flow.
 - **US-only posting** — `POST /thots` rejects coordinates outside CONUS, Alaska, Hawaii, Puerto Rico, and USVI with `403 OUTSIDE_US`. Enforced in `server/lib/geo.js` (`isInUsa`).
 - **Anonymous ≠ untraceable** — session IDs and hashed IPs logged server-side, never exposed to users. Required for legal cooperation.
