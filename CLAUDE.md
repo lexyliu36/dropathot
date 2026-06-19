@@ -96,7 +96,7 @@ create extension if not exists postgis;
 create table thots (
   id          uuid primary key default gen_random_uuid(),
   content     text not null check (char_length(content) <= 280),
-  pen_name    text,
+  pen_name    text not null,  -- required; every thot must have a pen name
   session_id  uuid not null,
   ip_hash     text not null,
   location    geography(Point, 4326) not null,
@@ -135,7 +135,7 @@ Full schema + RLS policies in `supabase/migrations/001_init.sql`.
 - **One active thot per user** — posting again hides the previous pin.
 - **Anonymous ≠ untraceable** — session IDs and hashed IPs logged server-side, never exposed to users. Required for legal cooperation.
 - **Section 230 protection** — moderation blocks/flags, never edits content.
-- **Pen names are optional** — only signed-up users have them. Anonymous shows as "anon" with SVG avatar.
+- **Pen names are required on every thot** — the `pen_name` column is `NOT NULL`. The server enforces this: `POST /thots` returns 403 `NO_PEN_NAME` if the authenticated user has no pen name set. Seed scripts must never use `pen_name: null`. Anonymous browsing is allowed, but posting requires a registered pen name.
 - **No photos** — text only. Avoids CSAM risk.
 - **PWA required for iOS push** — Web Push on iOS needs Safari + Add to Home Screen (iOS 16.4+).
 
@@ -176,3 +176,17 @@ When multiple Claude agents work on this repo in separate sessions, they have no
 **Rule:** At the end of every session where code or docs are modified, add a `### vX.XX — ...` entry to the `## Changelog` section in `README.md` describing what changed. Future agents (and Lexy) will read the changelog to understand prior work before making new changes.
 
 This applies to any change — code, legal pages, config, docs. If you touched it, log it.
+
+### Always check the latest migration number before creating a new one
+**Rule:** Before writing any migration file, run:
+```bash
+ls supabase/migrations/ | sort | tail -3
+```
+Then name the new file `NNN_description.sql` where `NNN` is one higher than the current max. Never assume you know the current max — sessions have no shared memory and another agent or developer may have added migrations since you last looked.
+
+**Why:** Two agents once both created `017_*.sql` because neither checked. The duplicate caused confusion about which SQL had been applied and required a manual rename. The correct file is now `020_fix_get_thots_nearby_param_conflict.sql`.
+
+### `get_thots_nearby` — LANGUAGE SQL parameter/column name conflict
+**Rule:** When using `create function … returns table(lat float8, lng float8)` with `language sql`, never name the function parameters `lat` or `lng`. Use `p_lat`/`p_lng` (or any name that doesn't match a return column).
+
+**Why:** In `LANGUAGE SQL` functions, PostgreSQL resolves bare identifiers by first matching return column names before parameters. If a parameter and a return column share a name (e.g. `lat`), then `st_makepoint(lng, lat)` inside the function body resolves to the *row's own column values*, not the passed-in coordinates. The `st_dwithin` filter becomes a no-op (every row has distance 0 from itself), so the function returns the global top-N by recency instead of thots near the requested location. This was the root cause of the geo filter being broken from migration 015 through 019. Fixed in migration 020.

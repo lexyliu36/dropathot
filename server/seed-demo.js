@@ -7,7 +7,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { createHash } from 'crypto'
-import { ALL_SEED_IDS } from './lib/seed-ids.js'
+import { CITY_SEED_IDS } from "./lib/seed-ids.js"
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -16,7 +16,7 @@ const supabase = createClient(
 
 const IP_SALT    = process.env.IP_SALT ?? 'dev'
 const DEMO_PREFIX = 'b0000000-0000-0000-0000-'
-const SEVEN_DAYS  = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+const FAR_FUTURE = new Date(Date.now() + 100 * 365.25 * 24 * 3600 * 1000).toISOString()
 
 const THOTS = [
   // ── Manhattan: Upper West Side ──────────────────────────────────────────────────
@@ -160,8 +160,8 @@ const AREAS = [
 
 
 async function seed() {
-  console.log('Clearing all seed data…')
-  const { error: delErr } = await supabase.from('thots').delete().in('session_id', ALL_SEED_IDS)
+  console.log('Clearing NYC seed data…')
+  const { error: delErr } = await supabase.from("thots").delete().in("session_id", CITY_SEED_IDS.nyc)
   if (delErr) console.warn('Warning — could not clear seed data:', delErr.message)
   else console.log('✓ Cleared\n')
 
@@ -180,7 +180,7 @@ async function seed() {
       ip_hash,
       location:   `SRID=4326;POINT(${t.lng} ${t.lat})`,
       created_at: createdAt.toISOString(),
-      expires_at: SEVEN_DAYS,
+      expires_at: FAR_FUTURE,
       is_seed: true,
       hidden: true,
     }

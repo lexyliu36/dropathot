@@ -123,8 +123,8 @@ router.get('/', async (req, res) => {
   }
 
   const { data, error } = await supabase.rpc('get_thots_nearby', {
-    lat,
-    lng,
+    p_lat: lat,
+    p_lng: lng,
     radius_m: radius,
     max_results: limit,
   })
@@ -133,8 +133,8 @@ router.get('/', async (req, res) => {
     // If the function doesn't support max_results yet (old schema), retry without it
     if (error.message?.includes('max_results')) {
       const { data: fallback, error: fallbackError } = await supabase.rpc('get_thots_nearby', {
-        lat,
-        lng,
+        p_lat: lat,
+        p_lng: lng,
         radius_m: radius,
       })
       if (fallbackError) {

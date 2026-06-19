@@ -27,12 +27,25 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 // keeps up to maxPerCell thots per cell (best hype wins).
 // Grid cells are geographic so Brooklyn cells are always separate from
 // Manhattan cells regardless of zoom level.
-function dedupeThots(thots, map, maxPerCell = 2, cellSizePx = 150) {
+function dedupeThots(thots, map, maxPerCell = 2, cellSizePx = 150, session = null) {
   if (!map) return thots
   const canvas = map.getCanvas()
   const w = canvas.width
   const h = canvas.height
-  const sorted = [...thots].sort((a, b) => (b.hype_count ?? 0) - (a.hype_count ?? 0))
+  // Current user's own thot always sorts first so it can never be bumped from a cell
+  // by seed data or other thots with the same hype count.
+  const sorted = [...thots].sort((a, b) => {
+    const aIsYou = session && (a.session_id === session.id || a.user_id === session.userId)
+    const bIsYou = session && (b.session_id === session.id || b.user_id === session.userId)
+    if (aIsYou && !bIsYou) return -1
+    if (bIsYou && !aIsYou) return 1
+    // Non-seed thots beat seed thots at equal hype (real data wins over demo pins)
+    const aIsSeed = !!a.is_seed
+    const bIsSeed = !!b.is_seed
+    if (!aIsSeed && bIsSeed) return -1
+    if (aIsSeed && !bIsSeed) return 1
+    return (b.hype_count ?? 0) - (a.hype_count ?? 0)
+  })
   const cells = {}
   const kept = []
   for (const thot of sorted) {
@@ -312,7 +325,7 @@ export default function Map() {
       clearTimeout(moveTimer)
       moveTimer = setTimeout(() => {
         applyZoomSettings(map)
-        setVisibleThots(dedupeThots(useAppStore.getState().thots, map))
+        setVisibleThots(dedupeThots(useAppStore.getState().thots, map, 2, 150, useAppStore.getState().session))
       }, 400)
     })
 
@@ -425,7 +438,7 @@ export default function Map() {
   // Recompute visible (deduped) thots whenever raw thots change
   useEffect(() => {
     const map = mapInstanceRef.current
-    setVisibleThots(dedupeThots(thots, map))
+    setVisibleThots(dedupeThots(thots, map, 2, 150, session))
   }, [thots])
 
   // Sync thot markers

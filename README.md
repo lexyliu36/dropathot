@@ -113,6 +113,38 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ## Changelog
 
+### `v0.34` — Fix migration numbering collision + CLAUDE.md guardrails
+
+- Renamed `017_fix_get_thots_nearby_param_conflict.sql` → `020_fix_get_thots_nearby_param_conflict.sql` (the file was created without checking that 017, 018, 019 already existed).
+- Added two new rules to `CLAUDE.md` Gotchas section: (1) always run `ls supabase/migrations/ | sort | tail -3` before naming a new migration; (2) never use parameter names that match `RETURNS TABLE` column names in `LANGUAGE SQL` functions (the root cause of the v0.33 geo filter bug).
+
+
+### `v0.33` — CRITICAL: fix get_thots_nearby geo filter (was broken since migration 015)
+
+- **Root cause**: migration 015 changed `get_thots_nearby` from `returns setof thots` to `returns table(... lat float8, lng float8 ...)`. The function still had parameters also named `lat`/`lng`. In PostgreSQL `LANGUAGE SQL` with `RETURNS TABLE`, this name conflict causes `st_makepoint(lng, lat)` to resolve to each **row's own column values** instead of the passed-in parameters — making distance always 0 for every row, so the geo filter did nothing.
+- **Effect**: the function was returning the 30 most recent thots globally instead of thots near the requested center. Seed data (all posted at once with recent `created_at`) filled all 30 slots, pushing real thots like the Hicksville one off the list.
+- **Fix**: migration 020 renames parameters to `p_lat`/`p_lng` and updates the server RPC call to match. Also adds `is_seed` to return set and `is_seed asc` to ORDER BY so real thots sort before seed data at equal distance.
+
+### `v0.32` — Real thots always beat seed data in dedup + SQL ordering
+
+- `dedupeThots` now sorts the current user's own thot to the front (never bumped from a grid cell by seed data or equal-hype thots).
+- `dedupeThots` also sorts non-seed thots before seed thots within the same hype bucket, so real user data always wins a cell slot over demo pins.
+- Migration `020`: `get_thots_nearby` adds `is_seed asc` to ORDER BY so the SQL itself returns real thots before seed thots at equal distance, protecting real data from being cut off by the LIMIT when seed thots flood an area.
+- `is_seed` column now included in `get_thots_nearby` return set so the frontend's `dedupeThots` can read it.
+
+### `v0.31` — Fix seed script cross-contamination + map flyTo re-fetch + YouProfile on own-thot click
+
+- `seed-demo.js` was using `ALL_SEED_IDS` to clear on startup, wiping WeHo/SF/Pittsburgh data whenever NYC was re-seeded. Fixed: each seed script now only clears its own city's session IDs.
+- Removed stale `ALL_SEED_IDS` import from `seed-weho.js` (unused after fix).
+- `ToolsPanel onFlyTo`: now immediately calls `setMapCenter` so `useThots` re-fetches for the new location without waiting for the `moveend` + 400ms delay — thot pin appears right away.
+- `ToolsPanel onFlyTo` for own thots: also opens the YouProfile sheet and highlights the specific thot, so clicking "Your drops" shows the thot content rather than just panning the camera.
+- Same `setMapCenter` fix applied to TopThots `onFlyTo`.
+
+### `v0.30` — Fix seed expiry: use FAR_FUTURE (100 years) instead of 7 days
+
+- All city seed scripts (`seed-demo.js`, `seed-weho.js`, `seed-sf.js`, `seed-pittsburgh.js`) now use `FAR_FUTURE = now + 100 years` for `expires_at`, matching `seed.js`
+- NYC seed data was deleted by the deletion cron after 7 days — re-run `npm run seed:demo` to restore it
+
 ### `v0.29` — US-only posting restriction + UX fixes
 
 - `server/lib/geo.js` — added `isInUsa(lat, lng)` with bounding boxes for CONUS, Alaska, Hawaii, Puerto Rico, USVI
@@ -124,10 +156,30 @@ Both commands clear all previous seed data before inserting, so re-running is al
 - `src/pages/Map.jsx` — deferred `root.unmount()` to avoid React synchronous-unmount warning
 - `server/package.json` — upgraded `socket.io` to `^4.8.3` to match client; ran `npm audit fix` (0 vulnerabilities)
 
+### `v0.30` — Fix seed expiry: use FAR_FUTURE (100 years) instead of 7 days
+
+- All city seed scripts (`seed-demo.js`, `seed-weho.js`, `seed-sf.js`, `seed-pittsburgh.js`) now use `FAR_FUTURE = now + 100 years` for `expires_at`, matching `seed.js`
+- NYC seed data was deleted by the deletion cron after 7 days — re-run `npm run seed:demo` to restore it
+
+### `v0.29` — Enforce pen_name NOT NULL across all seed files + CLAUDE.md
+
+- `CLAUDE.md` — updated key design decision: pen_name is required on every thot; server already returns 403 `NO_PEN_NAME` if unset; seed scripts must never use `pen_name: null`
+- `server/seed.js`, `seed-demo.js`, `seed-weho.js`, `seed-sf.js`, `seed-pittsburgh.js` — replaced all `pen_name: null` entries with real pen names (was 0/17/16/18 nulls respectively in new city seeds)
+
 ### `v0.28` — DM textarea UX + seed-demo fix
 
 - `src/components/DMDrawer.jsx` — textarea auto-expands as you type (max 160px); Enter key now inserts a newline; send button is the only way to send
 - `server/seed-demo.js` — fixed broken file structure from prior Python replacement; `seed()` and `updateNames()` are now separate clean functions; `--update-names` flag works correctly
+
+### `v0.30` — Fix seed expiry: use FAR_FUTURE (100 years) instead of 7 days
+
+- All city seed scripts (`seed-demo.js`, `seed-weho.js`, `seed-sf.js`, `seed-pittsburgh.js`) now use `FAR_FUTURE = now + 100 years` for `expires_at`, matching `seed.js`
+- NYC seed data was deleted by the deletion cron after 7 days — re-run `npm run seed:demo` to restore it
+
+### `v0.29` — Enforce pen_name NOT NULL across all seed files + CLAUDE.md
+
+- `CLAUDE.md` — updated key design decision: pen_name is required on every thot; server already returns 403 `NO_PEN_NAME` if unset; seed scripts must never use `pen_name: null`
+- `server/seed.js`, `seed-demo.js`, `seed-weho.js`, `seed-sf.js`, `seed-pittsburgh.js` — replaced all `pen_name: null` entries with real pen names (was 0/17/16/18 nulls respectively in new city seeds)
 
 ### `v0.28` — Multi-city seed data + per-city admin toggles
 

@@ -21,13 +21,13 @@ const centerLat = parseFloat(args.lat ?? 37.7749)
 const centerLng = parseFloat(args.lng ?? -122.4194)
 
 const THOTS = [
-  { content: 'anyone else notice how the sky looks different at 3am',           pen_name: null },
+  { content: 'anyone else notice how the sky looks different at 3am',           pen_name: 'SkyWatcher3am' },
   { content: 'just dropped my phone in a puddle and it survived. we are SO back', pen_name: 'VoidDrifter' },
   { content: 'the coffee shop on 5th st has free wifi that actually works',      pen_name: 'NeonEcho' },
-  { content: 'unpopular opinion: silence is underrated',                         pen_name: null },
+  { content: 'unpopular opinion: silence is underrated',                         pen_name: 'SilenceDefender' },
   { content: "if you're reading this you're within a mile of me. spooky",        pen_name: 'LiminalTrace' },
   { content: 'this city never actually sleeps it just gets quieter and weirder', pen_name: 'GlitchWalker' },
-  { content: 'found a twenty on the sidewalk. today is going to be different',   pen_name: null },
+  { content: 'found a twenty on the sidewalk. today is going to be different',   pen_name: 'TwentyDollarDay' },
   { content: 'the energy out here is something else tonight',                    pen_name: 'PhaseShift' },
 ]
 
