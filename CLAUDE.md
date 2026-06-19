@@ -74,6 +74,11 @@ IP_SALT=
 PORT=4000
 SENTRY_DSN=               # optional
 FRONTEND_ORIGIN=          # comma-separated allowed origins
+RESEND_API_KEY=           # email sending via Resend
+EMAIL_FROM=               # sender address for transactional email
+SITE_URL=                 # production URL (dropathot.com) — used in email links
+VAPID_PUBLIC_KEY=         # web push VAPID key pair
+VAPID_PRIVATE_KEY=
 ```
 
 ---
@@ -152,6 +157,10 @@ Full schema + RLS policies in `supabase/migrations/001_init.sql`.
 - **PWA required for iOS push** — Web Push on iOS needs Safari + Add to Home Screen (iOS 16.4+).
 - **Legal entity** — Dropathot LLC (Delaware). DMCA designated agent registered with U.S. Copyright Office (provides Section 512 safe harbor).
 - **ip_hash and session_id are never returned to clients** — stripped from all public API responses and Socket.io broadcasts via explicit safe column lists.
+- **Server-side IP geolocation check** — `POST /thots` verifies claimed coordinates against IP geolocation via `ipwho.is`; posts more than 500km from the IP's location are rejected. Fails open if the lookup times out. Skipped for local/private IPs in dev.
+- **Location Randomizer** — ComposeDrawer lets users add 0–250m noise to their posted coordinates before the request hits the server. Stored coordinates are therefore not necessarily the user's exact location.
+- **Two distinct hidden states** — `hidden=true` without `user_deleted` means the thot was auto-hidden by the 200m proximity rule (still appears in profile history, can be restored by the server). `user_deleted=true` means the user explicitly deleted it — hidden everywhere and never automatically restored.
+- **`is_seed` flag** — thots have an `is_seed` boolean. Dedup logic and SQL ordering always sort real thots before seed data at equal distance/hype, so seed pins never crowd out real posts from the LIMIT.
 
 ---
 
@@ -209,6 +218,9 @@ Then name the new file `NNN_description.sql` where `NNN` is one higher than the 
 **Rule:** When using `create function … returns table(lat float8, lng float8)` with `language sql`, never name the function parameters `lat` or `lng`. Use `p_lat`/`p_lng` (or any name that doesn't match a return column).
 
 **Why:** In `LANGUAGE SQL` functions, PostgreSQL resolves bare identifiers by first matching return column names before parameters. If a parameter and a return column share a name (e.g. `lat`), then `st_makepoint(lng, lat)` inside the function body resolves to the *row's own column values*, not the passed-in coordinates. The `st_dwithin` filter becomes a no-op (every row has distance 0 from itself), so the function returns the global top-N by recency instead of thots near the requested location. This was the root cause of the geo filter being broken from migration 015 through 019. Fixed in migration 020.
+
+### Proximity enforcement on thot restore
+When a user deletes their active thot, the server attempts to restore their most recently auto-hidden prior thot. Before doing so it calls the `count_nearby_session_thots` RPC to check for other active thots by the same user within 200m. If one exists, the restore is skipped — the 200m radius rule must never be broken even during restore.
 
 ### City seed scripts — each owns only its own session IDs
 `server/lib/seed-ids.js` exports per-city session ID prefix ranges (`a/` NYC, `c/` WeHo, `d/` SF, `e/` Pittsburgh). Each seed script uses its own city's IDs to clear on startup. Never import `ALL_SEED_IDS` to clear everything — it will wipe other cities' data.
