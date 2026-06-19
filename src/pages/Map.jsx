@@ -15,7 +15,7 @@ import TopThots from '../components/TopThots'
 import ProfileSheet from '../components/ProfileSheet'
 import DMDrawer from '../components/DMDrawer'
 import AuthModal from '../components/AuthModal'
-import { getOrCreateSession, updateSession } from '../lib/identity'
+import { getOrCreateSession, updateSession, clearSession } from '../lib/identity'
 import { joinUserRoom } from '../lib/socket'
 import { explodeMarker } from '../lib/animations'
 import { supabase } from '../lib/supabase'
@@ -193,7 +193,15 @@ export default function Map() {
         }
         const headers = { Authorization: `Bearer ${token}` }
         fetch(`${API_URL}/auth/profile`, { credentials: 'include', headers })
-          .then(r => r.ok ? r.json() : null)
+          .then(r => {
+            if (r.status === 401) {
+              // Both refresh paths failed — session is fully expired, force re-login
+              clearSession()
+              setSession(getOrCreateSession())
+              return null
+            }
+            return r.ok ? r.json() : null
+          })
           .then(d => {
             if (d?.pen_name) {
               const updates = { penName: d.pen_name }
@@ -220,14 +228,38 @@ export default function Map() {
           }
         })
 
-        // When tab becomes visible again (e.g. laptop opened), force-refresh the token
-        // so a stale JWT doesn't silently fail on the next post attempt
+        // When tab becomes visible again (e.g. phone unlocked), force-refresh the token
+        // so a stale JWT doesn't silently fail on the next post attempt.
+        // If the SDK has no session (refresh token expired), fall back to the server
+        // refresh endpoint; if that also fails, clear the session so the UI reflects reality.
         const onVisible = async () => {
           if (document.visibilityState !== 'visible') return
           const { data } = await supabase.auth.getSession()
           if (data?.session) {
             updateSession({ supabaseToken: data.session.access_token, supabaseRefreshToken: data.session.refresh_token })
             useAppStore.getState().setSession({ ...useAppStore.getState().session, supabaseToken: data.session.access_token })
+          } else {
+            // SDK has no valid session — try server-side refresh as last resort
+            const cur = useAppStore.getState().session
+            const rToken = cur?.supabaseRefreshToken
+            if (rToken) {
+              try {
+                const r = await fetch(`${API_URL}/auth/refresh`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ refresh_token: rToken }),
+                })
+                if (r.ok) {
+                  const d = await r.json()
+                  updateSession({ supabaseToken: d.access_token, supabaseRefreshToken: d.refresh_token })
+                  useAppStore.getState().setSession({ ...cur, supabaseToken: d.access_token, supabaseRefreshToken: d.refresh_token })
+                } else {
+                  // Session truly expired — clear it so the user sees the logged-out state
+                  clearSession()
+                  useAppStore.getState().setSession(getOrCreateSession())
+                }
+              } catch {}
+            }
           }
         }
         document.addEventListener('visibilitychange', onVisible)
@@ -605,6 +637,12 @@ export default function Map() {
     })
     if (!res.ok) {
       const data = await res.json().catch(() => ({}))
+      if (res.status === 401 && data.code === 'AUTH_REQUIRED') {
+        // Token expired mid-session — clear stale session and prompt re-login
+        clearSession()
+        setSession(getOrCreateSession())
+        setAuthModal('login')
+      }
       const err = new Error(data.error || `Server error ${res.status}`)
       err.code = data.code ?? null
       throw err
