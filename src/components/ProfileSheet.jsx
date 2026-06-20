@@ -39,6 +39,8 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
   const commentCount = thot.comment_count ?? 0
   const isOwn = thot.session_id === session?.id || thot.user_id === session?.id
   const isVisible = useAppStore((s) => s.thots.some(t => t.id === thot.id))
+  // isOnMap: thot is still live somewhere on the map (not expired, not hidden by mod/proximity)
+  const isOnMap = !thot.hidden && !thot.user_deleted && (!thot.expires_at || new Date(thot.expires_at) > new Date())
   const [locationLabel, setLocationLabel] = useState(null)
   useEffect(() => {
     if (thot.lat != null && thot.lng != null) {
@@ -110,7 +112,7 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
   return (
     <>
       <div
-        className={`py-3 px-2 rounded-xl transition-all relative ${!isVisible ? 'opacity-50' : ''}`}
+        className={`py-3 px-2 rounded-xl transition-all relative ${!isOnMap ? 'opacity-50' : ''}`}
         style={highlighted ? {
           background: `${accentColor}0d`,
           border: `1px solid ${accentColor}28`,
@@ -121,8 +123,8 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
         {/* Header: avatar + name + timestamp — click to fly to pin when live */}
         <div
           className="flex items-start gap-2.5"
-          onClick={() => isVisible && onFlyTo?.(thot)}
-          style={isVisible && onFlyTo ? { cursor: 'pointer' } : {}}
+          onClick={() => isOnMap && onFlyTo?.(thot)}
+          style={isOnMap && onFlyTo ? { cursor: 'pointer' } : {}}
         >
           <div className="flex-shrink-0 mt-0.5">
             <AnonAvatar size={30} color={accentColor} />
