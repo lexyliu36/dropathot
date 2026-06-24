@@ -327,7 +327,8 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   const penName = isYou
     ? (session?.penName ?? thot?.pen_name ?? null)
     : (thot?.pen_name ?? null)
-  const accentColor = isYou ? '#e11d48' : thot?.pen_name ? '#7c3aed' : '#64748b'
+  const PIN_COLORS = { news: '#16a34a', event: '#d97706' }
+  const accentColor = isYou ? '#e11d48' : PIN_COLORS[thot?.pin_type] ?? (thot?.pen_name ? '#7c3aed' : '#64748b')
   const isBlocked = blockedSessions.has(sessionId)
   const [confirmBlock, setConfirmBlock] = useState(false)
 
@@ -340,7 +341,37 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
 
   const PAGE = 20
 
+  // For auto-pins (news, events), use pen_name as the outlet identifier for grouping + caching
+  const outletKey = thot?.pin_type ? `outlet:${thot.pin_type}:${thot.pen_name}` : null
+
   useEffect(() => {
+    // Auto-pin outlet feed (e.g. all NPR News thots)
+    if (outletKey) {
+      const cached = getCached(outletKey)
+      if (cached) {
+        setHistory(cached.thots.filter(t => !t.user_deleted))
+        setTotal(cached.total)
+        setOffset(cached.thots.length)
+        setLoading(false)
+        return
+      }
+      setLoading(true)
+      setOffset(0)
+      fetch(`${API_URL}/thots?pen_name=${encodeURIComponent(thot.pen_name)}&pin_type=${encodeURIComponent(thot.pin_type)}&limit=${PAGE}&offset=0`, {
+        credentials: 'include',
+      })
+        .then(r => r.ok ? r.json() : { thots: [], total: 0 })
+        .then(({ thots, total }) => {
+          setCached(outletKey, thots, total ?? thots.length)
+          setHistory(thots.filter(t => !t.user_deleted))
+          setTotal(total ?? thots.length)
+          setOffset(thots.length)
+        })
+        .catch(() => setHistory(thot ? [thot] : []))
+        .finally(() => setLoading(false))
+      return
+    }
+
     if (!sessionId) {
       // No lookup key available (seed data, or anon user after session_id was stripped).
       // Fall back to showing at least the thot that was clicked.
@@ -373,20 +404,22 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
       })
       .catch(() => setHistory([]))
       .finally(() => setLoading(false))
-  }, [sessionId])
+  }, [outletKey, sessionId])
 
   async function loadMore() {
-    if (loadingMore || !sessionId) return
+    if (loadingMore || (!sessionId && !outletKey)) return
     setLoadingMore(true)
     try {
       const _tok2 = useAppStore.getState().session?.supabaseToken
-      const _histParam2 = isYou ? `session_id=${sessionId}` : `user_id=${sessionId}`
+      const _histParam2 = outletKey
+        ? `pen_name=${encodeURIComponent(thot.pen_name)}&pin_type=${encodeURIComponent(thot.pin_type)}`
+        : isYou ? `session_id=${sessionId}` : `user_id=${sessionId}`
       const r = await fetch(`${API_URL}/thots?${_histParam2}&limit=${PAGE}&offset=${offset}`, {
         credentials: 'include',
         headers: _tok2 ? { Authorization: `Bearer ${_tok2}` } : {},
       })
       const { thots, total: t } = r.ok ? await r.json() : { thots: [], total }
-      appendCached(sessionId, thots, t ?? total)
+      appendCached(outletKey ?? sessionId, thots, t ?? total)
       setHistory(prev => {
         const ids = new Set(prev.map(x => x.id))
         return [...prev, ...thots.filter(x => !x.user_deleted && !ids.has(x.id))]

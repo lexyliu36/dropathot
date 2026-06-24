@@ -30,7 +30,7 @@ const FEEDS = [
 ]
 
 // ── Minimal RSS XML parser (no dependencies) ──────────────────────────────────
-function parseRSS(xml) {
+export function parseRSS(xml) {
   const items = []
   const itemRe = /<item[^>]*>([\s\S]*?)<\/item>/gi
   let m
@@ -125,7 +125,7 @@ async function autoPinNearby(lat, lng) {
 }
 
 // ── Deterministic session_id from article URL ─────────────────────────────────
-function sessionIdFromUrl(url) {
+export function sessionIdFromUrl(url) {
   const hex = createHash('sha256').update(url).digest('hex')
   // Format as UUID v4-ish: 8-4-4-4-12
   return `${hex.slice(0,8)}-${hex.slice(8,12)}-4${hex.slice(13,16)}-${hex.slice(16,20)}-${hex.slice(20,32)}`
