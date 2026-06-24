@@ -184,8 +184,6 @@ async function processFeed(outlet, feedUrl, apiKey, io) {
           session_id: sessionIdFromUrl(item.link),
           ip_hash: createHash('sha256').update(`news-bot-${outlet}`).digest('hex'),
           location: `SRID=4326;POINT(${coords.lng} ${coords.lat})`,
-          lat: coords.lat,
-          lng: coords.lng,
           expires_at: expiresAt,
           is_seed: false,
           pin_type: 'news',
