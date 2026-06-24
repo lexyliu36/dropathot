@@ -121,6 +121,14 @@ CI enforces this — the `docs-sync` job will fail the build if the two versions
 
 ## Changelog
 
+### `v0.42` — Automated pin system (news, events, extensible)
+
+- `supabase/migrations/022_news_thots.sql`: added `pin_type text` (e.g. `'news'`, `'event'`) and `source_url text` to `thots`; indexed `source_url` for fast dedup lookups.
+- `server/jobs/newsJob.js`: new cron job (every 30 min) pulling RSS from NPR, ABC, CBS, USA Today, NBC, and Fox News; uses OpenAI gpt-4o-mini to extract a US incident location; geocodes via Nominatim; inserts with `pin_type='news'`; deduplicates by `source_url`; broadcasts via Socket.io.
+- `server/index.js`: starts `newsJob` alongside digest and deletion crons.
+- `server/routes/thots.js`: added `pin_type, source_url` to all safe column selects and broadcasts.
+- `src/components/ThotPin.jsx`: automated pins render with a type-specific color (`PIN_COLORS` map — green for news, amber for events); a dynamic badge shows the `pin_type` label; a "Read full story ↗" link opens `source_url` in a new tab.
+
 ### `v0.41` — Revert radius/randomizer to 150m
 
 - `Map.jsx`: dashed radius circle reverted to 150m.
