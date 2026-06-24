@@ -121,6 +121,10 @@ CI enforces this — the `docs-sync` job will fail the build if the two versions
 
 ## Changelog
 
+### `v0.43` — Fix news pin color + cross-outlet ProfileSheet contamination
+
+- `src/components/ProfileSheet.jsx`: added `PIN_COLORS` map so news/event pins render green/amber (was falling through to purple). Fixed `getCached(null)` returning a previous outlet's thots when clicking any news pin — cache is now skipped when `sessionId` is null.
+
 ### `v0.42` — Automated pin system (news, events, extensible)
 
 - `supabase/migrations/022_news_thots.sql`: added `pin_type text` (e.g. `'news'`, `'event'`) and `source_url text` to `thots`; indexed `source_url` for fast dedup lookups.
