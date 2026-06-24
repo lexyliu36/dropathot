@@ -67,7 +67,7 @@ router.get('/', async (req, res) => {
     const pin_type = req.query.pin_type.trim().slice(0, 50)
     const limit = Math.min(parseInt(req.query.limit) || 20, 50)
     const offset = parseInt(req.query.offset) || 0
-    const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url'
+    const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url'
     const { data, error, count } = await supabase
       .from('thots')
       .select(COLS, { count: 'exact' })
@@ -104,7 +104,7 @@ router.get('/', async (req, res) => {
 
     const limit = Math.min(parseInt(req.query.limit) || 20, 50)
     const offset = parseInt(req.query.offset) || 0
-    const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url'
+    const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url'
 
     // Build query: own history uses session_id OR user_id (covers anon→registered transition),
     // public profile uses user_id only (non-hidden posts only)
@@ -179,7 +179,7 @@ router.get('/liked', async (req, res) => {
   if (error || !user) return res.json([])
   const { data } = await supabase
     .from('hypes')
-    .select('thot_id, thots(id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url)')
+    .select('thot_id, thots(id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
   res.json(data?.map(h => h.thots).filter(Boolean) ?? [])
@@ -340,6 +340,7 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
       ip_hash,
       location: `SRID=4326;POINT(${lng} ${lat})`,
       expires_at,
+      is_live_pin: req.body.is_live_pin === true,
     })
     .select()
     .single()
@@ -369,7 +370,7 @@ router.get('/:id', async (req, res) => {
   if (!/^[0-9a-f-]{36}$/.test(id)) return res.status(400).json({ error: 'invalid id' })
   const { data, error } = await supabase
     .from('thots')
-    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url')
+    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url')
     .eq('id', id)
     .single()
   if (error || !data) return res.status(404).json({ error: 'not found' })
@@ -428,7 +429,7 @@ router.delete('/:id', async (req, res) => {
   // when this thot was posted, provided it hasn't expired yet.
   const { data: restored } = await supabase
     .from('thots')
-    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url')
+    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url')
     .eq('session_id', session_id)
     .eq('hidden', true)
     .eq('user_deleted', false)
@@ -462,6 +463,65 @@ router.delete('/:id', async (req, res) => {
   }
 
   res.json({ ok: true, restored: restored ?? null })
+})
+
+
+// PATCH /thots/:id/location — move a live pin to the poster's current location
+// Auth required; caller must own the thot and it must be an is_live_pin thot.
+router.patch('/:id/location', async (req, res) => {
+  const { id } = req.params
+  if (!/^[0-9a-f-]{36}$/.test(id)) return res.status(400).json({ error: 'invalid id' })
+
+  const token = req.headers.authorization?.replace('Bearer ', '').trim()
+  if (!token) return res.status(401).json({ error: 'auth required' })
+  const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
+  if (authErr || !user) return res.status(401).json({ error: 'auth required' })
+
+  const newLat = parseFloat(req.body.lat)
+  const newLng = parseFloat(req.body.lng)
+  if (isNaN(newLat) || isNaN(newLng)) return res.status(400).json({ error: 'lat and lng required' })
+  if (newLat < -90 || newLat > 90 || newLng < -180 || newLng > 180) {
+    return res.status(400).json({ error: 'invalid coordinates' })
+  }
+  if (!isInUsa(newLat, newLng)) {
+    return res.status(403).json({ error: 'outside US', code: 'OUTSIDE_US' })
+  }
+
+  // Fetch current thot to verify ownership and get old position for broadcast
+  const { data: thot, error: fetchErr } = await supabase
+    .from('thots')
+    .select('id, user_id, lat, lng, hidden, user_deleted, is_live_pin')
+    .eq('id', id)
+    .single()
+
+  if (fetchErr || !thot) return res.status(404).json({ error: 'not found' })
+  if (thot.user_id !== user.id) return res.status(403).json({ error: 'not yours' })
+  if (thot.hidden || thot.user_deleted) return res.status(410).json({ error: 'thot is deleted' })
+  if (!thot.is_live_pin) return res.status(400).json({ error: 'not a live pin' })
+
+  const oldCells = (thot.lat != null && thot.lng != null)
+    ? neighborCells(thot.lat, thot.lng)
+    : []
+
+  const SAFE_COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url'
+  const { data: updated, error: updateErr } = await supabase
+    .from('thots')
+    .update({ lat: newLat, lng: newLng, location: `SRID=4326;POINT(${newLng} ${newLat})` })
+    .eq('id', id)
+    .select(SAFE_COLS)
+    .single()
+
+  if (updateErr) {
+    console.error('[live-pin] update error:', updateErr)
+    return res.status(500).json({ error: 'failed to update location' })
+  }
+
+  // Broadcast to old + new H3 cells so all nearby subscribers see the move
+  const newCells = neighborCells(newLat, newLng)
+  const allCells = [...new Set([...oldCells, ...newCells])]
+  req.io.to(allCells).emit('thot:move', updated)
+
+  res.json(updated)
 })
 
 // ---------------------------------------------------------------------------

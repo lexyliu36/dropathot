@@ -70,6 +70,11 @@ const useAppStore = create((set, get) => ({
     selectedThot: s.selectedThot?.id === thotId ? null : s.selectedThot,
   })),
 
+  // Update a live pin's position in-place (driven by thot:move socket event)
+  moveThot: (id, lat, lng) => set((s) => ({
+    thots: s.thots.map(t => t.id === id ? { ...t, lat, lng } : t),
+  })),
+
   // Reported thot IDs — persisted in localStorage so you can't re-report after refresh
   reportedThotIds: new Set(JSON.parse(localStorage.getItem('reportedThotIds') || '[]')),
   addReportedThot: (thotId) => set((s) => {
