@@ -448,7 +448,7 @@ export default function Map() {
       if (map.getSource('range-ring')) map.removeSource('range-ring')
       return
     }
-    const geojson = makeCircleGeoJSON(location.lat, location.lng, 200)
+    const geojson = makeCircleGeoJSON(location.lat, location.lng, 150)
     if (map.getSource('range-ring')) {
       map.getSource('range-ring').setData(geojson)
     } else {

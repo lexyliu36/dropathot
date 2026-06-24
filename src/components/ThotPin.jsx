@@ -230,10 +230,31 @@ export function YouPin({ onAvatarClick, hasThot, isAnon = false }) {
       pointerEvents: 'none',
       opacity: isAnon ? 0.45 : 1,
     }}>
+      {/* Sonar pulse rings — three staggered rings radiating outward */}
+      {[0, 1, 2].map(i => (
+        <div key={i} style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: `${AVATAR_SIZE}px`,
+          height: `${AVATAR_SIZE}px`,
+          borderRadius: '50%',
+          border: '1.5px solid rgba(200, 200, 210, 0.35)',
+          animation: `youpin-sonar 3s ease-out ${i * 1}s infinite`,
+          pointerEvents: 'none',
+        }} />
+      ))}
+      <style>{`
+        @keyframes youpin-sonar {
+          0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.5; }
+          100% { transform: translate(-50%, -50%) scale(3.2); opacity: 0; }
+        }
+      `}</style>
       <div
         onClick={isAnon ? undefined : onAvatarClick}
         title={isAnon ? 'Browsing anonymously' : hasThot ? 'View your thot' : 'Drop a thot'}
-        style={{ pointerEvents: isAnon ? 'none' : 'auto', cursor: isAnon ? 'default' : 'pointer', width: `${AVATAR_SIZE}px`, height: `${AVATAR_SIZE}px` }}
+        style={{ pointerEvents: isAnon ? 'none' : 'auto', cursor: isAnon ? 'default' : 'pointer', width: `${AVATAR_SIZE}px`, height: `${AVATAR_SIZE}px`, position: 'relative', zIndex: 1 }}
       >
         <AnonAvatar size={AVATAR_SIZE} color={isAnon ? '#64748b' : '#e11d48'} active={!isAnon} />
       </div>

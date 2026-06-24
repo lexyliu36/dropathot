@@ -121,6 +121,32 @@ CI enforces this — the `docs-sync` job will fail the build if the two versions
 
 ## Changelog
 
+### `v0.41` — Revert radius/randomizer to 150m
+
+- `Map.jsx`: dashed radius circle reverted to 150m.
+- `ComposeDrawer`: location randomizer max reverted to 150m.
+
+### `v0.40` — Dashed radius circle 100m; location randomizer max 100m
+
+- `Map.jsx`: dashed radius circle around YouPin changed from 200m → 100m.
+- `ComposeDrawer`: location randomizer max changed from 150m → 100m.
+
+### `v0.30` — Fixed-width action slots + icon alignment
+
+- `src/components/ProfileSheet.jsx` — action row uses fixed-width slots (52px for heart/comment, 36px for share/flag); counts use `formatCount` (1K/1.1M); icons left-align with text, never shift siblings
+- `src/components/TopThots.jsx` — same fixed-width slot structure applied to Top and Latest tabs
+- `src/pages/Map.jsx` — removed "Your Location" dev coord overlay
+- `src/pages/legal/TermsPage.jsx` — added US Geographic Restriction clause to Section 2
+- `server/lib/geo.js` — `isInUsa()` with bounding boxes for CONUS, Alaska, Hawaii, PR, USVI
+- `server/routes/thots.js` — POST rejects non-US coordinates with `403 OUTSIDE_US`
+- `src/components/ComposeDrawer.jsx` — friendly "🇺🇸 US only" error for `OUTSIDE_US`
+
+### `v0.39` — 150m proximity radius; location randomizer capped to 150m; sonar pulse on YouPin
+
+- Server: proximity block radius changed from 500m → 150m (both `hide_nearby_session_thots` and restore check).
+- `ComposeDrawer`: location randomizer max changed from 200m → 150m.
+- `ThotPin.jsx` `YouPin`: added three staggered sonar pulse rings radiating outward in light gray (`rgba(200,200,210,0.35)`), 3s ease-out animation with 1s stagger between rings.
+
 ### `v0.38` — Remove Perspective API (sunsetting), OpenAI-only moderation
 
 - Removed `checkPerspective` from `server/middleware/moderate.js` — Perspective API announced end-of-service after 2026, no migration path offered.

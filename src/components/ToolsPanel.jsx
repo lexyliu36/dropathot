@@ -335,36 +335,33 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
                   {isActive ? <GeoLabel lat={thot.lat} lng={thot.lng} /> : <span className="text-slate-700 text-xs block mt-0.5">no longer on map</span>}
                 </button>
                 <div className="flex items-center mt-1.5">
-                  <span className="text-slate-600 text-xs w-16 flex-shrink-0">{relativeTime(thot.created_at)}</span>
-                  <div className="flex flex-1 items-center">
-                    <div className="flex-1 flex justify-center">
-                      <ProfileHeart thot={thot} onHype={onHype} session={session} />
-                    </div>
-                    <div className="flex-1 flex justify-center">
-                      <div className="relative group/tip">
-                        <button
-                          onClick={() => setShareThot(thot)}
-                          className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
-                          style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
-                        >
-                          <Upload size={17} />
-                        </button>
-                        <span className="action-tip">Share</span>
-                      </div>
-                    </div>
-                    <div className="flex-1 flex justify-center">
-                      <div className="relative group/tip">
-                        <button
-                          onClick={() => setConfirmDeleteId(thot.id)}
-                          disabled={deletingId === thot.id}
-                          className="text-slate-700 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40"
-                          style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                        <span className="action-tip">Delete</span>
-                      </div>
-                    </div>
+                  <span className="text-slate-600 text-xs" style={{ width: '52px', flexShrink: 0 }}>{relativeTime(thot.created_at)}</span>
+                  {/* Heart — 52px */}
+                  <div style={{ width: '52px', flexShrink: 0 }}>
+                    <ProfileHeart thot={thot} onHype={onHype} session={session} />
+                  </div>
+                  {/* Share — 36px */}
+                  <div className="relative group/tip" style={{ width: '48px', flexShrink: 0 }}>
+                    <button
+                      onClick={() => setShareThot(thot)}
+                      className="text-slate-600 hover:text-slate-400 transition-colors cursor-pointer"
+                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+                    >
+                      <Upload size={17} />
+                    </button>
+                    <span className="action-tip">Share</span>
+                  </div>
+                  {/* Delete — 36px */}
+                  <div className="relative group/tip" style={{ width: '48px', flexShrink: 0 }}>
+                    <button
+                      onClick={() => setConfirmDeleteId(thot.id)}
+                      disabled={deletingId === thot.id}
+                      className="text-slate-700 hover:text-red-400 transition-colors cursor-pointer disabled:opacity-40"
+                      style={{ background: 'none', border: 'none', padding: 0, display: 'flex', alignItems: 'center' }}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                    <span className="action-tip">Delete</span>
                   </div>
                 </div>
               </div>

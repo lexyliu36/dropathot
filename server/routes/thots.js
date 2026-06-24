@@ -299,14 +299,14 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
   }
 
   // Hide previous active thots from this session that are within the block radius.
-  // Posts far enough apart can coexist — one pin per ~500m area, not one pin total.
+  // Posts far enough apart can coexist — one pin per ~150m area, not one pin total.
   // Use RPC so ST_DWithin runs server-side with unambiguous geography meter units.
   // The PostgREST st.dwithin filter string format is unreliable for geography columns.
   await supabase.rpc('hide_nearby_session_thots', {
     p_session_id: session_id,
     p_lat: claimedLat,
     p_lng: claimedLng,
-    p_radius_m: 500,
+    p_radius_m: 150,
   })
 
   // Insert new thot
@@ -419,13 +419,13 @@ router.delete('/:id', async (req, res) => {
     .maybeSingle()
 
   if (restored) {
-    // Only restore if no other live thot from this session is within 500m of the candidate.
+    // Only restore if no other live thot from this session is within 150m of the candidate.
     // Restoring it otherwise would break the one-thot-per-block-radius rule.
     const { data: nearbyLive } = await supabase.rpc('count_nearby_session_thots', {
       p_session_id: session_id,
       p_lat: restored.lat,
       p_lng: restored.lng,
-      p_radius_m: 500,
+      p_radius_m: 150,
     })
 
     const hasNearbyLive = (nearbyLive ?? 0) > 0

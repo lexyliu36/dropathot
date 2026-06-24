@@ -6,7 +6,7 @@ Anonymous location-based social network. Twitter-length posts ("thots") appear a
 
 ---
 
-## Current State (v0.38 — fully deployed)
+## Current State (v0.41 — fully deployed)
 
 Everything is complete and live. See `README.md` changelog for full version history.
 
@@ -261,7 +261,7 @@ create table account_audit_log (
 ## Key Design Decisions
 
 - **Thots expire after up to 24 hours** — default is 1 day (24h); server enforces a hard max of 24h (rejects `duration_hours > 24` with 400). Users can shorten via a duration dropdown in ComposeDrawer (options: 1 day, 6h, 3h, 1h, 15 min). Still visible in profile history after expiry.
-- **One active thot per 200m radius per user** — a user can have multiple active thots on the map as long as they are more than 200m apart. Posting within 200m of an existing thot by the same user hides that prior pin.
+- **One active thot per 150m radius per user** — a user can have multiple active thots on the map as long as they are more than 150m apart. Posting within 150m of an existing thot by the same user hides that prior pin.
 - **Registered account required to post** — anonymous browsing is allowed, but `POST /thots` requires a Supabase-authenticated user. There is no anonymous posting flow.
 - **US-only posting** — `POST /thots` rejects coordinates outside CONUS, Alaska, Hawaii, Puerto Rico, and USVI with `403 OUTSIDE_US`. Enforced in `server/lib/geo.js` (`isInUsa`).
 - **Anonymous ≠ untraceable** — session IDs and hashed IPs logged server-side, never exposed to users. Required for legal cooperation.
@@ -272,7 +272,7 @@ create table account_audit_log (
 - **Legal entity** — Dropathot LLC (Delaware). DMCA designated agent registered with U.S. Copyright Office (provides Section 512 safe harbor).
 - **ip_hash and session_id are never returned to clients** — stripped from all public API responses and Socket.io broadcasts via explicit safe column lists.
 - **Server-side IP geolocation check** — `POST /thots` verifies claimed coordinates against IP geolocation via `ipwho.is`; posts more than 500km from the IP's location are rejected. Fails open if the lookup times out. Skipped for local/private IPs in dev.
-- **Location Randomizer** — ComposeDrawer lets users add 0–250m noise to their posted coordinates before the request hits the server. Stored coordinates are therefore not necessarily the user's exact location.
+- **Location Randomizer** — ComposeDrawer lets users add 0–150m noise to their posted coordinates before the request hits the server. Stored coordinates are therefore not necessarily the user's exact location.
 - **Two distinct hidden states** — `hidden=true` without `user_deleted` means the thot was auto-hidden by the 200m proximity rule (still appears in profile history, can be restored by the server). `user_deleted=true` means the user explicitly deleted it — hidden everywhere and never automatically restored.
 - **`is_seed` flag** — thots have an `is_seed` boolean. Dedup logic and SQL ordering always sort real thots before seed data at equal distance/hype, so seed pins never crowd out real posts from the LIMIT.
 
