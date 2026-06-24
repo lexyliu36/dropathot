@@ -330,6 +330,7 @@ export default function Map() {
     map.dragRotate.disable()
     map.touchPitch.disable()
     map.touchZoomRotate.disableRotation()
+    map.doubleClickZoom.disable()
 
     map.addControl(new mapboxgl.AttributionControl({ compact: true }))
 
@@ -944,6 +945,7 @@ export default function Map() {
           }}
           onFlyTo={(thot) => {
             mapInstanceRef.current?.flyTo({ center: [thot.lng, thot.lat], zoom: 17, duration: 700 })
+            window.dispatchEvent(new CustomEvent('thot:reveal', { detail: { thotId: thot.id } }))
             setLeaderboardOpen(false)
           }}
         />
@@ -961,6 +963,7 @@ export default function Map() {
           }}
           onFlyTo={(thot) => {
             mapInstanceRef.current?.flyTo({ center: [thot.lng, thot.lat], zoom: 17, duration: 700 })
+            window.dispatchEvent(new CustomEvent('thot:reveal', { detail: { thotId: thot.id } }))
             setToolsOpen(false)
           }}
           onOpenDM={partner => { setDmPartner(partner) }}
@@ -980,6 +983,7 @@ export default function Map() {
           onFlyTo={(t) => {
             mapInstanceRef.current?.flyTo({ center: [t.lng, t.lat], zoom: 17, duration: 700 })
             setSelectedThot(t)
+            window.dispatchEvent(new CustomEvent('thot:reveal', { detail: { thotId: t.id } }))
           }}
           onOpenDM={partner => { setDmSource('selected'); setDmPartner(partner) }}
         />
@@ -997,6 +1001,7 @@ export default function Map() {
           highlightThotId={youHighlightThotId}
           onFlyTo={(t) => {
             mapInstanceRef.current?.flyTo({ center: [t.lng, t.lat], zoom: 17, duration: 700 })
+            window.dispatchEvent(new CustomEvent('thot:reveal', { detail: { thotId: t.id } }))
             setYouHighlightThotId(t.id)
           }}
           onOpenDM={partner => { setDmSource('you'); setDmPartner(partner) }}

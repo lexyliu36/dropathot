@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Heart } from 'lucide-react'
 import useAppStore from '../stores/useAppStore'
 
@@ -42,6 +42,13 @@ const bubbleLeft   = 0
 
 export default function ThotPin({ thot, isYou = false, onClick, onHype, session }) {
   const [dismissed, setDismissed] = useState(false)
+
+  // Reset dismissed when this pin is explicitly revealed (e.g. clicked from ProfileSheet)
+  useEffect(() => {
+    const handler = (e) => { if (e.detail?.thotId === thot.id) setDismissed(false) }
+    window.addEventListener('thot:reveal', handler)
+    return () => window.removeEventListener('thot:reveal', handler)
+  }, [thot.id])
   const [hovered, setHovered] = useState(false)
 
   // Read live hype state + count from store so updates from any hype action reflect immediately
@@ -103,7 +110,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
           position: 'absolute',
           bottom: `${bubbleBottom}px`,
           left: `${bubbleLeft}px`,
-          maxWidth: '200px',
+          maxWidth: '260px',
           minWidth: '80px',
           background: 'rgba(10, 10, 26, 0.92)',
           backdropFilter: 'blur(12px)',
@@ -157,8 +164,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
           wordBreak: 'break-word',
-          paddingRight: hovered ? '6px' : 0,
-          transition: 'padding-right 0.1s ease',
+
         }}>
           {thot.content}
         </p>
@@ -177,7 +183,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
 
         {/* Meta row + hype button */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginTop: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flex: 1, overflow: 'hidden' }}>
             {pinType && (
               <span style={{ fontSize: '10px', background: `${accentColor}22`, border: `1px solid ${accentColor}55`, color: accentColor, borderRadius: '4px', padding: '0 4px', lineHeight: '16px', whiteSpace: 'nowrap', flexShrink: 0 }}>
                 {pinType.toUpperCase()}
@@ -202,7 +208,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
             }}
             title={isAuth ? (hyped ? 'Remove upvote' : 'Upvote') : 'Sign in to upvote'}
             style={{
-              display: 'flex', alignItems: 'center', gap: '2px', flexShrink: 0,
+              display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, marginLeft: '6px',
               background: hyped ? `${accentColor}25` : 'transparent',
               border: 'none', borderRadius: '6px', padding: '2px 4px',
               cursor: isAuth ? 'pointer' : 'default',
@@ -212,7 +218,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
             }}
           >
             <Heart size={14} className={heartAnim ? 'heart-pop' : ''} onAnimationEnd={() => setHeartAnim(false)} style={{ fill: hyped ? accentColor : 'none', strokeWidth: 1.5 }} />
-            {hypeCount > 0 && <span>{hypeCount}</span>}
+            <span style={{ minWidth: '12px', display: 'inline-block', textAlign: 'left' }}>{hypeCount > 0 ? hypeCount : ''}</span>
           </button>
         </div>
 

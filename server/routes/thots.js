@@ -61,6 +61,26 @@ async function enrichWithUserId(thots) {
 // GET /thots?session_id=   (own history — auth required, session_id must match caller)
 // GET /thots?user_id=      (any named user's public history — no auth required)
 router.get('/', async (req, res) => {
+  // Outlet feed mode — all thots from an auto-pin source (e.g. all NPR News thots)
+  if (req.query.pen_name && req.query.pin_type) {
+    const pen_name = req.query.pen_name.trim().slice(0, 100)
+    const pin_type = req.query.pin_type.trim().slice(0, 50)
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50)
+    const offset = parseInt(req.query.offset) || 0
+    const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url'
+    const { data, error, count } = await supabase
+      .from('thots')
+      .select(COLS, { count: 'exact' })
+      .eq('pen_name', pen_name)
+      .eq('pin_type', pin_type)
+      .eq('hidden', false)
+      .eq('user_deleted', false)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
+    if (error) return res.status(500).json({ error: 'Failed to fetch thots' })
+    return res.json({ thots: data ?? [], total: count ?? data?.length ?? 0, offset, limit })
+  }
+
   // Session history mode
   if (req.query.session_id || req.query.user_id) {
     const byUserId = !!req.query.user_id

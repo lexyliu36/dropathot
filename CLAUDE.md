@@ -344,3 +344,17 @@ When a user deletes their active thot, the server attempts to restore their most
 
 ### City seed scripts — each owns only its own session IDs
 `server/lib/seed-ids.js` exports per-city session ID prefix ranges (`a/` dev/persistent seed, `b/` NYC, `c/` WeHo, `d/` SF, `e/` Pittsburgh). Each seed script uses its own city's IDs to clear on startup. Never import `ALL_SEED_IDS` to clear everything — it will wipe other cities' data.
+
+### Tests are required for every new feature and every change to existing features
+
+**Rule:** Any session that adds a new server-side feature or modifies existing server-side logic must also add or update tests in `server/test/`. Run `npm test` in `server/` before finishing the session and confirm all tests pass.
+
+**What to test:**
+- New route handlers — at least: happy path, missing/invalid params (400), auth failures where applicable (401/403), and DB error path (500)
+- New pure/utility functions — export them and unit-test edge cases (empty input, invalid input, determinism where relevant)
+- New cron jobs — export pure helper functions (parsers, ID generators, dedup logic) and test them in isolation with mocked dependencies
+- Changes to existing features — update the relevant existing test file; don't leave tests that no longer reflect the code
+
+**How:** Mock `../lib/supabase.js` and other I/O dependencies with `vi.mock`. Use `supertest` + a minimal Express app for route tests. Keep tests fast and offline — no real DB, no real API calls.
+
+**Why:** This project is worked on by multiple agents across separate sessions with no shared memory. Tests are the only reliable signal that a change didn't silently break something a previous session built.
