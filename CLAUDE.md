@@ -319,6 +319,12 @@ When multiple Claude agents work on this repo in separate sessions, they have no
 
 This applies to any change — code, legal pages, config, docs. If you touched it, log it.
 
+**Always check the latest version number before writing a changelog entry:**
+```bash
+grep "^### \`v" README.md | head -3
+```
+Then increment by 0.01. Never assume you know the current version — another agent may have already used the number you had in mind. Entries must always be inserted at the **top** of the changelog, never in the middle.
+
 ### Always check the latest migration number before creating a new one
 **Rule:** Before writing any migration file, run:
 ```bash

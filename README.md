@@ -131,16 +131,6 @@ CI enforces this — the `docs-sync` job will fail the build if the two versions
 - `Map.jsx`: dashed radius circle around YouPin changed from 200m → 100m.
 - `ComposeDrawer`: location randomizer max changed from 150m → 100m.
 
-### `v0.30` — Fixed-width action slots + icon alignment
-
-- `src/components/ProfileSheet.jsx` — action row uses fixed-width slots (52px for heart/comment, 36px for share/flag); counts use `formatCount` (1K/1.1M); icons left-align with text, never shift siblings
-- `src/components/TopThots.jsx` — same fixed-width slot structure applied to Top and Latest tabs
-- `src/pages/Map.jsx` — removed "Your Location" dev coord overlay
-- `src/pages/legal/TermsPage.jsx` — added US Geographic Restriction clause to Section 2
-- `server/lib/geo.js` — `isInUsa()` with bounding boxes for CONUS, Alaska, Hawaii, PR, USVI
-- `server/routes/thots.js` — POST rejects non-US coordinates with `403 OUTSIDE_US`
-- `src/components/ComposeDrawer.jsx` — friendly "🇺🇸 US only" error for `OUTSIDE_US`
-
 ### `v0.39` — 150m proximity radius; location randomizer capped to 150m; sonar pulse on YouPin
 
 - Server: proximity block radius changed from 500m → 150m (both `hide_nearby_session_thots` and restore check).
@@ -210,7 +200,7 @@ CI enforces this — the `docs-sync` job will fail the build if the two versions
 - All city seed scripts (`seed-demo.js`, `seed-weho.js`, `seed-sf.js`, `seed-pittsburgh.js`) now use `FAR_FUTURE = now + 100 years` for `expires_at`, matching `seed.js`
 - NYC seed data was deleted by the deletion cron after 7 days — re-run `npm run seed:demo` to restore it
 
-### `v0.29` — US-only posting restriction + UX fixes
+### `v0.29` — US-only posting restriction + UX fixes + Enforce pen_name NOT NULL across all seed files + CLAUDE.md
 
 - `server/lib/geo.js` — added `isInUsa(lat, lng)` with bounding boxes for CONUS, Alaska, Hawaii, Puerto Rico, USVI
 - `server/routes/thots.js` — POST `/thots` now rejects coordinates outside US with `403 OUTSIDE_US`
@@ -220,34 +210,13 @@ CI enforces this — the `docs-sync` job will fail the build if the two versions
 - `src/components/DMDrawer.jsx` — textarea auto-expands as you type; Enter inserts newline, send button is the only way to send
 - `src/pages/Map.jsx` — deferred `root.unmount()` to avoid React synchronous-unmount warning
 - `server/package.json` — upgraded `socket.io` to `^4.8.3` to match client; ran `npm audit fix` (0 vulnerabilities)
-
-### `v0.30` — Fix seed expiry: use FAR_FUTURE (100 years) instead of 7 days
-
-- All city seed scripts (`seed-demo.js`, `seed-weho.js`, `seed-sf.js`, `seed-pittsburgh.js`) now use `FAR_FUTURE = now + 100 years` for `expires_at`, matching `seed.js`
-- NYC seed data was deleted by the deletion cron after 7 days — re-run `npm run seed:demo` to restore it
-
-### `v0.29` — Enforce pen_name NOT NULL across all seed files + CLAUDE.md
-
 - `CLAUDE.md` — updated key design decision: pen_name is required on every thot; server already returns 403 `NO_PEN_NAME` if unset; seed scripts must never use `pen_name: null`
 - `server/seed.js`, `seed-demo.js`, `seed-weho.js`, `seed-sf.js`, `seed-pittsburgh.js` — replaced all `pen_name: null` entries with real pen names (was 0/17/16/18 nulls respectively in new city seeds)
 
-### `v0.28` — DM textarea UX + seed-demo fix
+### `v0.28` — DM textarea UX + seed-demo fix + Multi-city seed data + per-city admin toggles
 
 - `src/components/DMDrawer.jsx` — textarea auto-expands as you type (max 160px); Enter key now inserts a newline; send button is the only way to send
 - `server/seed-demo.js` — fixed broken file structure from prior Python replacement; `seed()` and `updateNames()` are now separate clean functions; `--update-names` flag works correctly
-
-### `v0.30` — Fix seed expiry: use FAR_FUTURE (100 years) instead of 7 days
-
-- All city seed scripts (`seed-demo.js`, `seed-weho.js`, `seed-sf.js`, `seed-pittsburgh.js`) now use `FAR_FUTURE = now + 100 years` for `expires_at`, matching `seed.js`
-- NYC seed data was deleted by the deletion cron after 7 days — re-run `npm run seed:demo` to restore it
-
-### `v0.29` — Enforce pen_name NOT NULL across all seed files + CLAUDE.md
-
-- `CLAUDE.md` — updated key design decision: pen_name is required on every thot; server already returns 403 `NO_PEN_NAME` if unset; seed scripts must never use `pen_name: null`
-- `server/seed.js`, `seed-demo.js`, `seed-weho.js`, `seed-sf.js`, `seed-pittsburgh.js` — replaced all `pen_name: null` entries with real pen names (was 0/17/16/18 nulls respectively in new city seeds)
-
-### `v0.28` — Multi-city seed data + per-city admin toggles
-
 - `server/seed-weho.js` — 75 thots across West Hollywood (Boys Town, Sunset Strip, Melrose, Design District, Laurel Canyon, Fairfax, nightlife, Silver Lake edge, Los Feliz)
 - `server/seed-sf.js` — 75 thots across San Francisco (Castro, Mission, SoMa, North Beach, Haight, Hayes Valley, Embarcadero, Richmond, Sunset, Noe Valley, Bernal, GGP, Presidio)
 - `server/seed-pittsburgh.js` — 75 thots across Pittsburgh (Shadyside, Oakland, Squirrel Hill, Lawrenceville, East Liberty, Bloomfield, Strip District, Downtown, Mt Washington, North Side, South Side, bridges, sports)
