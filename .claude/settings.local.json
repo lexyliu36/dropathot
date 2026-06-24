@@ -1,13 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Read", "Edit", "Bash", "LS", "Grep",
+      "Read",
+      "Edit",
+      "Bash",
+      "LS",
+      "Grep",
       "Bash(mkdir -p /Users/lexyliu/Documents/Code/Thots./src/components)",
       "Bash(mkdir -p /Users/lexyliu/Documents/Code/Thots./server/routes /Users/lexyliu/Documents/Code/Thots./server/middleware /Users/lexyliu/Documents/Code/Thots./server/lib)",
       "Bash(npm run *)",
       "Bash(node -e \"console.log\\(require\\('crypto'\\).randomBytes\\(32\\).toString\\('hex'\\)\\)\")",
       "Bash(mkdir -p /Users/lexyliu/Documents/Code/Thots./.claude)",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(rm /Users/lexyliu/Documents/Code/Thots./.git/index.lock)",
+      "Bash(git add *)"
     ],
     "additionalDirectories": [
       "/Users/lexyliu/Documents/Code/Thots./src/components",
