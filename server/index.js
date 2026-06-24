@@ -28,6 +28,7 @@ import followsRouter from './routes/follows.js'
 import usersRouter from './routes/users.js'
 import messagesRouter from './routes/messages.js'
 import pushRouter from './routes/push.js'
+import vibeRouter from './routes/vibe.js'
 import { startDigestJob } from './jobs/digestEmail.js'
 import { startDeletionCron } from './lib/deletionCron.js'
 
@@ -64,6 +65,7 @@ app.use('/follows', followsRouter)
 app.use('/users', usersRouter)
 app.use('/messages', messagesRouter)
 app.use('/push', pushRouter)
+app.use('/vibe', vibeRouter)
 
 app.get('/health', (_req, res) => res.json({ ok: true }))
 

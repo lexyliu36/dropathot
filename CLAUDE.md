@@ -6,7 +6,7 @@ Anonymous location-based social network. Twitter-length posts ("thots") appear a
 
 ---
 
-## Current State (v0.34 — fully deployed)
+## Current State (v0.38 — fully deployed)
 
 Everything is complete and live. See `README.md` changelog for full version history.
 
@@ -18,6 +18,7 @@ Everything is complete and live. See `README.md` changelog for full version hist
 - `pages/ThotPage.jsx`, `CommentPage.jsx`, `VerifyEmail.jsx` — supporting pages
 - `pages/legal/` — TermsPage, PrivacyPage, SafetyPage
 - `components/ThotPin.jsx` — real Mapbox custom marker
+- `components/VibeButton.jsx` — floating "What's the vibe?" pill; calls `GET /vibe` for AI neighborhood summary
 - `components/ComposeDrawer.jsx`, `ProfileSheet.jsx`, `DMDrawer.jsx`, `ShareSheet.jsx`, `CommentThread.jsx`, `TopThots.jsx`, `ToolsPanel.jsx`, `AuthModal.jsx`
 - `hooks/useThots.js`, `useLocation.js`, `usePush.js`
 - `lib/supabase.js`, `socket.js`, `identity.js`, `auth.js`, `geocode.js`, `animations.js`, `thotCache.js`
@@ -47,7 +48,7 @@ Everything is complete and live. See `README.md` changelog for full version hist
 | Backend | Node + Express | Deployed on Railway |
 | Database | Supabase (Postgres + PostGIS) | Geo queries, RLS, Realtime |
 | Real-time | Socket.io | Broadcasts new thots by H3 tile; user rooms for DM notifications |
-| Moderation | `moderate.js` middleware | Pre-screens posts before saving |
+| Moderation | `moderate.js` middleware | OpenAI Moderation API only (Perspective API removed v0.38 — end-of-service); covers 11 violation categories |
 | Auth | Supabase Auth (email/password) | Cookie-based; anonymous browsing only, posting requires account |
 | Error tracking | Sentry (`@sentry/react` + `@sentry/node`) | No-op when DSN not set |
 | CI | GitHub Actions (`.github/workflows/ci.yml`) | Runs on push to main/dev |
@@ -64,6 +65,7 @@ VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 VITE_API_URL=http://localhost:4000
 VITE_SENTRY_DSN=          # optional
+VITE_VAPID_PUBLIC_KEY=    # web push — must match server VAPID_PUBLIC_KEY
 ```
 
 **`/server/.env`** (backend)
@@ -77,8 +79,11 @@ FRONTEND_ORIGIN=          # comma-separated allowed origins
 RESEND_API_KEY=           # email sending via Resend
 EMAIL_FROM=               # sender address for transactional email
 SITE_URL=                 # production URL (dropathot.com) — used in email links
+APP_URL=                  # same as SITE_URL; used in some email templates
 VAPID_PUBLIC_KEY=         # web push VAPID key pair
 VAPID_PRIVATE_KEY=
+ADMIN_SECRET=             # bearer token required for all /admin/* endpoints
+OPENAI_API_KEY=           # OpenAI Moderation API + /vibe AI summary endpoint
 ```
 
 ---
@@ -105,29 +110,38 @@ Each city seed script clears only its own city's previous data before inserting 
 
 ## Database Schema
 
-```sql
-create extension if not exists postgis;
+Current schema after all migrations (001–021). See `supabase/migrations/` for full SQL + RLS.
 
+```sql
+-- Core
 create table thots (
-  id          uuid primary key default gen_random_uuid(),
-  content     text not null check (char_length(content) <= 280),
-  pen_name    text not null,  -- required; every thot must have a pen name
-  session_id  uuid not null,
-  ip_hash     text not null,
-  location    geography(Point, 4326) not null,
-  created_at  timestamptz default now(),
-  expires_at  timestamptz default now() + interval '24 hours',
-  hidden      boolean default false
+  id           uuid primary key default gen_random_uuid(),
+  content      text not null check (char_length(content) <= 280),
+  pen_name     text not null,
+  session_id   uuid not null,
+  ip_hash      text not null,
+  location     geography(Point, 4326) not null,
+  lat          float8,           -- denormalized for fast reads
+  lng          float8,
+  created_at   timestamptz default now(),
+  expires_at   timestamptz default now() + interval '24 hours',
+  hidden       boolean default false,
+  user_deleted boolean default false,  -- explicit user delete (vs auto-hidden)
+  is_seed      boolean not null default false,
+  user_id      uuid references auth.users(id) on delete set null,
+  hype_count   int not null default 0,
+  comment_count int not null default 0
 );
-create index thots_location_idx on thots using gist(location);
-create index thots_expires_idx on thots(expires_at);
 
 create table users (
-  id          uuid primary key references auth.users,
-  pen_name    text unique not null,
-  birth_year  int not null,
-  created_at  timestamptz default now(),
-  is_banned   boolean default false
+  id                    uuid primary key references auth.users,
+  pen_name              text unique not null,
+  birth_year            int not null,
+  created_at            timestamptz default now(),
+  is_banned             boolean default false,
+  deletion_requested_at timestamptz,           -- 30-day soft-delete window
+  email_dm_digest       boolean not null default true,
+  email_activity_digest boolean not null default true
 );
 
 create table reports (
@@ -135,18 +149,118 @@ create table reports (
   thot_id          uuid references thots(id),
   reporter_session uuid,
   reason           text,
-  created_at       timestamptz default now()
+  created_at       timestamptz default now(),
+  unique(thot_id, reporter_session)  -- one report per session per thot
 );
--- Auto-hide thot at 3+ reports (trigger in 001_init.sql)
-```
+-- Trigger: auto-hide thot at 3+ distinct-session reports
 
-Full schema + RLS policies in `supabase/migrations/001_init.sql`.
+create table comments (
+  id         uuid primary key default gen_random_uuid(),
+  thot_id    uuid not null references thots(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  pen_name   text not null,
+  content    text not null check (char_length(content) <= 280),
+  parent_id  uuid references comments(id) on delete cascade,
+  hype_count int not null default 0,
+  created_at timestamptz default now()
+);
+
+create table hypes (
+  thot_id    uuid not null references thots(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  primary key (thot_id, user_id)
+);
+
+create table follows (
+  id           uuid primary key default gen_random_uuid(),
+  follower_id  uuid not null references users(id) on delete cascade,
+  following_id uuid not null references users(id) on delete cascade,
+  created_at   timestamptz default now(),
+  unique(follower_id, following_id),
+  check(follower_id <> following_id)
+);
+
+create table messages (
+  id           uuid primary key default gen_random_uuid(),
+  from_user_id uuid not null references users(id) on delete cascade,
+  to_user_id   uuid not null references users(id) on delete cascade,
+  content      text not null check (char_length(content) <= 1000),
+  hype_count   int not null default 0,
+  read_at      timestamptz,
+  emailed_at   timestamptz,  -- set when included in digest email
+  created_at   timestamptz default now(),
+  check(from_user_id <> to_user_id)
+);
+
+create table message_hypes (
+  message_id uuid not null references messages(id) on delete cascade,
+  user_id    uuid not null references users(id) on delete cascade,
+  primary key (message_id, user_id)
+);
+
+create table user_reports (
+  id          uuid primary key default gen_random_uuid(),
+  reporter_id uuid references users(id) on delete set null,
+  reported_id uuid not null references users(id) on delete cascade,
+  reason      text,
+  created_at  timestamptz default now()
+);
+
+create table push_subscriptions (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  endpoint   text not null,
+  p256dh     text not null,
+  auth       text not null,
+  created_at timestamptz default now(),
+  unique(user_id, endpoint)
+);
+-- RLS disabled — server-only (service role)
+
+create table notification_queue (
+  id             uuid primary key default gen_random_uuid(),
+  user_id        uuid references users(id) on delete cascade not null,
+  type           text not null check (type in ('like', 'comment', 'follow')),
+  actor_pen_name text,
+  thot_id        uuid,
+  created_at     timestamptz default now()
+);
+
+create table moderation_logs (
+  id         uuid primary key default gen_random_uuid(),
+  session_id uuid,
+  content    text,
+  reason     text,
+  source     text,
+  categories text[],  -- OpenAI violation categories e.g. ["hate","violence"]
+  created_at timestamptz default now()
+);
+
+create table velocity_flags (
+  id          uuid primary key default gen_random_uuid(),
+  h3_tile     text,
+  thot_count  int,
+  window_mins int,
+  lat         float8,
+  lng         float8,
+  created_at  timestamptz default now()
+);
+
+create table account_audit_log (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid,
+  action     text,
+  detail     jsonb,
+  created_at timestamptz default now()
+);
+```
 
 ---
 
 ## Key Design Decisions
 
-- **Thots expire after up to 72 hours** — default is 3 days; users can shorten via a duration dropdown in ComposeDrawer (options below 72h). Still visible in profile history after expiry.
+- **Thots expire after up to 24 hours** — default is 1 day (24h); server enforces a hard max of 24h (rejects `duration_hours > 24` with 400). Users can shorten via a duration dropdown in ComposeDrawer (options: 1 day, 6h, 3h, 1h, 15 min). Still visible in profile history after expiry.
 - **One active thot per 200m radius per user** — a user can have multiple active thots on the map as long as they are more than 200m apart. Posting within 200m of an existing thot by the same user hides that prior pin.
 - **Registered account required to post** — anonymous browsing is allowed, but `POST /thots` requires a Supabase-authenticated user. There is no anonymous posting flow.
 - **US-only posting** — `POST /thots` rejects coordinates outside CONUS, Alaska, Hawaii, Puerto Rico, and USVI with `403 OUTSIDE_US`. Enforced in `server/lib/geo.js` (`isInUsa`).
@@ -223,4 +337,4 @@ Then name the new file `NNN_description.sql` where `NNN` is one higher than the 
 When a user deletes their active thot, the server attempts to restore their most recently auto-hidden prior thot. Before doing so it calls the `count_nearby_session_thots` RPC to check for other active thots by the same user within 200m. If one exists, the restore is skipped — the 200m radius rule must never be broken even during restore.
 
 ### City seed scripts — each owns only its own session IDs
-`server/lib/seed-ids.js` exports per-city session ID prefix ranges (`a/` NYC, `c/` WeHo, `d/` SF, `e/` Pittsburgh). Each seed script uses its own city's IDs to clear on startup. Never import `ALL_SEED_IDS` to clear everything — it will wipe other cities' data.
+`server/lib/seed-ids.js` exports per-city session ID prefix ranges (`a/` dev/persistent seed, `b/` NYC, `c/` WeHo, `d/` SF, `e/` Pittsburgh). Each seed script uses its own city's IDs to clear on startup. Never import `ALL_SEED_IDS` to clear everything — it will wipe other cities' data.

@@ -452,3 +452,120 @@ describe('Moderation — middleware applied before thot insert', () => {
     expect(mod).toContain("from '../lib/supabase.js'")
   })
 })
+
+// ── 19. Thot posting — impersonation, duration, location spoofing ─────────────
+describe('POST /thots — impersonation prevention', () => {
+  it('pen_name is taken from server-side user metadata, not request body', () => {
+    const route = read('../routes/thots.js')
+    const idx = route.indexOf("router.post('/', smartRateLimit")
+    const section = route.slice(idx, idx + 1500)
+    // pen_name must come from req.user.user_metadata, not req.body
+    expect(section).toContain('req.user?.user_metadata?.pen_name')
+    expect(section).not.toMatch(/pen_name\s*=\s*req\.body\.pen_name/)
+  })
+
+  it('user_id is taken from the authenticated JWT user, not request body', () => {
+    const route = read('../routes/thots.js')
+    // Anchor to the thot insert (after the 'Insert new thot' comment)
+    const idx = route.indexOf('// Insert new thot')
+    const section = route.slice(idx, idx + 500)
+    expect(section).toContain('req.user?.id')
+    expect(section).not.toContain('req.body.user_id')
+  })
+
+  it('session_id cookie takes precedence over body — cannot be spoofed via body', () => {
+    const route = read('../routes/thots.js')
+    const idx = route.indexOf("router.post('/', smartRateLimit")
+    const section = route.slice(idx, idx + 600)
+    // Cookie must be read first; body is only a fallback when cookie absent
+    expect(section).toMatch(/cookies\?\.session_id\s*\?\?\s*req\.body\.session_id/)
+  })
+
+  it('unauthenticated POST /thots returns 401', () => {
+    const route = read('../routes/thots.js')
+    const idx = route.indexOf("router.post('/', smartRateLimit")
+    const section = route.slice(idx, idx + 800)
+    expect(section).toContain('status(401)')
+    expect(section).toContain('AUTH_REQUIRED')
+  })
+
+  it('posting without a pen name returns 403 NO_PEN_NAME', () => {
+    const route = read('../routes/thots.js')
+    expect(route).toContain('NO_PEN_NAME')
+    expect(route).toContain('status(403)')
+  })
+})
+
+describe('POST /thots — duration cap enforced server-side', () => {
+  it('max duration is capped at 24 hours regardless of client input', () => {
+    const route = read('../routes/thots.js')
+    // Must reject anything over 24
+    expect(route).toContain('h > 24')
+    expect(route).toContain('duration must be 0.25–24 hours')
+  })
+
+  it('default duration is 24 hours when not specified', () => {
+    const route = read('../routes/thots.js')
+    // Default fallback when duration_hours is null/undefined
+    expect(route).toMatch(/duration_hours.*null.*undefined[\s\S]{0,30}24|24[\s\S]{0,60}default/)
+  })
+
+  it('duration_hours > 24 or < 0.25 is rejected with 400', () => {
+    const route = read('../routes/thots.js')
+    expect(route).toContain('h > 24')
+    expect(route).toContain('h < 0.25')
+    expect(route).toContain("status(400)")
+  })
+
+  it('expires_at is computed server-side from validated duration — not accepted from client', () => {
+    const route = read('../routes/thots.js')
+    const idx = route.indexOf('// Insert new thot')
+    const section = route.slice(idx, idx + 500)
+    expect(section).toContain('expires_at')
+    expect(section).not.toContain('req.body.expires_at')
+  })
+})
+
+describe('POST /thots — location spoofing prevention', () => {
+  it('IP geolocation check is present and wired', () => {
+    const route = read('../routes/thots.js')
+    expect(route).toContain('ipLocation(')
+    expect(route).toContain('MAX_DISTANCE_KM')
+  })
+
+  it('posts more than 500km from IP location are rejected with 422', () => {
+    const route = read('../routes/thots.js')
+    expect(route).toContain('MAX_DISTANCE_KM')
+    expect(route).toContain('status(422)')
+    expect(route).toContain('too far from your actual location')
+  })
+
+  it('coordinates outside the US are rejected with 403 OUTSIDE_US', () => {
+    const route = read('../routes/thots.js')
+    expect(route).toContain('isInUsa(')
+    expect(route).toContain('OUTSIDE_US')
+    expect(route).toContain('status(403)')
+  })
+
+  it('invalid coordinates are rejected with 400', () => {
+    const route = read('../routes/thots.js')
+    const idx = route.indexOf("router.post('/', smartRateLimit")
+    const section = route.slice(idx, idx + 1500)
+    expect(section).toContain('claimedLat < -90')
+    expect(section).toContain('claimedLng < -180')
+    expect(section).toContain('status(400)')
+  })
+
+  it('location spoof alert is sent to support', () => {
+    const route = read('../routes/thots.js')
+    expect(route).toContain('alertSupport(')
+    expect(route).toContain('location-spoof')
+  })
+
+  it('ipLocation skips check for local/private IPs in dev', () => {
+    const route = read('../routes/thots.js')
+    expect(route).toContain('127.0.0.1')
+    expect(route).toContain('192.168.')
+    expect(route).toContain('return null')
+  })
+})

@@ -66,3 +66,22 @@ jobs:
       - name: Syntax check (dry run)
         run: node --input-type=module --check < index.js || node --check index.js
         # Catches import errors and syntax failures without starting the server
+
+  docs-sync:
+    name: Docs — README and CLAUDE.md version in sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check README vs CLAUDE.md version
+        run: |
+          README_VER=$(grep -m1 '^### `v' README.md | grep -oP 'v[\d.]+')
+          CLAUDE_VER=$(grep -m1 '^## Current State' CLAUDE.md | grep -oP 'v[\d.]+')
+          echo "README latest: $README_VER"
+          echo "CLAUDE.md:     $CLAUDE_VER"
+          if [ "$README_VER" != "$CLAUDE_VER" ]; then
+            echo ""
+            echo "ERROR: Version mismatch — update CLAUDE.md ## Current State to match README.md changelog."
+            exit 1
+          fi
+          echo "✓ Versions match"

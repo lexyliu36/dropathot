@@ -161,6 +161,14 @@ const AREAS = [
 
 async function seed() {
   console.log('Clearing NYC seed data…')
+  // Must delete reports first — reports_thot_id_fkey blocks thot deletion
+  const { data: _seedThots } = await supabase
+    .from('thots').select('id').in('session_id', CITY_SEED_IDS.nyc)
+  if (_seedThots?.length) {
+    const _ids = _seedThots.map(t => t.id)
+    await supabase.from('reports').delete().in('thot_id', _ids)
+  }
+
   const { error: delErr } = await supabase.from("thots").delete().in("session_id", CITY_SEED_IDS.nyc)
   if (delErr) console.warn('Warning — could not clear seed data:', delErr.message)
   else console.log('✓ Cleared\n')

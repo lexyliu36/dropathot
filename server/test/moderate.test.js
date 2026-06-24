@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-// Mock supabase before importing moderate
 vi.mock('../lib/supabase.js', () => ({
   supabase: {
     from: () => ({ insert: vi.fn().mockResolvedValue({}) }),
@@ -12,15 +11,11 @@ vi.mock('../lib/email.js', () => ({
   alertSupport: vi.fn().mockResolvedValue(undefined),
 }))
 
-// Helper to build a minimal Express-style req/res/next
-function makeReq(content, { token, cookie } = {}) {
+function makeReq(content) {
   return {
     body: { content, session_id: 'test-session' },
-    headers: {
-      authorization: token ? `Bearer ${token}` : undefined,
-      'x-forwarded-for': '1.2.3.4',
-    },
-    cookies: { thots_session: cookie || 'test-cookie' },
+    headers: { 'x-forwarded-for': '1.2.3.4' },
+    cookies: { thots_session: 'test-cookie' },
     socket: { remoteAddress: '127.0.0.1' },
   }
 }
@@ -32,106 +27,74 @@ function makeRes() {
 }
 
 describe('makeModerate', () => {
-  let originalPerspective, originalOpenAI
+  let originalOpenAI
 
-  beforeEach(() => {
-    originalPerspective = process.env.PERSPECTIVE_API_KEY
-    originalOpenAI = process.env.OPENAI_API_KEY
-  })
+  beforeEach(() => { originalOpenAI = process.env.OPENAI_API_KEY })
+  afterEach(() => { process.env.OPENAI_API_KEY = originalOpenAI; vi.restoreAllMocks() })
 
-  afterEach(() => {
-    process.env.PERSPECTIVE_API_KEY = originalPerspective
-    process.env.OPENAI_API_KEY = originalOpenAI
-    vi.restoreAllMocks()
-  })
-
-  it('calls next() immediately when no real API keys are set', async () => {
-    process.env.PERSPECTIVE_API_KEY = 'REPLACE_ME'
+  it('skips moderation and calls next() when no API key is set', async () => {
     process.env.OPENAI_API_KEY = 'REPLACE_ME'
-
     const { makeModerate } = await import('../middleware/moderate.js')
-    const middleware = makeModerate('thot')
     const next = vi.fn()
-    await middleware(makeReq('hello world'), makeRes(), next)
+    await makeModerate('thot')(makeReq('anything'), makeRes(), next)
     expect(next).toHaveBeenCalledOnce()
   })
 
-  it('calls next() when Perspective deems content clean', async () => {
-    process.env.PERSPECTIVE_API_KEY = 'real-key'
-    delete process.env.OPENAI_API_KEY
-
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({
-        attributeScores: {
-          TOXICITY: { summaryScore: { value: 0.1 } },
-          THREAT: { summaryScore: { value: 0.05 } },
-          SEVERE_TOXICITY: { summaryScore: { value: 0.02 } },
-        },
-      }),
-    })
-
-    const { makeModerate } = await import('../middleware/moderate.js')
-    const middleware = makeModerate('thot')
-    const next = vi.fn()
-    const res = makeRes()
-    await middleware(makeReq('Nice weather today!'), res, next)
-    expect(next).toHaveBeenCalledOnce()
-    expect(res.status).not.toHaveBeenCalled()
-  })
-
-  it('blocks and returns 422 when toxicity exceeds threshold', async () => {
-    process.env.PERSPECTIVE_API_KEY = 'real-key'
-    delete process.env.OPENAI_API_KEY
-
-    globalThis.fetch = vi.fn().mockResolvedValue({
-      json: () => Promise.resolve({
-        attributeScores: {
-          TOXICITY: { summaryScore: { value: 0.95 } },
-          THREAT: { summaryScore: { value: 0.1 } },
-          SEVERE_TOXICITY: { summaryScore: { value: 0.1 } },
-        },
-      }),
-    })
-
-    const { makeModerate } = await import('../middleware/moderate.js')
-    const middleware = makeModerate('thot')
-    const next = vi.fn()
-    const res = makeRes()
-    await middleware(makeReq('hateful content'), res, next)
-    expect(res.status).toHaveBeenCalledWith(422)
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ error: expect.any(String) }))
-    expect(next).not.toHaveBeenCalled()
-  })
-
-  it('calls next() when fetch throws (fail-open behavior)', async () => {
-    process.env.PERSPECTIVE_API_KEY = 'real-key'
-    delete process.env.OPENAI_API_KEY
-
-    globalThis.fetch = vi.fn().mockRejectedValue(new Error('network error'))
-
-    const { makeModerate } = await import('../middleware/moderate.js')
-    const middleware = makeModerate('thot')
-    const next = vi.fn()
-    await middleware(makeReq('some content'), makeRes(), next)
-    expect(next).toHaveBeenCalledOnce()
-  })
-
-  it('blocks when OpenAI flags content', async () => {
-    delete process.env.PERSPECTIVE_API_KEY
+  it('calls next() when OpenAI says content is clean', async () => {
     process.env.OPENAI_API_KEY = 'real-key'
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({ results: [{ flagged: false, categories: {}, category_scores: {} }] }),
+    })
+    const { makeModerate } = await import('../middleware/moderate.js')
+    const next = vi.fn()
+    await makeModerate('thot')(makeReq('Nice day today'), makeRes(), next)
+    expect(next).toHaveBeenCalledOnce()
+  })
 
+  it('blocks with 422 when OpenAI flags content', async () => {
+    process.env.OPENAI_API_KEY = 'real-key'
     globalThis.fetch = vi.fn().mockResolvedValue({
       json: () => Promise.resolve({
-        results: [{ flagged: true }],
+        results: [{
+          flagged: true,
+          categories: { 'violence': true, 'hate': false },
+          category_scores: {},
+        }],
       }),
     })
-
     const { makeModerate } = await import('../middleware/moderate.js')
-    const middleware = makeModerate('thot')
     const next = vi.fn()
     const res = makeRes()
-    await middleware(makeReq('bad content'), res, next)
+    await makeModerate('thot')(makeReq('violent content'), res, next)
     expect(res.status).toHaveBeenCalledWith(422)
     expect(next).not.toHaveBeenCalled()
+  })
+
+  it('extracts specific violation categories from OpenAI response', async () => {
+    process.env.OPENAI_API_KEY = 'real-key'
+    const { alertSupport } = await import('../lib/email.js')
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      json: () => Promise.resolve({
+        results: [{
+          flagged: true,
+          categories: { 'hate': true, 'violence': true, 'sexual': false },
+          category_scores: {},
+        }],
+      }),
+    })
+    const { makeModerate } = await import('../middleware/moderate.js')
+    await makeModerate('thot')(makeReq('bad content'), makeRes(), vi.fn())
+    expect(alertSupport).toHaveBeenCalledWith(expect.objectContaining({
+      fields: expect.objectContaining({ 'Categories': 'hate, violence' }),
+    }))
+  })
+
+  it('fails open and calls next() when the API throws', async () => {
+    process.env.OPENAI_API_KEY = 'real-key'
+    globalThis.fetch = vi.fn().mockRejectedValue(new Error('network error'))
+    const { makeModerate } = await import('../middleware/moderate.js')
+    const next = vi.fn()
+    await makeModerate('thot')(makeReq('some content'), makeRes(), next)
+    expect(next).toHaveBeenCalledOnce()
   })
 })

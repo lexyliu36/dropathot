@@ -21,12 +21,11 @@ const ANON_OPTIONS = [
 ]
 
 const AUTH_OPTIONS = [
-  { value: 72, label: '3 days' },
-  { value: 48, label: '2 days' },
   { value: 24, label: '1 day' },
   { value: 6, label: '6 hours' },
   { value: 3, label: '3 hours' },
   { value: 1, label: '1 hour' },
+  { value: 0.25, label: '15 minutes' },
 ]
 
 export default function ComposeDrawer({ onClose, onPost, location, session }) {

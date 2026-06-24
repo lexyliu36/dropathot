@@ -288,14 +288,13 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
     .digest('hex')
 
   // Compute expires_at from duration_hours
-  // Auth users: default 3 days, max 3 days (72 hours)
-  // Anon users: 1–3 hours only (default 3)
+  // Auth users: default 1 day, max 1 day (24 hours) — no long-lived thots
   let expires_at
   if (req.user) {
     const h = (duration_hours === null || duration_hours === undefined)
-      ? 72
-      : parseInt(duration_hours)
-    if (isNaN(h) || h < 1 || h > 72) return res.status(400).json({ error: 'duration must be 1–72 hours' })
+      ? 24
+      : parseFloat(duration_hours)
+    if (isNaN(h) || h < 0.25 || h > 24) return res.status(400).json({ error: 'duration must be 0.25–24 hours' })
     expires_at = new Date(Date.now() + h * 3600 * 1000).toISOString()
   }
 

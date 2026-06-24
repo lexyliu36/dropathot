@@ -111,7 +111,46 @@ Both commands clear all previous seed data before inserting, so re-running is al
 
 ---
 
+---
+
+## Maintaining Docs
+
+**Rule:** Whenever you add a `### vX.XX` entry to the Changelog, you must also update the version number in `CLAUDE.md`'s `## Current State (vX.XX — fully deployed)` header to match.
+
+CI enforces this — the `docs-sync` job will fail the build if the two versions drift.
+
 ## Changelog
+
+### `v0.38` — Remove Perspective API (sunsetting), OpenAI-only moderation
+
+- Removed `checkPerspective` from `server/middleware/moderate.js` — Perspective API announced end-of-service after 2026, no migration path offered.
+- Moderation pipeline now uses OpenAI Moderation API as sole gatekeeper — covers 11 violation categories (hate, harassment, self-harm, sexual, violence and threatening variants), more comprehensive than Perspective's 3.
+- Updated unit tests in `server/test/moderate.test.js` — removed Perspective mocks, added category extraction assertion.
+- Replaced `server/test/moderate.live.test.js` — OpenAI-only live suite with 9 tests (pass/block/shape checks), auto-skips when key not present.
+
+### `v0.37` — Max thot duration capped to 24h; impersonation/location/duration security tests
+
+- `ComposeDrawer`: removed 3-day and 2-day duration options. Options are now: 1 day, 6h, 3h, 1h.
+- `server/routes/thots.js`: server-side max duration tightened from 72h → 24h. Default also 24h. Client cannot bypass this by sending `duration_hours > 24` — returns 400.
+- Added 15 new security tests to `server/test/security.test.js` covering:
+  - Impersonation: `pen_name` and `user_id` come from server-side JWT, never from request body; `session_id` cookie is authoritative over body.
+  - Duration cap: server rejects `duration_hours > 24`; `expires_at` is computed server-side, not accepted from client.
+  - Location spoofing: IP geolocation check wired, posts > 500km from IP rejected with 422, coordinates outside US rejected with 403, invalid coordinates rejected with 400, spoof alert sent to support.
+
+### `v0.36` — Default thot expiration changed to 1 day
+
+- `ComposeDrawer` duration options reordered so 1 day (24h) is first and therefore the default. Previously defaulted to 3 days.
+- Updated `CLAUDE.md` key design decision to reflect new default.
+
+### `v0.35` — AI vibe endpoint + moderation category logging + VibeButton UI
+
+- Added `server/routes/vibe.js` — `GET /vibe?lat=&lng=&radius=` fetches nearby thots, passes them to GPT-4o-mini, and returns a natural-language neighborhood vibe summary. Cached per H3 cell (res 7) with 5-minute TTL to limit OpenAI calls. Per-IP rate limited (10 req/min).
+- Registered `/vibe` route in `server/index.js`.
+- Added `src/components/VibeButton.jsx` — floating "What's the vibe?" pill button centered at bottom of map. Shows spinner while fetching, renders AI summary in a styled card overlay with thot count and cache indicator.
+- Wired `VibeButton` into `src/pages/Map.jsx`.
+- Enhanced `server/middleware/moderate.js` — `checkOpenAI` now extracts specific violation categories from the OpenAI Moderation API response (e.g. "hate", "violence", "self-harm") and passes them through to `logBlocked`. Alert emails now include the category list.
+- Added `supabase/migrations/021_moderation_categories.sql` — adds `categories text[]` column to `moderation_logs` table for per-violation-type analytics.
+
 
 ### `v0.34` — Fix migration numbering collision + CLAUDE.md guardrails
 

@@ -1,25 +1,16 @@
+/**
+ * Content moderation middleware.
+ *
+ * Uses the OpenAI Moderation API (free, actively maintained).
+ * Perspective API was removed — it sunset after 2026.
+ *
+ * Fails open: if the API is unavailable, the post goes through.
+ * Blocked content is logged to moderation_logs with specific violation categories.
+ */
+
 import { supabase } from '../lib/supabase.js'
 import { alertSupport } from '../lib/email.js'
 import crypto from 'crypto'
-
-async function checkPerspective(content, apiKey) {
-  const res = await fetch(
-    `https://commentanalyzer.googleapis.com/v1alpha1/comments:analyze?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        comment: { text: content },
-        requestedAttributes: { TOXICITY: {}, THREAT: {}, SEVERE_TOXICITY: {} },
-      }),
-    }
-  )
-  const data = await res.json()
-  const toxicity = data.attributeScores?.TOXICITY?.summaryScore?.value ?? 0
-  const threat = data.attributeScores?.THREAT?.summaryScore?.value ?? 0
-  const severe = data.attributeScores?.SEVERE_TOXICITY?.summaryScore?.value ?? 0
-  return { blocked: toxicity > 0.85 || threat > 0.7 || severe > 0.7, source: 'perspective' }
-}
 
 async function checkOpenAI(content, apiKey) {
   const res = await fetch('https://api.openai.com/v1/moderations', {
@@ -28,16 +19,27 @@ async function checkOpenAI(content, apiKey) {
     body: JSON.stringify({ input: content }),
   })
   const data = await res.json()
-  return { blocked: data.results?.[0]?.flagged === true, source: 'openai' }
+  const result = data.results?.[0]
+  const flagged = result?.flagged === true
+
+  // Extract specific violation categories (e.g. "hate", "violence", "self-harm")
+  const categories = flagged
+    ? Object.entries(result?.categories ?? {})
+        .filter(([, v]) => v === true)
+        .map(([k]) => k)
+    : []
+
+  return { blocked: flagged, categories, scores: result?.category_scores ?? {} }
 }
 
-async function logBlocked({ sessionId, ipHash, content, reason, context }) {
+async function logBlocked({ sessionId, ipHash, content, categories, context }) {
   try {
     await supabase.from('moderation_logs').insert({
       session_id: sessionId || null,
       ip_hash: ipHash || null,
       content: content?.slice(0, 280),
-      reason,
+      reason: 'openai',
+      categories: categories?.length ? categories : null,
       context,
     })
   } catch (err) {
@@ -48,38 +50,27 @@ async function logBlocked({ sessionId, ipHash, content, reason, context }) {
 export function makeModerate(context = 'thot') {
   return async function moderate(req, res, next) {
     const { content } = req.body
-    const perspectiveKey = process.env.PERSPECTIVE_API_KEY
     const openaiKey = process.env.OPENAI_API_KEY
 
-    const hasRealKeys =
-      (perspectiveKey && !perspectiveKey.includes('REPLACE')) ||
-      (openaiKey && !openaiKey.includes('REPLACE'))
-
-    if (!hasRealKeys) return next() // skip in dev
+    if (!openaiKey || openaiKey.includes('REPLACE')) return next() // skip in dev
 
     try {
-      const checks = []
-      if (perspectiveKey && !perspectiveKey.includes('REPLACE')) checks.push(checkPerspective(content, perspectiveKey))
-      if (openaiKey && !openaiKey.includes('REPLACE')) checks.push(checkOpenAI(content, openaiKey))
+      const result = await checkOpenAI(content, openaiKey)
 
-      const results = await Promise.all(checks)
-      const blocked = results.filter((r) => r.blocked)
-
-      if (blocked.length > 0) {
-        const reason = blocked.map((r) => r.source).join('+')
+      if (result.blocked) {
         const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || ''
         const ipHash = crypto.createHash('sha256').update(ip + (process.env.IP_SALT || 'thots-salt')).digest('hex')
         const sessionId = req.cookies?.thots_session || req.body?.session_id || null
 
-        await logBlocked({ sessionId, ipHash, content, reason, context })
+        await logBlocked({ sessionId, ipHash, content, categories: result.categories, context })
 
         alertSupport({
           type: 'moderation-block',
-          subject: `Content blocked by moderation (${reason})`,
+          subject: `Content blocked by moderation (openai)`,
           key: sessionId,
           cooldownMs: 5 * 60 * 1000,
           fields: {
-            'Reason': reason,
+            'Categories': result.categories.length ? result.categories.join(', ') : 'n/a',
             'Context': context,
             'Session ID': sessionId,
             'Content (truncated)': content?.slice(0, 120) + (content?.length > 120 ? '…' : ''),
@@ -88,6 +79,7 @@ export function makeModerate(context = 'thot') {
 
         return res.status(422).json({ error: 'Content flagged by moderation.' })
       }
+
       next()
     } catch (err) {
       console.error('Moderation error (failing open):', err.message)

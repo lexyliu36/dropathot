@@ -11,6 +11,7 @@ import useThots from '../hooks/useThots'
 import ThotPin, { AnonAvatar, YouPin, pinAgeHours } from '../components/ThotPin'
 import ComposeDrawer from '../components/ComposeDrawer'
 import ToolsPanel from '../components/ToolsPanel'
+import VibeButton from '../components/VibeButton'
 import TopThots from '../components/TopThots'
 import ProfileSheet from '../components/ProfileSheet'
 import DMDrawer from '../components/DMDrawer'
@@ -845,6 +846,11 @@ export default function Map() {
         </div>
       )}
 
+      {/* Vibe button — bottom center */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
+        <VibeButton userLocation={location} />
+      </div>
+
       {/* Bottom-left stack: zoom controls above dev coords */}
       <div className="absolute bottom-6 left-4 z-20 flex flex-col items-start gap-2">
         {/* Recenter button */}
@@ -877,21 +883,7 @@ export default function Map() {
           </button>
         </div>
 
-        {/* Dev coords — only in dev mode */}
-        {import.meta.env.DEV && location && (
-          <div
-            className="bg-black/70 border border-white/10 rounded-xl px-3 py-2 cursor-pointer hover:border-white/30 transition-colors"
-            onClick={() => {
-              const cmd = `node --env-file=server/.env server/seed.js --lat=${location.lat.toFixed(6)} --lng=${location.lng.toFixed(6)}`
-              navigator.clipboard.writeText(cmd)
-            }}
-            title="Click to copy seed command"
-          >
-            <p className="text-white/40 text-[9px] uppercase tracking-widest mb-0.5">your location</p>
-            <p className="text-white font-mono text-[11px]">{location.lat.toFixed(6)}, {location.lng.toFixed(6)}</p>
-            <p className="text-white/30 text-[9px] mt-0.5">click to copy seed command</p>
-          </div>
-        )}
+
       </div>
 
       {/* Hidden input — iOS keyboard bootstrap (focused synchronously on compose tap) */}
