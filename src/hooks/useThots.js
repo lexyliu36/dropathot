@@ -8,7 +8,7 @@ export default function useThots() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const socketSubscribed = useRef(false)
-  const { userLocation, mapCenter, radius, limit, setThots, addThot } = useAppStore()
+  const { userLocation, mapCenter, radius, limit, setThots, addThot, moveThot } = useAppStore()
   const fetchCenter = mapCenter ?? userLocation
 
   useEffect(() => {
@@ -44,6 +44,7 @@ export default function useThots() {
       socket.connect()
       socket.emit('subscribe', { lat: fetchCenter.lat, lng: fetchCenter.lng })
       socket.on('thot:new', addThot)
+      socket.on('thot:move', (thot) => { moveThot(thot.id, thot.lat, thot.lng) })
       socketSubscribed.current = true
     }
 
@@ -58,6 +59,7 @@ export default function useThots() {
         const socket = getSocket()
         socket.emit('unsubscribe')
         socket.off('thot:new')
+        socket.off('thot:move')
         socketSubscribed.current = false
       }
     }

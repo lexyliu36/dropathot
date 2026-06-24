@@ -116,6 +116,7 @@ export default function Map() {
   const searchSessionToken = useRef(crypto.randomUUID())
   const hypeTimersRef = useRef({})        // debounce timers per thot
   const hypeServerRef = useRef({})        // last confirmed server state per thot
+  const livePinRef = useRef(null)          // { thotId, dLat, dLng, intervalId } for the active live pin
 
   const { location, error: locationError, request: requestLocation, retry } = useLocation()
   const { error: thotsError } = useThots()
@@ -379,6 +380,11 @@ export default function Map() {
       }
       map.remove()
       mapInstanceRef.current = null
+      // Stop live pin tracking
+      if (livePinRef.current?.intervalId) {
+        clearInterval(livePinRef.current.intervalId)
+        livePinRef.current = null
+      }
     }
   }, [])
 
@@ -493,14 +499,22 @@ export default function Map() {
     })
 
     // Re-render existing markers so isYou / session-dependent props stay fresh
-    // (e.g. after sign-in, own thots must flip from purple → red)
+    // (e.g. after sign-in, own thots must flip from purple → red).
+    // Also move the Mapbox marker if a live pin's lat/lng changed in the store.
     existingIds.forEach((id) => {
       if (!markersRef.current[id]) return
-      const { root, thot } = markersRef.current[id]
-      const isYou = thot.session_id === session?.id || thot.user_id === session?.userId || (thot.pen_name && thot.pen_name === session?.penName)
+      const { root, thot, marker } = markersRef.current[id]
+      // Use the freshest thot data from visibleThots (catches live-pin position updates)
+      const currentThot = visibleThots.find(t => t.id === id) ?? thot
+      // If a live pin moved, reposition the Mapbox marker element
+      if (currentThot.lat !== thot.lat || currentThot.lng !== thot.lng) {
+        marker.setLngLat([currentThot.lng, currentThot.lat])
+        markersRef.current[id].thot = currentThot
+      }
+      const isYou = currentThot.session_id === session?.id || currentThot.user_id === session?.userId || (currentThot.pen_name && currentThot.pen_name === session?.penName)
       root.render(
         <ThotPin
-          thot={thot}
+          thot={currentThot}
           isYou={isYou}
           session={session}
           onHype={handleHype}
@@ -652,6 +666,78 @@ export default function Map() {
     const newThot = await res.json()
     useAppStore.getState().addThot(newThot)
     invalidateThotCache(session?.id)
+  }
+
+  async function handlePin(content, duration, jitteredLoc, offset) {
+    if (!location) throw new Error('Location required')
+    if (session?.type !== 'user') {
+      window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+      throw new Error('Sign in to post')
+    }
+    const body = {
+      content,
+      lat: (jitteredLoc ?? location).lat,
+      lng: (jitteredLoc ?? location).lng,
+      session_id: session?.id,
+      pen_name: session?.penName ?? null,
+      duration_hours: duration,
+      is_live_pin: true,
+    }
+    const headers = { 'Content-Type': 'application/json' }
+    if (session?.supabaseToken) headers['Authorization'] = `Bearer ${session.supabaseToken}`
+
+    const res = await fetch(`${API_URL}/thots`, {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: JSON.stringify(body),
+    })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      if (res.status === 401 && data.code === 'AUTH_REQUIRED') {
+        clearSession()
+        setSession(getOrCreateSession())
+        setAuthModal('login')
+      }
+      const err = new Error(data.error || `Server error ${res.status}`)
+      err.code = data.code ?? null
+      throw err
+    }
+    const newThot = await res.json()
+    useAppStore.getState().addThot(newThot)
+    invalidateThotCache(session?.id)
+
+    // Clear any existing live pin interval before starting a new one
+    if (livePinRef.current?.intervalId) {
+      clearInterval(livePinRef.current.intervalId)
+    }
+
+    const { dLat = 0, dLng = 0 } = offset ?? {}
+    const thotId = newThot.id
+    const intervalId = setInterval(async () => {
+      const currentLoc = useAppStore.getState().userLocation
+      if (!currentLoc) return
+      // Self-clean if the thot was deleted
+      if (!useAppStore.getState().thots.find(t => t.id === thotId)) {
+        clearInterval(livePinRef.current?.intervalId)
+        livePinRef.current = null
+        return
+      }
+      const newLat = currentLoc.lat + dLat
+      const newLng = currentLoc.lng + dLng
+      const token = useAppStore.getState().session?.supabaseToken
+      fetch(`${API_URL}/thots/${thotId}/location`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ lat: newLat, lng: newLng }),
+      }).catch(() => {}) // fire-and-forget
+    }, 15_000)
+
+    livePinRef.current = { thotId, dLat, dLng, intervalId }
   }
 
   return (
@@ -921,6 +1007,7 @@ export default function Map() {
         <ComposeDrawer
           onClose={() => { setComposing(false); setTimeout(() => mapInstanceRef.current?.resize(), 100) }}
           onPost={handlePost}
+          onPin={handlePin}
           location={location}
           session={session}
         />

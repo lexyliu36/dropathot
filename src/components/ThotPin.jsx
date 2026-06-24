@@ -154,6 +154,29 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
           </button>
         )}
 
+        {thot.is_live_pin && (
+          <>
+            <style>{`
+              @keyframes live-dot-pulse {
+                0%, 100% { opacity: 1; transform: scale(1); }
+                50%       { opacity: 0.6; transform: scale(1.3); }
+              }
+            `}</style>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px' }}>
+              <span style={{
+                display: 'inline-block',
+                width: '7px',
+                height: '7px',
+                borderRadius: '50%',
+                background: '#22c55e',
+                boxShadow: '0 0 4px #22c55e88',
+                animation: 'live-dot-pulse 2s ease-in-out infinite',
+                flexShrink: 0,
+              }} />
+              <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 700, letterSpacing: '0.05em' }}>LIVE</span>
+            </div>
+          </>
+        )}
         <p style={{
           color: '#fff',
           fontSize: '14px',

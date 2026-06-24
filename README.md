@@ -121,6 +121,15 @@ CI enforces this — the `docs-sync` job will fail the build if the two versions
 
 ## Changelog
 
+### `v0.44` — Live pin: thot that follows your location
+
+- **New feature: Pin thot** — a second post action in ComposeDrawer. A pinned thot is posted with `is_live_pin: true` and tracks the poster's GPS position in real time. The randomization offset is computed once at post time and applied consistently to every location update, so privacy obfuscation stays stable as the user moves.
+- **DB migration 024** — adds `is_live_pin boolean not null default false` to `thots`; updates `get_thots_nearby` RPC to return the column.
+- **New endpoint: `PATCH /thots/:id/location`** — auth-required, owner-only. Validates coords, checks US bounds, updates `lat`/`lng`/`location` in DB, emits `thot:move` socket event to old + new H3 cells.
+- **Socket event `thot:move`** — received by `useThots.js`, triggers `moveThot` Zustand action. Mapbox marker repositioned via `marker.setLngLat()` in the existing marker update loop.
+- **ThotPin visual indicator** — live pins show a pulsing green dot and LIVE badge above the content.
+- **Tests** — `server/test/livePin.test.js`, 10 cases covering auth, ownership, validation, DB error, and happy path with socket broadcast.
+
 ### `v0.43` — Fix news pin color + cross-outlet ProfileSheet contamination
 
 - `src/components/ProfileSheet.jsx`: added `PIN_COLORS` map so news/event pins render green/amber (was falling through to purple). Fixed `getCached(null)` returning a previous outlet's thots when clicking any news pin — cache is now skipped when `sessionId` is null.

@@ -1,14 +1,14 @@
 import { useState, useRef, useLayoutEffect } from 'react'
-import { X, Send, User, Map } from 'lucide-react'
+import { X, Send, User, Map, Pin } from 'lucide-react'
 
 // Place thot at approximately radiusM metres away in a random direction (±10% variance)
 function jitterLocation(lat, lng, radiusM) {
-  if (radiusM === 0) return { lat, lng }
+  if (radiusM === 0) return { lat, lng, dLat: 0, dLng: 0 }
   const angle = Math.random() * 2 * Math.PI
   const r = radiusM * (0.9 + Math.random() * 0.2) // 90–110% of set distance
   const dLat = (r * Math.cos(angle)) / 111320
   const dLng = (r * Math.sin(angle)) / (111320 * Math.cos(lat * Math.PI / 180))
-  return { lat: lat + dLat, lng: lng + dLng }
+  return { lat: lat + dLat, lng: lng + dLng, dLat, dLng }
 }
 
 const MAX = 280
@@ -28,7 +28,7 @@ const AUTH_OPTIONS = [
   { value: 0.25, label: '15 minutes' },
 ]
 
-export default function ComposeDrawer({ onClose, onPost, location, session }) {
+export default function ComposeDrawer({ onClose, onPost, onPin, location, session }) {
   const [text, setText] = useState('')
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState(null)
@@ -57,6 +57,26 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
       const radiusM = Math.round((jitter / 100) * maxRadius)
       const jitteredLoc = location ? jitterLocation(location.lat, location.lng, radiusM) : null
       await onPost(text.trim(), duration, jitteredLoc)
+      onClose()
+    } catch (err) {
+      setError({ message: err.message || 'Failed to post. Try again.', code: err.code ?? null })
+    } finally {
+      setPosting(false)
+    }
+  }
+
+  async function handlePin() {
+    if (!text.trim() || posting) return
+    setPosting(true)
+    setError(null)
+    try {
+      const maxRadius = 150
+      const radiusM = Math.round((jitter / 100) * maxRadius)
+      const jitterResult = location ? jitterLocation(location.lat, location.lng, radiusM) : null
+      const offset = jitterResult
+        ? { dLat: jitterResult.dLat, dLng: jitterResult.dLng }
+        : { dLat: 0, dLng: 0 }
+      await onPin(text.trim(), duration, jitterResult, offset)
       onClose()
     } catch (err) {
       setError({ message: err.message || 'Failed to post. Try again.', code: err.code ?? null })
@@ -190,22 +210,39 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
             )}
           </div>
 
-          <div className="flex items-center justify-between">
-            <span className={`text-xs ${MAX - text.length < 30 ? 'text-brand-red' : 'text-slate-500'}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span className={`text-xs flex-shrink-0 ${MAX - text.length < 30 ? 'text-brand-red' : 'text-slate-500'}`}>
               {MAX - text.length} remaining
             </span>
-            <button
-              onClick={handlePost}
-              disabled={!text.trim() || posting}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-purple text-white font-semibold text-sm disabled:opacity-40 hover:bg-violet-500 transition-colors cursor-pointer disabled:cursor-not-allowed"
-            >
-              {posting ? (
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                <Send size={14} />
+            <div className="flex items-center gap-2">
+              {onPin && (
+                <button
+                  onClick={handlePin}
+                  disabled={!text.trim() || posting}
+                  title="Pin thot — follows your location"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-full bg-green-600 text-white font-semibold text-sm disabled:opacity-40 hover:bg-green-500 transition-colors cursor-pointer disabled:cursor-not-allowed"
+                >
+                  {posting ? (
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Pin size={14} />
+                  )}
+                  Pin thot
+                </button>
               )}
-              Post thot
-            </button>
+              <button
+                onClick={handlePost}
+                disabled={!text.trim() || posting}
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-brand-purple text-white font-semibold text-sm disabled:opacity-40 hover:bg-violet-500 transition-colors cursor-pointer disabled:cursor-not-allowed"
+              >
+                {posting ? (
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <Send size={14} />
+                )}
+                Post thot
+              </button>
+            </div>
           </div>
         </>
       )}
