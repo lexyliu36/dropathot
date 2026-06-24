@@ -38,7 +38,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
   const rateNote = isAuth ? 'no rate limit' : '3 thots/hr'
   const durationOptions = isAuth ? AUTH_OPTIONS : ANON_OPTIONS
   const [duration, setDuration] = useState(durationOptions[0].value)
-  const [jitter, setJitter] = useState(0) // 0–100 → 0–200m
+  const [jitter, setJitter] = useState(0) // 0–100 → 0–150m
 
   // Focus textarea after drawer animation without triggering iOS scroll-into-view shift
   const textareaRef = useRef(null)
@@ -53,7 +53,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
     setPosting(true)
     setError(null)
     try {
-      const maxRadius = 200 // metres
+      const maxRadius = 150 // metres
       const radiusM = Math.round((jitter / 100) * maxRadius)
       const jitteredLoc = location ? jitterLocation(location.lat, location.lng, radiusM) : null
       await onPost(text.trim(), duration, jitteredLoc)
@@ -138,7 +138,7 @@ export default function ComposeDrawer({ onClose, onPost, location, session }) {
               <span className="text-xs font-semibold text-slate-400">Location Randomizer</span>
               {jitter > 0 && (
                 <span className="ml-auto text-[10px] text-brand-purple">
-                  ~{Math.round((jitter / 100) * 200)}m offset
+                  ~{Math.round((jitter / 100) * 150)}m offset
                 </span>
               )}
             </div>

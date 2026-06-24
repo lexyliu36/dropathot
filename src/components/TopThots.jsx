@@ -81,21 +81,24 @@ function ThotRow({ thot, rank, session, onHype, onFlyTo, onClose, onSelectThot, 
         </div>
         <div className="-mt-1.5 mb-1.5"><GeoLabel lat={thot.lat} lng={thot.lng} /></div>
         <div className="flex items-center">
-          <div style={{ width: '48px', flexShrink: 0 }}>
+          {/* Heart — fixed 52px holds icon + up to "1.1M" */}
+          <div style={{ width: '52px', flexShrink: 0 }}>
             <LeaderboardHeart thot={thot} session={session} onHype={onHype} />
           </div>
-          <div className="relative group/tip" style={{ width: '48px', flexShrink: 0 }}>
+          {/* Comment — fixed 52px */}
+          <div className="relative group/tip" style={{ width: '52px', flexShrink: 0 }}>
             <button
               onClick={() => { onCommentClick?.(thot); onFlyTo?.(thot) }}
               className="flex items-center gap-1 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
               style={{ background: 'none', border: 'none', padding: 0 }}
             >
               <MessageCircle size={17} style={{ flexShrink: 0 }} />
-              <span className="text-xs tabular-nums">{formatCount(thot.comment_count ?? 0)}</span>
+              {(thot.comment_count ?? 0) > 0 && <span className="text-xs tabular-nums">{formatCount(thot.comment_count ?? 0)}</span>}
             </button>
             <span className="action-tip">Comments</span>
           </div>
-          <div className="relative group/tip">
+          {/* Share — fixed 36px, icon only */}
+          <div className="relative group/tip" style={{ width: '36px', flexShrink: 0 }}>
             <button
               onClick={() => {
                 const liveCount = useAppStore.getState().thots.find(t => t.id === thot.id)?.hype_count ?? thot.hype_count ?? 0

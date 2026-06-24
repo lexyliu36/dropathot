@@ -5,6 +5,13 @@ import { X, ShieldX, ShieldCheck, Heart, MessageCircle, Upload, Flag, Trash2, Us
 import { AnonAvatar } from './ThotPin'
 import CommentThread from './CommentThread'
 import ShareSheet from './ShareSheet'
+
+function formatCount(n) {
+  if (!n || n <= 0) return ''
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1).replace(/\.0$/, '') + 'M'
+  if (n >= 1_000) return (n / 1_000).toFixed(n >= 10_000 ? 0 : 1).replace(/\.0$/, '') + 'K'
+  return String(n)
+}
 import useAppStore from '../stores/useAppStore'
 import { reverseGeocode } from '../lib/geocode.js'
 
@@ -145,46 +152,46 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
             {/* Content */}
             <p className="text-white/90 text-sm leading-relaxed mt-1 break-words">{thot.content}</p>
 
-            {/* Action row */}
+            {/* Action row — fixed-width slots so counts never shift sibling icons */}
             <div className="flex items-center mt-3">
-              {/* Hype / Heart */}
-              <div className="relative group/tip flex-1 flex justify-center">
+              {/* Heart — 52px holds icon + up to "1.1M" */}
+              <div className="relative group/tip" style={{ width: '52px', flexShrink: 0 }}>
                 <button
                   onClick={handleHypeClick}
-                  className="flex items-center gap-1.5 transition-colors cursor-pointer"
-                  style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b', minWidth: '36px' }}
+                  className="flex items-center gap-1 transition-colors cursor-pointer"
+                  style={{ background: 'none', border: 'none', padding: 0, color: hyped ? '#e11d48' : '#64748b' }}
                 >
                   <Heart
-                    size={19}
+                    size={17}
                     className={heartAnim ? 'heart-pop' : ''}
                     onAnimationEnd={() => setHeartAnim(false)}
                     style={{ fill: hyped ? '#e11d48' : 'none', transition: 'fill 0.15s, color 0.15s', flexShrink: 0 }}
                   />
                   {hypeCount > 0 && (
-                    <span className="text-xs" style={{ color: hyped ? '#e11d48' : '#64748b' }}>{hypeCount}</span>
+                    <span className="text-xs tabular-nums" style={{ color: hyped ? '#e11d48' : '#64748b' }}>{formatCount(hypeCount)}</span>
                   )}
                 </button>
                 <span className="action-tip">{isAuth ? (hyped ? 'Unlike' : 'Like') : 'Sign in'}</span>
               </div>
 
-              {/* Comment */}
-              <div className="relative group/tip flex-1 flex justify-center">
+              {/* Comment — 52px */}
+              <div className="relative group/tip" style={{ width: '52px', flexShrink: 0 }}>
                 <button
                   onClick={() => { setAutoFocusComment(true); setShowComments(v => !v) }}
-                  className="flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="flex items-center gap-1 transition-colors cursor-pointer"
                   style={{ background: 'none', border: 'none', padding: 0, color: showComments ? '#94a3b8' : '#64748b' }}
                 >
                   <MessageCircle size={17} />
-                  {commentCount > 0 && <span className="text-xs">{commentCount}</span>}
+                  {commentCount > 0 && <span className="text-xs tabular-nums">{formatCount(commentCount)}</span>}
                 </button>
                 <span className="action-tip">Comment</span>
               </div>
 
-              {/* Share */}
-              <div className="relative group/tip flex-1 flex justify-center">
+              {/* Share — 36px, icon only */}
+              <div className="relative group/tip" style={{ width: '48px', flexShrink: 0 }}>
                 <button
                   onClick={() => setShowShare(true)}
-                  className="flex items-center gap-1 transition-colors cursor-pointer"
+                  className="flex items-center transition-colors cursor-pointer"
                   style={{ background: 'none', border: 'none', padding: 0, color: '#64748b' }}
                 >
                   <Upload size={17} />
@@ -192,43 +199,42 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
                 <span className="action-tip">Share</span>
               </div>
 
-              {/* Delete / Report — 4th equal slot */}
-              <div className="flex-1 flex justify-center">
-              {isOwn && (
-                <div className="flex flex-col items-end gap-1">
+              {/* Delete / Report — 36px, icon only */}
+              <div style={{ width: '48px', flexShrink: 0 }}>
+                {isOwn ? (
+                  <div className="flex flex-col gap-1">
+                    <div className="relative group/tip">
+                      <button
+                        onClick={() => setConfirmDelete(true)}
+                        className="flex items-center transition-colors cursor-pointer text-slate-700 hover:text-red-400"
+                        style={{ background: 'none', border: 'none', padding: 0 }}
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                      <span className="action-tip">Delete</span>
+                    </div>
+                    {deleteError && (
+                      <span className="text-xs" style={{ color: '#f87171' }}>{deleteError}</span>
+                    )}
+                  </div>
+                ) : (
                   <div className="relative group/tip">
                     <button
-                      onClick={() => setConfirmDelete(true)}
-                      className="flex items-center gap-1 transition-colors cursor-pointer text-slate-700 hover:text-red-400"
-                      style={{ background: 'none', border: 'none', padding: 0 }}
+                      onClick={() => {
+                        if (!isAuth) { window.dispatchEvent(new CustomEvent('thots:needs-auth')); return }
+                        setConfirmReport(true)
+                      }}
+                      className="flex items-center transition-colors cursor-pointer"
+                      style={{
+                        background: 'none', border: 'none', padding: 0,
+                        color: reported ? '#f97316' : '#3f4b5b',
+                      }}
                     >
-                      <Trash2 size={17} />
+                      <Flag size={17} style={{ fill: reported ? '#f97316' : 'none' }} />
                     </button>
-                    <span className="action-tip">Delete</span>
+                    <span className="action-tip">{reported ? 'Reported' : 'Report'}</span>
                   </div>
-                  {deleteError && (
-                    <span className="text-xs" style={{ color: '#f87171' }}>{deleteError}</span>
-                  )}
-                </div>
-              )}
-              {!isOwn && (
-                <div className="relative group/tip">
-                  <button
-                    onClick={() => {
-                      if (!isAuth) { window.dispatchEvent(new CustomEvent('thots:needs-auth')); return }
-                      setConfirmReport(true)
-                    }}
-                    className="flex items-center gap-1 transition-colors cursor-pointer"
-                    style={{
-                      background: 'none', border: 'none', padding: 0,
-                      color: reported ? '#f97316' : '#3f4b5b',
-                    }}
-                  >
-                    <Flag size={17} style={{ fill: reported ? '#f97316' : 'none' }} />
-                  </button>
-                  <span className="action-tip">{reported ? 'Reported' : 'Report'}</span>
-                </div>
-              )}
+                )}
               </div>
             </div>
           </div>
