@@ -715,7 +715,7 @@ function SettingsPane({ session }) {
       {isAuth && (
         <div className="bg-white/[0.07] border border-white/[0.04] rounded-xl p-3 flex flex-col gap-1">
           <p className="text-slate-500 text-sm font-medium mb-2">Preferences</p>
-          <PushToggle session={session} />
+          {/* PushToggle temporarily hidden — push notifications under repair */}
           <EmailToggle label="DM digest emails" description="15-min summary of unread DMs" prefKey="email_dm_digest" session={session} />
           <EmailToggle label="Activity digest emails" description="Hourly — hypes, comments, follows" prefKey="email_activity_digest" session={session} />
         </div>

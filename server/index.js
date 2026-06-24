@@ -31,6 +31,7 @@ import pushRouter from './routes/push.js'
 import vibeRouter from './routes/vibe.js'
 import { startDigestJob } from './jobs/digestEmail.js'
 import { startDeletionCron } from './lib/deletionCron.js'
+import { startNewsJob } from './jobs/newsJob.js'
 
 const app = express()
 const httpServer = createServer(app)
@@ -105,6 +106,7 @@ const PORT = process.env.PORT || 4000
 startDeletionCron()
 
 startDigestJob()
+startNewsJob()
 httpServer.listen(PORT, () => {
   console.log(`Thots server running on port ${PORT}`)
 })

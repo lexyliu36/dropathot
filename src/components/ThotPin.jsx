@@ -50,7 +50,10 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
   const [heartAnim, setHeartAnim] = useState(false)
   const isAuth = useAppStore((s) => s.session?.type === 'user')
 
-  const accentColor = isYou ? '#e11d48' : thot.pen_name ? '#7c3aed' : '#64748b'
+  const pinType = thot.pin_type || null
+  // Color map — add new pin_type entries here as automated sources are added
+  const PIN_COLORS = { news: '#16a34a', event: '#d97706' }
+  const accentColor = isYou ? '#e11d48' : PIN_COLORS[pinType] ?? (thot.pen_name ? '#7c3aed' : '#64748b')
   const isNew = thot._isNew || (Date.now() - new Date(thot.created_at).getTime()) < 15_000
   const mob = typeof window !== 'undefined' && window.innerWidth <= 640
 
@@ -159,10 +162,27 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
         }}>
           {thot.content}
         </p>
+        {pinType && thot.source_url && (
+          <a
+            href={thot.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            style={{ display: 'inline-block', marginTop: '4px', fontSize: '11px', color: '#4ade80', opacity: 0.75, textDecoration: 'none' }}
+          >
+            Read full story ↗
+          </a>
+        )}
 
         {/* Meta row + hype button */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px', marginTop: '6px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px', minWidth: 0 }}>
+            {pinType && (
+              <span style={{ fontSize: '10px', background: `${accentColor}22`, border: `1px solid ${accentColor}55`, color: accentColor, borderRadius: '4px', padding: '0 4px', lineHeight: '16px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+                {pinType.toUpperCase()}
+              </span>
+            )}
             <span style={{ fontSize: mob ? '14px' : '12px', color: accentColor, fontWeight: 600, whiteSpace: 'nowrap' }}>
               {thot.pen_name || 'anon'}
             </span>

@@ -84,7 +84,7 @@ router.get('/', async (req, res) => {
 
     const limit = Math.min(parseInt(req.query.limit) || 20, 50)
     const offset = parseInt(req.query.offset) || 0
-    const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted'
+    const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url'
 
     // Build query: own history uses session_id OR user_id (covers anon→registered transition),
     // public profile uses user_id only (non-hidden posts only)
@@ -159,7 +159,7 @@ router.get('/liked', async (req, res) => {
   if (error || !user) return res.json([])
   const { data } = await supabase
     .from('hypes')
-    .select('thot_id, thots(id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted)')
+    .select('thot_id, thots(id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
   res.json(data?.map(h => h.thots).filter(Boolean) ?? [])
@@ -349,7 +349,7 @@ router.get('/:id', async (req, res) => {
   if (!/^[0-9a-f-]{36}$/.test(id)) return res.status(400).json({ error: 'invalid id' })
   const { data, error } = await supabase
     .from('thots')
-    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted')
+    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url')
     .eq('id', id)
     .single()
   if (error || !data) return res.status(404).json({ error: 'not found' })
@@ -408,7 +408,7 @@ router.delete('/:id', async (req, res) => {
   // when this thot was posted, provided it hasn't expired yet.
   const { data: restored } = await supabase
     .from('thots')
-    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted')
+    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url')
     .eq('session_id', session_id)
     .eq('hidden', true)
     .eq('user_deleted', false)
