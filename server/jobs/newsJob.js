@@ -244,10 +244,10 @@ export function startNewsJob() {
   // Run immediately on startup (after a short delay for the server to settle)
   setTimeout(() => runNewsJob().catch(err => console.error('[newsJob] startup run error:', err)), 15_000)
 
-  // Then every 30 minutes
-  cron.schedule('*/30 * * * *', () => {
+  // Then every 6 hours
+  cron.schedule('0 */6 * * *', () => {
     runNewsJob().catch(err => console.error('[newsJob] scheduled run error:', err))
   })
 
-  console.log('[newsJob] News cron scheduled — runs every 30 minutes')
+  console.log('[newsJob] News cron scheduled — runs every 6 hours')
 }

@@ -6,7 +6,7 @@ Anonymous location-based social network. Twitter-length posts ("thots") appear a
 
 ---
 
-## Current State (v0.42 — fully deployed)
+## Current State (v0.43 — fully deployed)
 
 Everything is complete and live. See `README.md` changelog for full version history.
 

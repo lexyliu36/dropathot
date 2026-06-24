@@ -151,6 +151,18 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
 
             {/* Content */}
             <p className="text-white/90 text-sm leading-relaxed mt-1 break-words">{thot.content}</p>
+            {thot.pin_type && thot.source_url && (
+              <a
+                href={thot.source_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-block mt-1 text-xs opacity-70 hover:opacity-100 transition-opacity"
+                style={{ color: accentColor }}
+              >
+                Read full story ↗
+              </a>
+            )}
 
             {/* Action row — fixed-width slots so counts never shift sibling icons */}
             <div className="flex items-center mt-3">
@@ -327,7 +339,8 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   const penName = isYou
     ? (session?.penName ?? thot?.pen_name ?? null)
     : (thot?.pen_name ?? null)
-  const accentColor = isYou ? '#e11d48' : thot?.pen_name ? '#7c3aed' : '#64748b'
+  const PIN_COLORS = { news: '#16a34a', event: '#d97706' }
+  const accentColor = isYou ? '#e11d48' : PIN_COLORS[thot?.pin_type] ?? (thot?.pen_name ? '#7c3aed' : '#64748b')
   const isBlocked = blockedSessions.has(sessionId)
   const [confirmBlock, setConfirmBlock] = useState(false)
 
@@ -348,7 +361,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
       setLoading(false)
       return
     }
-    const cached = getCached(sessionId)
+    const cached = sessionId ? getCached(sessionId) : null  // never cache null-session (news/auto thots all share null)
     if (cached) {
       setHistory(cached.thots.filter(t => !t.user_deleted))
       setTotal(cached.total)
