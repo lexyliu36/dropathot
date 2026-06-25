@@ -403,6 +403,22 @@ export default function Map() {
     return () => clearTimeout(t)
   }, [location])
 
+  // Live pin — move marker instantly whenever GPS updates (same cadence as YouPin)
+  useEffect(() => {
+    if (!location || !livePinRef.current) return
+    const { thotId, dLat, dLng } = livePinRef.current
+    const newLat = location.lat + dLat
+    const newLng = location.lng + dLng
+    // Update Mapbox marker position directly for instant feedback
+    const entry = markersRef.current[thotId]
+    if (entry) {
+      entry.marker.setLngLat([newLng, newLat])
+      entry.thot = { ...entry.thot, lat: newLat, lng: newLng }
+    }
+    // Keep store in sync so visibleThots / ProfileSheet reflect current position
+    useAppStore.getState().moveThot(thotId, newLat, newLng)
+  }, [location?.lat, location?.lng])
+
   // Your location marker — created once on location + mapReady
   useEffect(() => {
     const map = mapInstanceRef.current
@@ -442,6 +458,55 @@ export default function Map() {
   }, [thots, session?.id, session?.type])
 
 
+
+  // Restore live pin tracking after page reload
+  useEffect(() => {
+    if (!session?.userId || !session?.supabaseToken || livePinRef.current) return
+    const saved = localStorage.getItem('livePinState')
+    if (!saved) return
+    let parsed
+    try { parsed = JSON.parse(saved) } catch { localStorage.removeItem('livePinState'); return }
+    const { thotId, dLat = 0, dLng = 0 } = parsed
+    if (!thotId) { localStorage.removeItem('livePinState'); return }
+
+    // Verify thot still exists and belongs to this user
+    const token = session.supabaseToken
+    fetch(`${API_URL}/thots/${thotId}`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(async (r) => {
+      if (!r.ok) { localStorage.removeItem('livePinState'); return }
+      const thot = await r.json()
+      if (!thot.is_live_pin || thot.user_id !== session.userId || thot.hidden || thot.user_deleted) {
+        localStorage.removeItem('livePinState')
+        return
+      }
+      // Thot is valid — restore tracking
+      const intervalId = setInterval(async () => {
+        const currentLoc = useAppStore.getState().userLocation
+        if (!currentLoc) return
+        const newLat = currentLoc.lat + dLat
+        const newLng = currentLoc.lng + dLng
+        const t = useAppStore.getState().session?.supabaseToken
+        try {
+          const res = await fetch(`${API_URL}/thots/${thotId}/location`, {
+            method: 'PATCH',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) },
+            body: JSON.stringify({ lat: newLat, lng: newLng }),
+          })
+          if (res.ok) {
+            useAppStore.getState().moveThot(thotId, newLat, newLng)
+          } else if (res.status === 404 || res.status === 410) {
+            clearInterval(livePinRef.current?.intervalId)
+            livePinRef.current = null
+            localStorage.removeItem('livePinState')
+          }
+        } catch (_) {}
+      }, 30_000)
+      livePinRef.current = { thotId, dLat, dLng, intervalId }
+    }).catch(() => {})
+  }, [session?.userId, session?.supabaseToken])
 
   // 200m postable-range ring — only shown for authenticated users (anon can't post)
   useEffect(() => {
@@ -717,27 +782,35 @@ export default function Map() {
     const intervalId = setInterval(async () => {
       const currentLoc = useAppStore.getState().userLocation
       if (!currentLoc) return
-      // Self-clean if the thot was deleted
-      if (!useAppStore.getState().thots.find(t => t.id === thotId)) {
-        clearInterval(livePinRef.current?.intervalId)
-        livePinRef.current = null
-        return
-      }
       const newLat = currentLoc.lat + dLat
       const newLng = currentLoc.lng + dLng
       const token = useAppStore.getState().session?.supabaseToken
-      fetch(`${API_URL}/thots/${thotId}/location`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-        body: JSON.stringify({ lat: newLat, lng: newLng }),
-      }).catch(() => {}) // fire-and-forget
-    }, 15_000)
+      try {
+        const r = await fetch(`${API_URL}/thots/${thotId}/location`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ lat: newLat, lng: newLng }),
+        })
+        if (r.ok) {
+          // Update local store directly — don't rely on socket routing back to self
+          useAppStore.getState().moveThot(thotId, newLat, newLng)
+        } else if (r.status === 404 || r.status === 410) {
+          // Thot was deleted — stop tracking
+          clearInterval(livePinRef.current?.intervalId)
+          livePinRef.current = null
+          localStorage.removeItem('livePinState')
+        }
+        // 400 (not a live pin) or 403 (not owner) should not happen in normal flow;
+        // 4xx errors are left to retry next tick rather than killing the interval.
+      } catch (_) { /* network error — retry next tick */ }
+    }, 30_000) // 30s is enough for server/other-clients; local movement is GPS-driven
 
     livePinRef.current = { thotId, dLat, dLng, intervalId }
+    localStorage.setItem('livePinState', JSON.stringify({ thotId, dLat, dLng }))
   }
 
   return (
@@ -1007,7 +1080,6 @@ export default function Map() {
         <ComposeDrawer
           onClose={() => { setComposing(false); setTimeout(() => mapInstanceRef.current?.resize(), 100) }}
           onPost={handlePost}
-          onPin={handlePin}
           location={location}
           session={session}
         />
