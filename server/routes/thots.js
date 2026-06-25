@@ -427,6 +427,9 @@ router.delete('/:id', async (req, res) => {
 
   // Restore the most recent prior thot from the same session that was auto-hidden
   // when this thot was posted, provided it hasn't expired yet.
+  // Only restore thots created within the last 24h (the max expiry window).
+  // This prevents ancient thots with far-future expires_at from being resurrected.
+  const twentyFourHoursAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
   const { data: restored } = await supabase
     .from('thots')
     .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url')
@@ -435,6 +438,7 @@ router.delete('/:id', async (req, res) => {
     .eq('user_deleted', false)
     .neq('id', id)
     .gt('expires_at', new Date().toISOString())
+    .gt('created_at', twentyFourHoursAgo)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
