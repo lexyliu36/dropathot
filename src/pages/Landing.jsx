@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { MapPin, Mail, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
 import { signIn, checkEmailExists } from "../lib/auth";
 import { updateSession, clearSession, getOrCreateSession } from "../lib/identity";
+import dropaThotIcon from "../assets/dropathot-icon.svg";
 
 const TAGLINES = [
   "What people near you are actually thinking.",
@@ -193,158 +194,38 @@ export default function Landing() {
   }
 
   return (
-    <div className="relative min-h-screen w-full flex flex-col items-center justify-center overflow-hidden bg-[#0a0a0f]">
+    <div className="landing-bg relative min-h-screen w-full flex flex-col items-center justify-center overflow-hidden bg-[#7c3aed]">
       {/* Animated background */}
       <style>{`
-        @keyframes floatA {
-          0%, 100% { transform: translateY(0px) rotate(-8deg); }
-          50% { transform: translateY(-18px) rotate(-8deg); }
+        @keyframes floatIcon {
+          0%, 100% { transform: translateY(0px); }
+          50% { transform: translateY(-8px); }
         }
-        @keyframes floatB {
-          0%, 100% { transform: translateY(0px) rotate(6deg); }
-          50% { transform: translateY(-12px) rotate(6deg); }
-        }
-        @keyframes floatC {
-          0%, 100% { transform: translateY(0px) rotate(-3deg); }
-          50% { transform: translateY(-22px) rotate(-3deg); }
-        }
-        @keyframes electricFlow {
-          0% { stroke-dashoffset: 2000; opacity: 0.15; }
-          30% { opacity: 0.45; }
-          70% { opacity: 0.3; }
-          100% { stroke-dashoffset: 0; opacity: 0.15; }
-        }
-        @keyframes electricFlow2 {
-          0% { stroke-dashoffset: -1600; opacity: 0.1; }
-          40% { opacity: 0.35; }
-          100% { stroke-dashoffset: 0; opacity: 0.1; }
-        }
-        @keyframes electricPulse {
-          0%, 100% { opacity: 0.08; }
-          50% { opacity: 0.22; }
-        }
-        @keyframes glowPulse {
-          0%, 100% { opacity: 0.07; }
-          50% { opacity: 0.18; }
+        @media (max-width: 639px) {
+          .landing-bg {
+            background: rgba(10,8,22,0.72) !important;
+          }
+          .landing-card {
+            background: rgba(10,8,22,0.72) !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-shadow: none !important;
+            border-radius: 0 !important;
+            padding-left: 1.5rem !important;
+            padding-right: 1.5rem !important;
+          }
         }
       `}</style>
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* Crowd background illustration */}
-        <img
-          src="/crowd-bg.jpg"
-          alt=""
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            objectPosition: 'center top',
-            opacity: 0.28,
-            pointerEvents: 'none',
-          }}
-        />
-        {/* Dark radial overlay — keeps CTA area readable */}
-        <div style={{
-          position: 'absolute',
-          inset: 0,
-          background: 'radial-gradient(ellipse 70% 80% at 50% 50%, rgba(10,10,15,0.35) 0%, rgba(10,10,15,0.75) 100%)',
-          pointerEvents: 'none',
-        }} />
-        {/* Deep glow blobs */}
-        <div className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-brand-purple opacity-10 blur-[120px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-brand-red opacity-10 blur-[120px]" />
-
-        {/* Electric city grid map */}
-        <svg
-          viewBox="0 0 1080 960"
-          xmlns="http://www.w3.org/2000/svg"
-          className="absolute inset-0 w-full h-full"
-          style={{ animation: 'glowPulse 4s ease-in-out infinite' }}
-        >
-          <defs>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="2.5" result="blur" />
-              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-            <filter id="glowStrong">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-            </filter>
-          </defs>
-          {[120,240,360,480,600,720,840,960].map(x => (
-            <line key={`v${x}`} x1={x} y1="0" x2={x} y2="960" stroke="#7c3aed" strokeWidth="0.5" opacity="0.08" />
-          ))}
-          {[80,160,240,320,400,480,560,640,720,800,880].map(y => (
-            <line key={`h${y}`} x1="0" y1={y} x2="1080" y2={y} stroke="#7c3aed" strokeWidth="0.5" opacity="0.08" />
-          ))}
-          <line x1="0" y1="960" x2="500" y2="0" stroke="#7c3aed" strokeWidth="0.5" opacity="0.06" />
-          <line x1="200" y1="960" x2="700" y2="0" stroke="#7c3aed" strokeWidth="0.5" opacity="0.06" />
-          <line x1="580" y1="960" x2="1080" y2="200" stroke="#7c3aed" strokeWidth="0.5" opacity="0.06" />
-
-          <path
-            d="M0,400 L120,400 L120,320 L360,320 L360,240 L600,240 L600,160 L840,160 L840,80 L1080,80"
-            fill="none" stroke="#7c3aed" strokeWidth="1.5"
-            strokeDasharray="2000" filter="url(#glow)"
-            style={{ animation: 'electricFlow 3.8s ease-in-out infinite' }}
-          />
-          <path
-            d="M0,640 L240,640 L240,560 L480,560 L480,480 L720,480 L720,400 L960,400 L960,320 L1080,320"
-            fill="none" stroke="#7c3aed" strokeWidth="1"
-            strokeDasharray="1800" filter="url(#glow)"
-            style={{ animation: 'electricFlow 5.2s ease-in-out infinite 1.2s' }}
-          />
-          <path
-            d="M1080,560 L960,560 L960,640 L720,640 L720,720 L480,720 L480,800 L240,800 L240,880 L0,880"
-            fill="none" stroke="#e11d48" strokeWidth="1.5"
-            strokeDasharray="1600" filter="url(#glow)"
-            style={{ animation: 'electricFlow2 4.5s ease-in-out infinite 0.6s' }}
-          />
-          <path
-            d="M540,0 L540,160 L480,160 L480,320 L420,320 L420,480 L360,480 L360,640 L300,640 L300,800 L240,800"
-            fill="none" stroke="#e11d48" strokeWidth="1"
-            strokeDasharray="1400" filter="url(#glow)"
-            style={{ animation: 'electricFlow2 6s ease-in-out infinite 2s' }}
-          />
-
-          {[[120,320],[360,240],[600,160],[840,80],[240,640],[480,560],[720,480],[960,400],[480,800],[720,640]].map(([cx,cy], i) => (
-            <circle key={i} cx={cx} cy={cy} r="3" fill="#7c3aed" opacity="0.5" filter="url(#glowStrong)"
-              style={{ animation: `electricPulse ${2.5 + i*0.3}s ease-in-out infinite ${i*0.4}s` }} />
-          ))}
-          {[[960,560],[720,640],[480,720],[240,800]].map(([cx,cy], i) => (
-            <circle key={`r${i}`} cx={cx} cy={cy} r="2.5" fill="#e11d48" opacity="0.5" filter="url(#glowStrong)"
-              style={{ animation: `electricPulse ${3 + i*0.4}s ease-in-out infinite ${i*0.5}s` }} />
-          ))}
-        </svg>
-
-        {/* Floating map markers */}
-        <div className="absolute" style={{ top: '18%', left: '12%', animation: 'floatA 5.5s ease-in-out infinite', opacity: 0.55 }}>
-          <svg width="52" height="66" viewBox="0 0 52 66" fill="none">
-            <path d="M26 2C13.85 2 4 11.85 4 24c0 17 22 40 22 40s22-23 22-40C48 11.85 38.15 2 26 2z" fill="#e11d48" fillOpacity="0.25" stroke="#e11d48" strokeWidth="2" filter="url(#glowStrong)" />
-            <circle cx="26" cy="24" r="8" fill="#e11d48" fillOpacity="0.6" />
-          </svg>
-        </div>
-        <div className="absolute" style={{ top: '12%', right: '10%', animation: 'floatB 4.2s ease-in-out infinite 0.8s', opacity: 0.4 }}>
-          <svg width="36" height="46" viewBox="0 0 52 66" fill="none">
-            <path d="M26 2C13.85 2 4 11.85 4 24c0 17 22 40 22 40s22-23 22-40C48 11.85 38.15 2 26 2z" fill="#7c3aed" fillOpacity="0.2" stroke="#7c3aed" strokeWidth="2" />
-            <circle cx="26" cy="24" r="8" fill="#7c3aed" fillOpacity="0.5" />
-          </svg>
-        </div>
-        <div className="absolute" style={{ top: '28%', right: '22%', animation: 'floatC 3.6s ease-in-out infinite 1.6s', opacity: 0.28 }}>
-          <svg width="22" height="28" viewBox="0 0 52 66" fill="none">
-            <path d="M26 2C13.85 2 4 11.85 4 24c0 17 22 40 22 40s22-23 22-40C48 11.85 38.15 2 26 2z" fill="#e11d48" fillOpacity="0.15" stroke="#e11d48" strokeWidth="2.5" />
-            <circle cx="26" cy="24" r="8" fill="#e11d48" fillOpacity="0.4" />
-          </svg>
-        </div>
-      </div>
-
-      <div className="relative z-10 w-full max-w-sm px-6 flex flex-col items-center gap-6">
+      <div className="relative z-10 w-full max-w-sm flex flex-col items-center">
+        {/* Floating icon above card */}
+        <div className="landing-card w-full px-6 py-8 flex flex-col items-center gap-6 rounded-3xl" style={{ background: "rgba(10,8,22,0.72)", backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)", boxShadow: "none" }}>
         {/* Logo */}
         <div className="flex flex-col items-center gap-1 mb-2">
-          <span className="text-4xl font-black tracking-tight text-white">dropathot</span>
+          <div className="relative flex items-center justify-center">
+            <span className="text-4xl font-black tracking-tight text-white">dropathot</span>
+          </div>
           <div className="flex items-center gap-1 text-slate-400 text-sm min-h-[1.5em] justify-center">
-            <TaglineCycler />
+            <span>Say what you want to say, any </span><span style={{ textDecoration: 'underline', textDecorationColor: '#c9a84c', textUnderlineOffset: '3px' }}>where</span><span>, any </span><span style={{ textDecoration: 'underline', textDecorationColor: '#c9a84c', textUnderlineOffset: '3px' }}>time</span><span>.</span>
           </div>
         </div>
 
@@ -500,7 +381,8 @@ export default function Landing() {
           <a href="/legal/safety" className="underline text-slate-500 hover:text-white">Safety Policy</a>.{" "}
           You must be 18 or older to enter.
         </p>
-      </div>
+        </div>{/* end card */}
+      </div>{/* end outer wrapper */}
     </div>
   );
 }

@@ -9,9 +9,20 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run --config vitest.client.config.js",
-    "test:watch": "vitest --config vitest.client.config.js"
+    "test:watch": "vitest --config vitest.client.config.js",
+    "cap:sync": "vite build && npx cap sync",
+    "cap:ios": "vite build && npx cap sync && npx cap open ios",
+    "cap:android": "vite build && npx cap sync && npx cap open android",
+    "cap:init": "npx cap init \"Thots.\" com.dropathot.app --web-dir dist"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/ios": "^8.4.1",
+    "@capacitor/network": "^8.0.1",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "@sentry/react": "^10.58.0",
     "@sentry/vite-plugin": "^5.3.0",
     "@supabase/supabase-js": "^2.107.0",
@@ -24,6 +35,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.4.1",
     "@eslint/js": "^10.0.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
