@@ -20,6 +20,8 @@ import { getOrCreateSession, updateSession, clearSession } from '../lib/identity
 import { joinUserRoom } from '../lib/socket'
 import { explodeMarker } from '../lib/animations'
 import { supabase } from '../lib/supabase'
+import useNetworkStatus from '../hooks/useNetworkStatus'
+import { enqueue, dequeue, getQueue } from '../lib/offlineQueue'
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:4000'
 
@@ -162,6 +164,93 @@ export default function Map() {
   const setSession = useAppStore((s) => s.setSession)
   const setHypedThotIds = useAppStore((s) => s.setHypedThotIds)
   const toggleHypedThot = useAppStore((s) => s.toggleHypedThot)
+
+  // Network status — drives offline post queue behaviour
+  const isOnline = useNetworkStatus()
+  const [pendingCount, setPendingCount] = useState(() => getQueue().length)
+
+  // Reload pending thots from queue on mount (restores pins after app restart)
+  useEffect(() => {
+    const queue = getQueue()
+    if (!queue.length) return
+    const store = useAppStore.getState()
+    queue.forEach(entry => {
+      // Only add if not already in the store (avoid duplicates on hot-reload)
+      if (!store.thots.find(t => t.id === entry._localId)) {
+        store.addThot({
+          id: entry._localId,
+          _localId: entry._localId,
+          _pending: true,
+          content: entry.content,
+          lat: entry.lat,
+          lng: entry.lng,
+          pen_name: entry.pen_name,
+          session_id: entry.session_id,
+          is_incognito: entry.is_incognito,
+          hype_count: 0,
+          comment_count: 0,
+          created_at: entry.queued_at,
+        })
+      }
+    })
+  }, [])
+
+  // Auto-sync queue when connectivity is restored
+  useEffect(() => {
+    if (!isOnline || !session?.supabaseToken) return
+    const queue = getQueue()
+    if (!queue.length) return
+
+    async function syncQueue() {
+      const store = useAppStore.getState()
+      const remaining = getQueue()
+      for (const entry of remaining) {
+        try {
+          const headers = { 'Content-Type': 'application/json' }
+          if (session?.supabaseToken) headers['Authorization'] = `Bearer ${session.supabaseToken}`
+          const res = await fetch(`${API_URL}/thots`, {
+            method: 'POST',
+            credentials: 'include',
+            headers,
+            body: JSON.stringify({
+              content: entry.content,
+              lat: entry.lat,
+              lng: entry.lng,
+              session_id: entry.session_id,
+              pen_name: entry.pen_name,
+              duration_hours: entry.duration_hours,
+              is_incognito: entry.is_incognito,
+            }),
+          })
+          if (res.ok) {
+            const newThot = await res.json()
+            // Replace the pending pin with the real one
+            store.removeThot(entry._localId)
+            store.addThot(newThot)
+            dequeue(entry._localId)
+            if (entry.is_incognito && newThot?.id) {
+              try {
+                const existing = JSON.parse(localStorage.getItem('ownIncognitoIds') || '[]')
+                if (!existing.includes(newThot.id)) {
+                  localStorage.setItem('ownIncognitoIds', JSON.stringify([...existing, newThot.id]))
+                }
+              } catch {}
+            }
+          }
+          // If res not ok (e.g. 403 outside US) — silently drop it; don't retry indefinitely
+          else if (res.status !== 503 && res.status !== 502) {
+            dequeue(entry._localId)
+            store.removeThot(entry._localId)
+          }
+        } catch {
+          // Still no network for this entry — leave in queue and try again next time
+        }
+      }
+      setPendingCount(getQueue().length)
+    }
+
+    syncQueue()
+  }, [isOnline, session?.supabaseToken])
 
   // Load session from localStorage and refresh auth user's pen name from the server
   useEffect(() => {
@@ -660,34 +749,68 @@ export default function Map() {
     const headers = { 'Content-Type': 'application/json' }
     if (session?.supabaseToken) headers['Authorization'] = `Bearer ${session.supabaseToken}`
 
-    const res = await fetch(`${API_URL}/thots`, {
-      method: 'POST',
-      credentials: 'include',
-      headers,
-      body: JSON.stringify(body),
-    })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      if (res.status === 401 && data.code === 'AUTH_REQUIRED') {
-        // Token expired mid-session — clear stale session and prompt re-login
-        clearSession()
-        setSession(getOrCreateSession())
-        setAuthModal('login')
-      }
-      const err = new Error(data.error || `Server error ${res.status}`)
-      err.code = data.code ?? null
-      throw err
-    }
-    const newThot = await res.json()
-    useAppStore.getState().addThot(newThot)
-    invalidateThotCache(session?.id)
-    if (incognitoMode && newThot?.id) {
-      try {
-        const existing = JSON.parse(localStorage.getItem('ownIncognitoIds') || '[]')
-        if (!existing.includes(newThot.id)) {
-          localStorage.setItem('ownIncognitoIds', JSON.stringify([...existing, newThot.id]))
+    try {
+      const res = await fetch(`${API_URL}/thots`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        if (res.status === 401 && data.code === 'AUTH_REQUIRED') {
+          // Token expired mid-session — clear stale session and prompt re-login
+          clearSession()
+          setSession(getOrCreateSession())
+          setAuthModal('login')
         }
-      } catch {}
+        const err = new Error(data.error || `Server error ${res.status}`)
+        err.code = data.code ?? null
+        throw err
+      }
+      const newThot = await res.json()
+      useAppStore.getState().addThot(newThot)
+      invalidateThotCache(session?.id)
+      if (incognitoMode && newThot?.id) {
+        try {
+          const existing = JSON.parse(localStorage.getItem('ownIncognitoIds') || '[]')
+          if (!existing.includes(newThot.id)) {
+            localStorage.setItem('ownIncognitoIds', JSON.stringify([...existing, newThot.id]))
+          }
+        } catch {}
+      }
+    } catch (err) {
+      // Network error (fetch rejected) — queue the thot for later
+      if (err instanceof TypeError) {
+        const entry = enqueue({
+          content: body.content,
+          lat: body.lat,
+          lng: body.lng,
+          session_id: body.session_id,
+          pen_name: body.pen_name,
+          duration_hours: duration,
+          is_incognito: body.is_incognito,
+        })
+        // Show as a pending pin on the map immediately
+        useAppStore.getState().addThot({
+          id: entry._localId,
+          _localId: entry._localId,
+          _pending: true,
+          content: entry.content,
+          lat: entry.lat,
+          lng: entry.lng,
+          pen_name: entry.pen_name,
+          session_id: entry.session_id,
+          is_incognito: entry.is_incognito,
+          hype_count: 0,
+          comment_count: 0,
+          created_at: entry.queued_at,
+        })
+        setPendingCount(c => c + 1)
+        // Return without throwing — ComposeDrawer will close normally
+        return
+      }
+      throw err
     }
   }
 
@@ -708,35 +831,65 @@ export default function Map() {
     const headers = { 'Content-Type': 'application/json' }
     if (session?.supabaseToken) headers['Authorization'] = `Bearer ${session.supabaseToken}`
 
-    const res = await fetch(`${API_URL}/thots`, {
-      method: 'POST',
-      credentials: 'include',
-      headers,
-      body: JSON.stringify(body),
-    })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      if (res.status === 401 && data.code === 'AUTH_REQUIRED') {
-        clearSession()
-        setSession(getOrCreateSession())
-        setAuthModal('login')
+    try {
+      const res = await fetch(`${API_URL}/thots`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        if (res.status === 401 && data.code === 'AUTH_REQUIRED') {
+          clearSession()
+          setSession(getOrCreateSession())
+          setAuthModal('login')
+        }
+        const err = new Error(data.error || `Server error ${res.status}`)
+        err.code = data.code ?? null
+        throw err
       }
-      const err = new Error(data.error || `Server error ${res.status}`)
-      err.code = data.code ?? null
+      const newThot = await res.json()
+      useAppStore.getState().addThot(newThot)
+      invalidateThotCache(session?.id)
+      if (incognitoMode && newThot?.id) {
+        try {
+          const existing = JSON.parse(localStorage.getItem('ownIncognitoIds') || '[]')
+          if (!existing.includes(newThot.id)) {
+            localStorage.setItem('ownIncognitoIds', JSON.stringify([...existing, newThot.id]))
+          }
+        } catch {}
+      }
+    } catch (err) {
+      if (err instanceof TypeError) {
+        const entry = enqueue({
+          content: body.content,
+          lat: body.lat,
+          lng: body.lng,
+          session_id: body.session_id,
+          pen_name: body.pen_name,
+          duration_hours: duration,
+          is_incognito: false,
+        })
+        useAppStore.getState().addThot({
+          id: entry._localId,
+          _localId: entry._localId,
+          _pending: true,
+          content: entry.content,
+          lat: entry.lat,
+          lng: entry.lng,
+          pen_name: entry.pen_name,
+          session_id: entry.session_id,
+          is_incognito: false,
+          hype_count: 0,
+          comment_count: 0,
+          created_at: entry.queued_at,
+        })
+        setPendingCount(c => c + 1)
+        return
+      }
       throw err
     }
-    const newThot = await res.json()
-    useAppStore.getState().addThot(newThot)
-    invalidateThotCache(session?.id)
-    if (incognitoMode && newThot?.id) {
-      try {
-        const existing = JSON.parse(localStorage.getItem('ownIncognitoIds') || '[]')
-        if (!existing.includes(newThot.id)) {
-          localStorage.setItem('ownIncognitoIds', JSON.stringify([...existing, newThot.id]))
-        }
-      } catch {}
-    }
-
   }
 
   return (
@@ -773,6 +926,29 @@ export default function Map() {
             <span className="text-white font-mono text-xs bg-white/10 px-1 rounded">.env</span> and restart the dev server.
             Get a free token at <span className="text-brand-blue">mapbox.com</span>.
           </p>
+        </div>
+      )}
+
+      {/* Offline pending badge — shown when thots are queued for later delivery */}
+      {pendingCount > 0 && (
+        <div
+          className="absolute z-30 pointer-events-none"
+          style={{ top: '56px', left: '50%', transform: 'translateX(-50%)' }}
+        >
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '6px',
+            background: 'rgba(10,10,26,0.92)', backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(251,191,36,0.45)',
+            borderRadius: '20px', padding: '5px 12px',
+            color: '#fbbf24', fontSize: '12px', fontWeight: 600,
+            boxShadow: '0 2px 12px rgba(0,0,0,0.5)',
+          }}>
+            <span style={{ fontSize: '13px' }}>⏳</span>
+            {isOnline
+              ? `Sending ${pendingCount} queued thot${pendingCount > 1 ? 's' : ''}…`
+              : `${pendingCount} thot${pendingCount > 1 ? 's' : ''} queued — will send when online`
+            }
+          </div>
         </div>
       )}
 

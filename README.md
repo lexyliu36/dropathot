@@ -121,6 +121,17 @@ CI enforces this — the `docs-sync` job will fail the build if the two versions
 
 ## Changelog
 
+### `v0.49` — Capacitor mobile app + offline post queue
+
+- **Capacitor wrapper** — project is now a Capacitor app (`capacitor.config.ts`). Run `npm run cap:ios` or `npm run cap:android` to open in Xcode / Android Studio and publish to App Store / Play Store.
+- **Offline post queue** (`src/lib/offlineQueue.js`) — when a post fails due to network error (TypeError from fetch), the thot is saved to localStorage and shown immediately as a pending pin on the map (amber dashed border, ⏳ indicator).
+- **Auto-sync on reconnect** — `useNetworkStatus` hook (`src/hooks/useNetworkStatus.js`) uses `@capacitor/network` on native (detects real data path, not just WiFi association) and falls back to browser `online`/`offline` events on web. When connectivity returns, pending thots are sent automatically and their pins replace to real ones.
+- **Pending badge** — amber "⏳ N thots queued — will send when online" pill appears on the map while posts are waiting; updates to "Sending…" during sync.
+- **Queue persists across app restart** — pending entries load from localStorage on mount so festival-goers don't lose queued thots if they close the app.
+- **CORS** — `server/index.js` now unconditionally includes `capacitor://localhost` (iOS) and `http://localhost` (Android) in allowed origins so native WebViews can reach the API.
+- **Packages added** — `@capacitor/core`, `@capacitor/app`, `@capacitor/network`, `@capacitor/status-bar`, `@capacitor/splash-screen`, `@capacitor/ios`, `@capacitor/android` (cli in devDependencies).
+- **npm scripts** — `cap:sync`, `cap:ios`, `cap:android`, `cap:init` added to package.json.
+
 ### `v0.48` — Online presence + incognito bubble fix + vibe modal polish
 
 - **Online presence**: `last_seen_at` column added to `users` table (migration 027); `PUT /users/me/heartbeat` endpoint updates it every 30s from authenticated sessions

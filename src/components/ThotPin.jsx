@@ -105,9 +105,10 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
   const isAuth = useAppStore((s) => s.session?.type === 'user')
 
   const pinType = thot.pin_type || null
+  const isPending = thot._pending === true
   // Color map — add new pin_type entries here as automated sources are added
   const PIN_COLORS = { news: '#16a34a', event: '#d97706' }
-  const accentColor = isYou ? '#e11d48' : PIN_COLORS[pinType] ?? (thot.pen_name ? '#7c3aed' : '#64748b')
+  const accentColor = isPending ? '#fbbf24' : isYou ? '#e11d48' : PIN_COLORS[pinType] ?? (thot.pen_name ? '#7c3aed' : '#64748b')
   const isNew = thot._isNew || (Date.now() - new Date(thot.created_at).getTime()) < 15_000
   const mob = typeof window !== 'undefined' && window.innerWidth <= 640
 
@@ -124,8 +125,6 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
         width: `${AVATAR_SIZE}px`,
         height: `${AVATAR_SIZE}px`,
         overflow: 'visible',
-        opacity: dismissed ? 0 : 1,
-        transition: 'opacity 0.3s ease',
         pointerEvents: 'none',
       }}
     >
@@ -161,7 +160,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
           minWidth: '80px',
           background: 'rgba(10, 10, 26, 0.92)',
           backdropFilter: 'blur(12px)',
-          border: `1px solid ${accentColor}55`,
+          border: isPending ? `1.5px dashed ${accentColor}` : `1px solid ${accentColor}55`,
           borderRadius: '14px 14px 14px 2px',
           padding: '8px 12px 6px',
           boxShadow: `0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px ${accentColor}22`,
@@ -269,30 +268,36 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
               {relativeTime(thot.created_at)}
             </span>
           </div>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              if (!isAuth) {
-                window.dispatchEvent(new CustomEvent('thots:needs-auth'))
-              } else {
-                setHeartAnim(true)
-                onHype?.(thot.id)
-              }
-            }}
-            title={isAuth ? (hyped ? 'Remove upvote' : 'Upvote') : 'Sign in to upvote'}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, marginLeft: '6px',
-              background: hyped ? `${accentColor}25` : 'transparent',
-              border: 'none', borderRadius: '6px', padding: '2px 4px',
-              cursor: isAuth ? 'pointer' : 'default',
-              color: hyped ? accentColor : 'rgba(255,255,255,0.35)',
-              fontSize: mob ? '14px' : '13px', pointerEvents: 'auto',
-              transition: 'color 0.15s, background 0.15s', lineHeight: 1,
-            }}
-          >
-            <Heart size={14} className={heartAnim ? 'heart-pop' : ''} onAnimationEnd={() => setHeartAnim(false)} style={{ fill: hyped ? accentColor : 'none', strokeWidth: 1.5 }} />
-            <span style={{ minWidth: '12px', display: 'inline-block', textAlign: 'left' }}>{hypeCount > 0 ? hypeCount : ''}</span>
-          </button>
+          {isPending ? (
+            <span style={{ fontSize: '11px', color: '#fbbf24', opacity: 0.85, flexShrink: 0, marginLeft: '6px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+              <span style={{ fontSize: '12px' }}>⏳</span> queued
+            </span>
+          ) : (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                if (!isAuth) {
+                  window.dispatchEvent(new CustomEvent('thots:needs-auth'))
+                } else {
+                  setHeartAnim(true)
+                  onHype?.(thot.id)
+                }
+              }}
+              title={isAuth ? (hyped ? 'Remove upvote' : 'Upvote') : 'Sign in to upvote'}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, marginLeft: '6px',
+                background: hyped ? `${accentColor}25` : 'transparent',
+                border: 'none', borderRadius: '6px', padding: '2px 4px',
+                cursor: isAuth ? 'pointer' : 'default',
+                color: hyped ? accentColor : 'rgba(255,255,255,0.35)',
+                fontSize: mob ? '14px' : '13px', pointerEvents: 'auto',
+                transition: 'color 0.15s, background 0.15s', lineHeight: 1,
+              }}
+            >
+              <Heart size={14} className={heartAnim ? 'heart-pop' : ''} onAnimationEnd={() => setHeartAnim(false)} style={{ fill: hyped ? accentColor : 'none', strokeWidth: 1.5 }} />
+              <span style={{ minWidth: '12px', display: 'inline-block', textAlign: 'left' }}>{hypeCount > 0 ? hypeCount : ''}</span>
+            </button>
+          )}
         </div>
 
         {/* Tail — bridges bubble bottom to avatar top */}
@@ -306,10 +311,38 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
         </svg>
       </div>
 
-      {/* Anchor — hidden for your own thot, space preserved so bubble stays in position */}
+      {/* Recall dot — sits at the pin tip when bubble is dismissed; click to restore */}
+      {dismissed && (
+        <button
+          onClick={(e) => { e.stopPropagation(); setDismissed(false) }}
+          title="Show thot"
+          style={{
+            position: 'absolute',
+            bottom: '-4px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: '10px',
+            height: '10px',
+            borderRadius: '50%',
+            background: accentColor,
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            pointerEvents: 'auto',
+            opacity: 0.9,
+            boxShadow: `0 0 8px ${accentColor}99`,
+            transition: 'transform 0.15s, opacity 0.15s',
+            zIndex: 2,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(-50%) scale(1.4)'; e.currentTarget.style.opacity = '1' }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'translateX(-50%) scale(1)'; e.currentTarget.style.opacity = '0.9' }}
+        />
+      )}
+
+      {/* Anchor — hidden when dismissed or for your own thot */}
       <div
         onClick={() => onClick(thot)}
-        style={{ pointerEvents: 'auto', cursor: 'pointer', width: `${AVATAR_SIZE}px`, height: `${AVATAR_SIZE}px`, visibility: isYou ? 'hidden' : 'visible', position: 'relative' }}
+        style={{ pointerEvents: 'auto', cursor: 'pointer', width: `${AVATAR_SIZE}px`, height: `${AVATAR_SIZE}px`, visibility: (isYou || dismissed) ? 'hidden' : 'visible', position: 'relative' }}
       >
         <AnonAvatar size={AVATAR_SIZE} color={accentColor} active={false} />
         {isIncognito && <GlassesOverlay size={AVATAR_SIZE} />}

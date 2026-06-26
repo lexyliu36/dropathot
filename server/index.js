@@ -36,7 +36,11 @@ import { startNewsJob } from './jobs/newsJob.js'
 const app = express()
 const httpServer = createServer(app)
 
-const FRONTEND_ORIGIN = process.env.FRONTEND_ORIGIN?.split(',').map(s => s.trim()) || ['http://localhost:5173']
+// Capacitor native WebViews always send these origins — include them unconditionally.
+// On iOS the WebView origin is capacitor://localhost; on Android it is http://localhost.
+const CAPACITOR_ORIGINS = ['capacitor://localhost', 'http://localhost']
+const ENV_ORIGINS = process.env.FRONTEND_ORIGIN?.split(',').map(s => s.trim()) || ['http://localhost:5173']
+const FRONTEND_ORIGIN = [...new Set([...ENV_ORIGINS, ...CAPACITOR_ORIGINS])]
 
 const io = new Server(httpServer, {
   cors: { origin: FRONTEND_ORIGIN, methods: ['GET', 'POST'] },
