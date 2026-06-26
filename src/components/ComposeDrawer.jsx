@@ -28,7 +28,7 @@ const AUTH_OPTIONS = [
   { value: 0.25, label: '15 minutes' },
 ]
 
-export default function ComposeDrawer({ onClose, onPost, onPin, location, session }) {
+export default function ComposeDrawer({ onClose, onPost, onPin, location, session, incognito = false }) {
   const [text, setText] = useState('')
   const [posting, setPosting] = useState(false)
   const [error, setError] = useState(null)
@@ -99,15 +99,27 @@ export default function ComposeDrawer({ onClose, onPost, onPin, location, sessio
       <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/5">
         <div
           className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-          style={{ background: isAuth ? '#7c3aed33' : '#64748b33', border: `1px solid ${isAuth ? '#7c3aed' : '#475569'}` }}
+          style={{ background: incognito ? '#7c3aed22' : (isAuth ? '#7c3aed33' : '#64748b33'), border: `1px solid ${incognito ? '#7c3aed88' : (isAuth ? '#7c3aed' : '#475569')}` }}
         >
-          <User size={10} className={isAuth ? 'text-brand-purple' : 'text-slate-400'} />
+          {incognito ? (
+            <svg width="10" height="6" viewBox="0 0 18 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="0.5" y="2.5" width="6" height="5" rx="2.5" stroke="#a78bfa" strokeWidth="1.5"/>
+              <rect x="11.5" y="2.5" width="6" height="5" rx="2.5" stroke="#a78bfa" strokeWidth="1.5"/>
+              <line x1="6.5" y1="5" x2="11.5" y2="5" stroke="#a78bfa" strokeWidth="1.5"/>
+            </svg>
+          ) : (
+            <User size={10} className={isAuth ? 'text-brand-purple' : 'text-slate-400'} />
+          )}
         </div>
         <span className="text-xs text-slate-400">
           Posting as{' '}
-          <span className={isAuth ? 'text-brand-purple font-semibold' : 'text-slate-300'}>
-            {identity}
-          </span>
+          {incognito ? (
+            <span className="text-[#a78bfa] font-semibold">Anonymous</span>
+          ) : (
+            <span className={isAuth ? 'text-brand-purple font-semibold' : 'text-slate-300'}>
+              {identity}
+            </span>
+          )}
         </span>
         {!isAuth && (
           <button

@@ -43,18 +43,59 @@ async function ipLocation(ip) {
 // Enrich thots: fill in user_id for named users whose thot predates migration 012
 async function enrichWithUserId(thots) {
   if (!thots?.length) return thots
+  // Collect pen_names that are missing user_id
   const missing = thots.filter(t => t.pen_name && !t.user_id).map(t => t.pen_name)
-  if (!missing.length) return thots
-  const unique = [...new Set(missing)]
-  const { data: users } = await supabase
-    .from('users')
-    .select('id, pen_name')
-    .in('pen_name', unique)
-  if (!users?.length) return thots
-  const map = Object.fromEntries(users.map(u => [u.pen_name, u.id]))
-  return thots.map(t => (!t.user_id && t.pen_name && map[t.pen_name])
-    ? { ...t, user_id: map[t.pen_name] }
+  // Collect all known user_ids (to fetch last_seen_at for them too)
+  const knownIds = thots.filter(t => t.user_id && !t.is_incognito).map(t => t.user_id)
+
+  let nameMap = {}
+  let presenceMap = {}
+
+  if (missing.length) {
+    const unique = [...new Set(missing)]
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, pen_name, last_seen_at')
+      .in('pen_name', unique)
+    if (users?.length) {
+      users.forEach(u => {
+        nameMap[u.pen_name] = u.id
+        presenceMap[u.id] = u.last_seen_at
+      })
+    }
+  }
+
+  if (knownIds.length) {
+    const unique = [...new Set(knownIds)]
+    const { data: users } = await supabase
+      .from('users')
+      .select('id, last_seen_at')
+      .in('id', unique)
+    if (users?.length) {
+      users.forEach(u => { presenceMap[u.id] = u.last_seen_at })
+    }
+  }
+
+  return thots.map(t => {
+    const resolvedId = t.user_id || (t.pen_name && nameMap[t.pen_name]) || null
+    return {
+      ...t,
+      user_id: resolvedId || t.user_id,
+      last_seen_at: t.is_incognito ? null : (resolvedId ? presenceMap[resolvedId] ?? null : null),
+    }
+  })
+}
+
+
+// Mask incognito thots before sending to clients.
+// The real pen_name / user_id stay in the DB for moderation; clients only see 'Anonymous'.
+function maskIncognito(thots) {
+  if (!thots) return thots
+  const arr = Array.isArray(thots) ? thots : [thots]
+  const masked = arr.map(t => t.is_incognito
+    ? { ...t, pen_name: 'Anonymous', user_id: null }
     : t)
+  return Array.isArray(thots) ? masked : masked[0]
 }
 
 // GET /thots?lat=&lng=&radius=
@@ -67,7 +108,7 @@ router.get('/', async (req, res) => {
     const pin_type = req.query.pin_type.trim().slice(0, 50)
     const limit = Math.min(parseInt(req.query.limit) || 20, 50)
     const offset = parseInt(req.query.offset) || 0
-    const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url'
+    const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url, is_incognito'
     const { data, error, count } = await supabase
       .from('thots')
       .select(COLS, { count: 'exact' })
@@ -104,13 +145,13 @@ router.get('/', async (req, res) => {
 
     const limit = Math.min(parseInt(req.query.limit) || 20, 50)
     const offset = parseInt(req.query.offset) || 0
-    const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url'
+    const COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url, is_incognito'
 
     // Build query: own history uses session_id OR user_id (covers anon→registered transition),
     // public profile uses user_id only (non-hidden posts only)
     let query = supabase.from('thots').select(COLS, { count: 'exact' })
     query = byUserId
-      ? query.eq('user_id', rawId).eq('hidden', false).eq('user_deleted', false)
+      ? query.eq('user_id', rawId).eq('hidden', false).eq('user_deleted', false).eq('is_incognito', false)
       : query.or(`session_id.eq.${rawId},user_id.eq.${rawId}`).eq('user_deleted', false)
 
     let { data, error, count } = await query
@@ -129,7 +170,10 @@ router.get('/', async (req, res) => {
     }
     if (error) return res.status(500).json({ error: 'Failed to fetch thots' })
     const enriched = await enrichWithUserId(data)
-    return res.json({ thots: enriched, total: count ?? enriched.length, offset, limit })
+    // Own history (session_id query) — return unmasked so author can delete their incognito thots
+    // Public profile (user_id query) — incognito already filtered out above, maskIncognito is a no-op but kept for safety
+    const result = byUserId ? maskIncognito(enriched) : enriched
+    return res.json({ thots: result, total: count ?? enriched.length, offset, limit })
   }
 
   // Geo mode
@@ -161,13 +205,13 @@ router.get('/', async (req, res) => {
         console.error('get_thots_nearby error:', fallbackError)
         return res.status(500).json({ error: 'Failed to fetch thots' })
       }
-      return res.json(await enrichWithUserId((fallback ?? []).slice(0, limit)))
+      return res.json(maskIncognito(await enrichWithUserId((fallback ?? []).slice(0, limit))))
     }
     console.error('get_thots_nearby error:', error)
     return res.status(500).json({ error: 'Failed to fetch thots' })
   }
 
-  res.json(data)
+  res.json(maskIncognito(await enrichWithUserId(data ?? [])))
 })
 
 
@@ -179,7 +223,7 @@ router.get('/liked', async (req, res) => {
   if (error || !user) return res.json([])
   const { data } = await supabase
     .from('hypes')
-    .select('thot_id, thots(id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url)')
+    .select('thot_id, thots(id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url)')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
   res.json(data?.map(h => h.thots).filter(Boolean) ?? [])
@@ -237,7 +281,7 @@ router.post('/:id/hype', async (req, res) => {
 
 // POST /thots
 router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
-  const { content, lat, lng, duration_hours } = req.body
+  const { content, lat, lng, duration_hours, is_incognito } = req.body
   // Cookie is authoritative — prevents session_id spoofing from the client body
   const session_id = req.cookies?.session_id ?? req.body.session_id
 
@@ -340,7 +384,7 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
       ip_hash,
       location: `SRID=4326;POINT(${lng} ${lat})`,
       expires_at,
-      is_live_pin: req.body.is_live_pin === true,
+      is_incognito: is_incognito === true,
     })
     .select()
     .single()
@@ -356,12 +400,12 @@ router.post('/', smartRateLimit, subnetLimit, moderate, async (req, res) => {
   // Broadcast sanitized thot (strip internal fields before sending to clients)
   const { ip_hash: _ip, session_id: _sid, ...publicThot } = newThot
   const cells = neighborCells(parseFloat(lat), parseFloat(lng))
-  req.io.to(cells).emit('thot:new', publicThot)
+  req.io.to(cells).emit('thot:new', maskIncognito(publicThot))
 
   // Velocity spike detection — async, never blocks the response
   checkVelocitySpike(parseFloat(lat), parseFloat(lng), req.io).catch(() => {})
 
-  res.status(201).json(newThot)
+  res.status(201).json(maskIncognito(newThot))
 })
 
 // GET /thots/:id — single thot by id (public, for share page)
@@ -370,11 +414,11 @@ router.get('/:id', async (req, res) => {
   if (!/^[0-9a-f-]{36}$/.test(id)) return res.status(400).json({ error: 'invalid id' })
   const { data, error } = await supabase
     .from('thots')
-    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url')
+    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url, is_incognito')
     .eq('id', id)
     .single()
   if (error || !data) return res.status(404).json({ error: 'not found' })
-  res.json(await enrichWithUserId(data))
+  res.json(maskIncognito(await enrichWithUserId(data)))
 })
 
 // DELETE /thots/:id — soft-delete (hide) a thot the requester owns.
@@ -432,7 +476,7 @@ router.delete('/:id', async (req, res) => {
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
   const { data: restored } = await supabase
     .from('thots')
-    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url')
+    .select('id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, pin_type, source_url, is_incognito')
     .eq('session_id', session_id)
     .eq('hidden', true)
     .eq('user_deleted', false)
@@ -470,70 +514,7 @@ router.delete('/:id', async (req, res) => {
 })
 
 
-// PATCH /thots/:id/location — move a live pin to the poster's current location
-// Auth required; caller must own the thot and it must be an is_live_pin thot.
-router.patch('/:id/location', async (req, res) => {
-  const { id } = req.params
-  if (!/^[0-9a-f-]{36}$/.test(id)) return res.status(400).json({ error: 'invalid id' })
 
-  const token = req.headers.authorization?.replace('Bearer ', '').trim()
-  if (!token) return res.status(401).json({ error: 'auth required' })
-  const { data: { user }, error: authErr } = await supabase.auth.getUser(token)
-  if (authErr || !user) return res.status(401).json({ error: 'auth required' })
-
-  const newLat = parseFloat(req.body.lat)
-  const newLng = parseFloat(req.body.lng)
-  if (isNaN(newLat) || isNaN(newLng)) return res.status(400).json({ error: 'lat and lng required' })
-  if (newLat < -90 || newLat > 90 || newLng < -180 || newLng > 180) {
-    return res.status(400).json({ error: 'invalid coordinates' })
-  }
-  if (!isInUsa(newLat, newLng)) {
-    return res.status(403).json({ error: 'outside US', code: 'OUTSIDE_US' })
-  }
-
-  // Fetch current thot to verify ownership and get old position for broadcast
-  const { data: thot, error: fetchErr } = await supabase
-    .from('thots')
-    .select('id, user_id, lat, lng, hidden, user_deleted, is_live_pin')
-    .eq('id', id)
-    .single()
-
-  if (fetchErr || !thot) return res.status(404).json({ error: 'not found' })
-  if (thot.user_id !== user.id) return res.status(403).json({ error: 'not yours' })
-  if (thot.hidden || thot.user_deleted) return res.status(410).json({ error: 'thot is deleted' })
-  if (!thot.is_live_pin) return res.status(400).json({ error: 'not a live pin' })
-
-  const oldCells = (thot.lat != null && thot.lng != null)
-    ? neighborCells(thot.lat, thot.lng)
-    : []
-
-  const SAFE_COLS = 'id, content, pen_name, user_id, lat, lng, hype_count, comment_count, created_at, expires_at, hidden, user_deleted, is_live_pin, pin_type, source_url'
-  const { data: updated, error: updateErr } = await supabase
-    .from('thots')
-    .update({ lat: newLat, lng: newLng, location: `SRID=4326;POINT(${newLng} ${newLat})` })
-    .eq('id', id)
-    .select(SAFE_COLS)
-    .single()
-
-  if (updateErr) {
-    console.error('[live-pin] update error:', updateErr)
-    return res.status(500).json({ error: 'failed to update location' })
-  }
-
-  // Broadcast to old + new H3 cells so all nearby subscribers see the move
-  const newCells = neighborCells(newLat, newLng)
-  const allCells = [...new Set([...oldCells, ...newCells])]
-  req.io.to(allCells).emit('thot:move', updated)
-
-  res.json(updated)
-})
-
-// ---------------------------------------------------------------------------
-// Velocity spike detection
-// If >15 thots appear in the same H3 tile within 10 minutes, log a flag.
-// A cooldown prevents flooding the flags table with repeat entries for the
-// same ongoing spike (one flag per tile per 10-minute window).
-// ---------------------------------------------------------------------------
 const VELOCITY_THRESHOLD = 15
 const VELOCITY_WINDOW_MINS = 10
 const flagCooldown = new Map() // h3tile → timestamp of last flag
@@ -548,18 +529,16 @@ async function checkVelocitySpike(lat, lng, io) {
   const windowStart = new Date(Date.now() - VELOCITY_WINDOW_MINS * 60 * 1000).toISOString()
 
   // Count thots in this tile posted in the last VELOCITY_WINDOW_MINS minutes
-  // Using ST_DWithin with a ~600m radius (approximate H3 res-7 hex radius)
   const { count, error } = await supabase
     .from('thots')
     .select('*', { count: 'exact', head: true })
     .gte('created_at', windowStart)
     .eq('hidden', false)
-    .filter('location', 'st.dwithin', `SRID=4326;POINT(${lng} ${lat}),600`) // 600m — geography uses meters
+    .filter('location', 'st.dwithin', `SRID=4326;POINT(${lng} ${lat}),0.006`) // ~600m in degrees
 
   if (error || count === null) return
   if (count < VELOCITY_THRESHOLD) return
 
-  // Log the flag
   flagCooldown.set(h3tile, Date.now())
   console.warn(`[velocity] spike detected: tile=${h3tile} count=${count} in ${VELOCITY_WINDOW_MINS}min`)
 
@@ -571,7 +550,6 @@ async function checkVelocitySpike(lat, lng, io) {
     lng,
   })
 
-  // Email support
   alertSupport({
     type: 'velocity-spike',
     subject: `Velocity spike: ${count} posts in ${VELOCITY_WINDOW_MINS}min`,
@@ -585,7 +563,6 @@ async function checkVelocitySpike(lat, lng, io) {
     },
   }).catch(() => {})
 
-  // Notify any connected admin clients
   io.to('admin').emit('velocity:spike', { h3tile, count, lat, lng, at: new Date().toISOString() })
 }
 

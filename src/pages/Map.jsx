@@ -116,12 +116,12 @@ export default function Map() {
   const searchSessionToken = useRef(crypto.randomUUID())
   const hypeTimersRef = useRef({})        // debounce timers per thot
   const hypeServerRef = useRef({})        // last confirmed server state per thot
-  const livePinRef = useRef(null)          // { thotId, dLat, dLng, intervalId } for the active live pin
 
   const { location, error: locationError, request: requestLocation, retry } = useLocation()
   const { error: thotsError } = useThots()
 
   const thots = useAppStore((s) => s.thots)
+  const mapRadius = useAppStore((s) => s.radius)
   const [visibleThots, setVisibleThots] = useState([])
   const session = useAppStore((s) => s.session)
 
@@ -134,6 +134,20 @@ export default function Map() {
     }
   }, [session?.supabaseToken])
 
+  // Heartbeat — keep last_seen_at current for online presence
+  useEffect(() => {
+    if (session?.type !== 'user' || !session?.supabaseToken) return
+    const sendHeartbeat = () => {
+      fetch(`${API_URL}/users/me/heartbeat`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${session.supabaseToken}` },
+      }).catch(() => {}) // fire-and-forget
+    }
+    sendHeartbeat() // immediate on mount / token change
+    const id = setInterval(sendHeartbeat, 30_000)
+    return () => clearInterval(id)
+  }, [session?.supabaseToken])
+
   const composing = useAppStore((s) => s.composing)
   const setComposing = useAppStore((s) => s.setComposing)
   const selectedThot = useAppStore((s) => s.selectedThot)
@@ -141,6 +155,8 @@ export default function Map() {
   const [showYouProfile, setShowYouProfile] = useState(false)
   const [dmPartner, setDmPartner] = useState(null) // { userId, penName, accentColor }
   const [dmSource, setDmSource] = useState(null) // 'selected' | 'you' — which profile sheet to restore
+  const [incognitoMode, setIncognitoMode] = useState(() => localStorage.getItem('incognitoMode') === 'true')
+  const [showIncognitoModal, setShowIncognitoModal] = useState(false)
   const [openCommentForThotId, setOpenCommentForThotId] = useState(null)
   const [youHighlightThotId, setYouHighlightThotId] = useState(null)
   const setSession = useAppStore((s) => s.setSession)
@@ -380,11 +396,6 @@ export default function Map() {
       }
       map.remove()
       mapInstanceRef.current = null
-      // Stop live pin tracking
-      if (livePinRef.current?.intervalId) {
-        clearInterval(livePinRef.current.intervalId)
-        livePinRef.current = null
-      }
     }
   }, [])
 
@@ -403,21 +414,6 @@ export default function Map() {
     return () => clearTimeout(t)
   }, [location])
 
-  // Live pin — move marker instantly whenever GPS updates (same cadence as YouPin)
-  useEffect(() => {
-    if (!location || !livePinRef.current) return
-    const { thotId, dLat, dLng } = livePinRef.current
-    const newLat = location.lat + dLat
-    const newLng = location.lng + dLng
-    // Update Mapbox marker position directly for instant feedback
-    const entry = markersRef.current[thotId]
-    if (entry) {
-      entry.marker.setLngLat([newLng, newLat])
-      entry.thot = { ...entry.thot, lat: newLat, lng: newLng }
-    }
-    // Keep store in sync so visibleThots / ProfileSheet reflect current position
-    useAppStore.getState().moveThot(thotId, newLat, newLng)
-  }, [location?.lat, location?.lng])
 
   // Your location marker — created once on location + mapReady
   useEffect(() => {
@@ -428,7 +424,7 @@ export default function Map() {
     const el = document.createElement('div')
     el.style.cssText = 'pointer-events: none; overflow: visible;'
     const root = createRoot(el)
-    root.render(<YouPin hasThot={false} isAnon={isAnon} onAvatarClick={() => { setShowYouProfile(true); setYouHighlightThotId(null); setSelectedThot(null) }} />)
+    root.render(<YouPin hasThot={false} isAnon={isAnon} incognito={useAppStore.getState().incognitoMode ?? false} onAvatarClick={() => { setShowYouProfile(true); setYouHighlightThotId(null); setSelectedThot(null) }} />)
 
     const marker = new mapboxgl.Marker({ element: el, anchor: 'bottom' })
       .setLngLat([location.lng, location.lat])
@@ -452,61 +448,14 @@ export default function Map() {
       <YouPin
         hasThot={!!userThot}
         isAnon={isAnon}
+        incognito={incognitoMode}
         onAvatarClick={() => { setShowYouProfile(true); setYouHighlightThotId(null); setSelectedThot(null) }}
       />
     )
-  }, [thots, session?.id, session?.type])
+  }, [thots, session?.id, session?.type, incognitoMode])
 
 
 
-  // Restore live pin tracking after page reload
-  useEffect(() => {
-    if (!session?.userId || !session?.supabaseToken || livePinRef.current) return
-    const saved = localStorage.getItem('livePinState')
-    if (!saved) return
-    let parsed
-    try { parsed = JSON.parse(saved) } catch { localStorage.removeItem('livePinState'); return }
-    const { thotId, dLat = 0, dLng = 0 } = parsed
-    if (!thotId) { localStorage.removeItem('livePinState'); return }
-
-    // Verify thot still exists and belongs to this user
-    const token = session.supabaseToken
-    fetch(`${API_URL}/thots/${thotId}`, {
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${token}` },
-    }).then(async (r) => {
-      if (!r.ok) { localStorage.removeItem('livePinState'); return }
-      const thot = await r.json()
-      if (!thot.is_live_pin || thot.user_id !== session.userId || thot.hidden || thot.user_deleted) {
-        localStorage.removeItem('livePinState')
-        return
-      }
-      // Thot is valid — restore tracking
-      const intervalId = setInterval(async () => {
-        const currentLoc = useAppStore.getState().userLocation
-        if (!currentLoc) return
-        const newLat = currentLoc.lat + dLat
-        const newLng = currentLoc.lng + dLng
-        const t = useAppStore.getState().session?.supabaseToken
-        try {
-          const res = await fetch(`${API_URL}/thots/${thotId}/location`, {
-            method: 'PATCH',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) },
-            body: JSON.stringify({ lat: newLat, lng: newLng }),
-          })
-          if (res.ok) {
-            useAppStore.getState().moveThot(thotId, newLat, newLng)
-          } else if (res.status === 404 || res.status === 410) {
-            clearInterval(livePinRef.current?.intervalId)
-            livePinRef.current = null
-            localStorage.removeItem('livePinState')
-          }
-        } catch (_) {}
-      }, 30_000)
-      livePinRef.current = { thotId, dLat, dLng, intervalId }
-    }).catch(() => {})
-  }, [session?.userId, session?.supabaseToken])
 
   // 200m postable-range ring — only shown for authenticated users (anon can't post)
   useEffect(() => {
@@ -704,8 +653,9 @@ export default function Map() {
       lat: (jitteredLoc ?? location).lat,
       lng: (jitteredLoc ?? location).lng,
       session_id: session?.id,
-      pen_name: session?.penName ?? null,
+      pen_name: incognitoMode ? 'Anonymous' : (session?.penName ?? null),
       duration_hours: duration,
+      is_incognito: incognitoMode,
     }
     const headers = { 'Content-Type': 'application/json' }
     if (session?.supabaseToken) headers['Authorization'] = `Bearer ${session.supabaseToken}`
@@ -731,6 +681,14 @@ export default function Map() {
     const newThot = await res.json()
     useAppStore.getState().addThot(newThot)
     invalidateThotCache(session?.id)
+    if (incognitoMode && newThot?.id) {
+      try {
+        const existing = JSON.parse(localStorage.getItem('ownIncognitoIds') || '[]')
+        if (!existing.includes(newThot.id)) {
+          localStorage.setItem('ownIncognitoIds', JSON.stringify([...existing, newThot.id]))
+        }
+      } catch {}
+    }
   }
 
   async function handlePin(content, duration, jitteredLoc, offset) {
@@ -746,7 +704,6 @@ export default function Map() {
       session_id: session?.id,
       pen_name: session?.penName ?? null,
       duration_hours: duration,
-      is_live_pin: true,
     }
     const headers = { 'Content-Type': 'application/json' }
     if (session?.supabaseToken) headers['Authorization'] = `Bearer ${session.supabaseToken}`
@@ -771,46 +728,15 @@ export default function Map() {
     const newThot = await res.json()
     useAppStore.getState().addThot(newThot)
     invalidateThotCache(session?.id)
-
-    // Clear any existing live pin interval before starting a new one
-    if (livePinRef.current?.intervalId) {
-      clearInterval(livePinRef.current.intervalId)
+    if (incognitoMode && newThot?.id) {
+      try {
+        const existing = JSON.parse(localStorage.getItem('ownIncognitoIds') || '[]')
+        if (!existing.includes(newThot.id)) {
+          localStorage.setItem('ownIncognitoIds', JSON.stringify([...existing, newThot.id]))
+        }
+      } catch {}
     }
 
-    const { dLat = 0, dLng = 0 } = offset ?? {}
-    const thotId = newThot.id
-    const intervalId = setInterval(async () => {
-      const currentLoc = useAppStore.getState().userLocation
-      if (!currentLoc) return
-      const newLat = currentLoc.lat + dLat
-      const newLng = currentLoc.lng + dLng
-      const token = useAppStore.getState().session?.supabaseToken
-      try {
-        const r = await fetch(`${API_URL}/thots/${thotId}/location`, {
-          method: 'PATCH',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ lat: newLat, lng: newLng }),
-        })
-        if (r.ok) {
-          // Update local store directly — don't rely on socket routing back to self
-          useAppStore.getState().moveThot(thotId, newLat, newLng)
-        } else if (r.status === 404 || r.status === 410) {
-          // Thot was deleted — stop tracking
-          clearInterval(livePinRef.current?.intervalId)
-          livePinRef.current = null
-          localStorage.removeItem('livePinState')
-        }
-        // 400 (not a live pin) or 403 (not owner) should not happen in normal flow;
-        // 4xx errors are left to retry next tick rather than killing the interval.
-      } catch (_) { /* network error — retry next tick */ }
-    }, 30_000) // 30s is enough for server/other-clients; local movement is GPS-driven
-
-    livePinRef.current = { thotId, dLat, dLng, intervalId }
-    localStorage.setItem('livePinState', JSON.stringify({ thotId, dLat, dLng }))
   }
 
   return (
@@ -960,6 +886,7 @@ export default function Map() {
               >
                 <Search size={18} />
               </button>
+              <VibeButton userLocation={location} radius={mapRadius} />
             </div>
             {/* Logo — absolute center */}
             <span className="absolute left-1/2 -translate-x-1/2 text-white font-black text-xl tracking-tight pointer-events-none">dropathot</span>
@@ -1006,10 +933,95 @@ export default function Map() {
         </div>
       )}
 
-      {/* Vibe button — bottom center */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20">
-        <VibeButton userLocation={location} />
+      {/* Incognito mode — bottom center */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 flex flex-col items-center gap-2">
+        <button
+          onClick={() => {
+            if (incognitoMode) {
+              setIncognitoMode(false)
+              localStorage.removeItem('incognitoMode')
+            } else {
+              setShowIncognitoModal(true)
+            }
+          }}
+          title={incognitoMode ? 'Turn off Incognito mode' : 'Turn on Incognito mode'}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold border transition-all cursor-pointer ${
+            incognitoMode
+              ? 'border-[#7c3aed] text-[#c4b5fd]'
+              : 'bg-[#0e0e1a]/90 border-white/10 text-white/45 hover:text-white/75 hover:border-white/20'
+          }`}
+          style={{
+            backdropFilter: 'blur(10px)',
+            background: incognitoMode ? 'rgba(124,58,237,0.25)' : 'rgba(14,14,26,0.9)',
+            boxShadow: incognitoMode ? '0 0 16px rgba(124,58,237,0.35)' : 'none',
+          }}
+        >
+          {/* Glasses icon — white outline SVG */}
+          <svg width="18" height="10" viewBox="0 0 18 10" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+            <rect x="0.5" y="2.5" width="6" height="5" rx="2.5" stroke="currentColor" strokeWidth="1.2"/>
+            <rect x="11.5" y="2.5" width="6" height="5" rx="2.5" stroke="currentColor" strokeWidth="1.2"/>
+            <line x1="6.5" y1="5" x2="11.5" y2="5" stroke="currentColor" strokeWidth="1.2"/>
+            <line x1="0.5" y1="5" x2="-1.5" y2="4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            <line x1="17.5" y1="5" x2="19.5" y2="4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+          <span>Incognito</span>
+          {incognitoMode ? (
+            <span className="text-[10px] font-bold uppercase tracking-widest text-[#a78bfa] bg-[#7c3aed]/30 px-1.5 py-0.5 rounded-full">ON</span>
+          ) : (
+            <span className="text-[10px] font-bold uppercase tracking-widest text-white/30 bg-white/8 px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.08)' }}>OFF</span>
+          )}
+        </button>
       </div>
+
+      {/* Incognito mode modal */}
+      {showIncognitoModal && (
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center px-6"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setShowIncognitoModal(false)}
+        >
+          <div
+            className="w-[min(92vw,380px)] bg-[#0e0e1a] border border-white/10 rounded-2xl p-5 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <svg width="22" height="12" viewBox="0 0 18 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="0.5" y="2.5" width="6" height="5" rx="2.5" stroke="#a78bfa" strokeWidth="1.3"/>
+                <rect x="11.5" y="2.5" width="6" height="5" rx="2.5" stroke="#a78bfa" strokeWidth="1.3"/>
+                <line x1="6.5" y1="5" x2="11.5" y2="5" stroke="#a78bfa" strokeWidth="1.3"/>
+              </svg>
+              <span className="text-white font-bold text-base">Incognito Mode</span>
+            </div>
+            <p className="text-white/55 text-sm leading-relaxed mt-3 mb-4">
+              While Incognito is on, your thots appear as <span className="text-white/80 font-medium">Anonymous</span> on the map. Other users see no name, and your posts are hidden from your profile.
+            </p>
+            <ul className="text-white/40 text-xs space-y-1.5 mb-5">
+              <li>✓ Your identity is never shown to other users</li>
+              <li>✓ Posts don't appear on your public profile</li>
+              <li>⚠ Your account is still tied to the post internally for safety</li>
+            </ul>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowIncognitoModal(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white/40 border border-white/10 hover:border-white/20 transition-colors cursor-pointer"
+              >
+                Decline
+              </button>
+              <button
+                onClick={() => {
+                  setIncognitoMode(true)
+                  localStorage.setItem('incognitoMode', 'true')
+                  setShowIncognitoModal(false)
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors cursor-pointer"
+                style={{ background: '#7c3aed' }}
+              >
+                Enable Incognito
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bottom-left stack: zoom controls above dev coords */}
       <div className="absolute bottom-6 left-4 z-20 flex flex-col items-start gap-2">
@@ -1082,6 +1094,7 @@ export default function Map() {
           onPost={handlePost}
           location={location}
           session={session}
+          incognito={incognitoMode}
         />
       )}
 

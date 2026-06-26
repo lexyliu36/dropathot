@@ -6,7 +6,7 @@ Anonymous location-based social network. Twitter-length posts ("thots") appear a
 
 ---
 
-## Current State (v0.44 — fully deployed)
+## Current State (v0.48 — fully deployed)
 
 Everything is complete and live. See `README.md` changelog for full version history.
 
@@ -18,8 +18,9 @@ Everything is complete and live. See `README.md` changelog for full version hist
 - `pages/ThotPage.jsx`, `CommentPage.jsx`, `VerifyEmail.jsx` — supporting pages
 - `pages/legal/` — TermsPage, PrivacyPage, SafetyPage
 - `components/ThotPin.jsx` — real Mapbox custom marker
-- `components/VibeButton.jsx` — floating "What's the vibe?" pill; calls `GET /vibe` for AI neighborhood summary
+- `components/VibeButton.jsx` — sparkle ✦ icon button (top-left, below search); confirmation modal before calling `GET /vibe` for AI neighborhood summary using current map viewport radius; portaled to `document.body` to escape Mapbox stacking context
 - `components/ComposeDrawer.jsx`, `ProfileSheet.jsx`, `DMDrawer.jsx`, `ShareSheet.jsx`, `CommentThread.jsx`, `TopThots.jsx`, `ToolsPanel.jsx`, `AuthModal.jsx`
+- `ProfileSheet.jsx` also contains `IncognitoSheet` (anonymous view for incognito pins) — same positioning as ProfileSheet (`h-[45vh]` mobile, side panel desktop)
 - `hooks/useThots.js`, `useLocation.js`, `usePush.js`
 - `lib/supabase.js`, `socket.js`, `identity.js`, `auth.js`, `geocode.js`, `animations.js`, `thotCache.js`
 - `stores/useAppStore.js` — Zustand: session, radius, composing state
@@ -274,6 +275,9 @@ create table account_audit_log (
 - **Server-side IP geolocation check** — `POST /thots` verifies claimed coordinates against IP geolocation via `ipwho.is`; posts more than 500km from the IP's location are rejected. Fails open if the lookup times out. Skipped for local/private IPs in dev.
 - **Location Randomizer** — ComposeDrawer lets users add 0–150m noise to their posted coordinates before the request hits the server. Stored coordinates are therefore not necessarily the user's exact location.
 - **Two distinct hidden states** — `hidden=true` without `user_deleted` means the thot was auto-hidden by the 200m proximity rule (still appears in profile history, can be restored by the server). `user_deleted=true` means the user explicitly deleted it — hidden everywhere and never automatically restored.
+- **Incognito Mode** — bottom-center toggle on the map. When on, posts show `pen_name: 'Anonymous'` and `user_id: null` to all clients; real identity stays in DB for moderation. Incognito thots are filtered from public profile views. Author can delete their own incognito thots via localStorage tracking (`ownIncognitoIds`). Pins and bubbles show a glasses overlay. `maskIncognito()` in `server/routes/thots.js` handles the stripping; `is_incognito` column added in migration 026.
+- **Online presence** — `last_seen_at timestamptz` on `users` table (migration 027). `PUT /users/me/heartbeat` updates it every 30s from authenticated sessions. `enrichWithUserId()` batch-fetches `last_seen_at` for all thot authors and attaches it to API responses (null for incognito). Display: green dot = online (<2 min), grey dot + relative time = recent, grey dot + "offline" = >24h. Shown in ThotPin bubble (next to name) and ProfileSheet header.
+- **VibeButton portaling** — the confirm modal and result card use `createPortal(…, document.body)` to escape the Mapbox stacking context, which otherwise traps `fixed` children regardless of z-index.
 - **`is_seed` flag** — thots have an `is_seed` boolean. Dedup logic and SQL ordering always sort real thots before seed data at equal distance/hype, so seed pins never crowd out real posts from the LIMIT.
 
 ---
