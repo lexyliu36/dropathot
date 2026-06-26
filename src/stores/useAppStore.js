@@ -23,7 +23,7 @@ const useAppStore = create((set, get) => ({
     if (s.thots.find((t) => t.id === thot.id)) return
     // Mirror server logic: only hide same-session thots within the block radius (~500m).
     // Thots posted far away from the new one remain visible.
-    const BLOCK_RADIUS_M = 250
+    const BLOCK_RADIUS_M = 150
     set((s) => ({
       thots: [thot, ...s.thots.filter((t) => {
         if (t.session_id !== thot.session_id) return true  // different user, keep

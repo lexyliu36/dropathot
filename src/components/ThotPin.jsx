@@ -24,12 +24,58 @@ export function AnonAvatar({ size = 44, color = '#7c3aed', active = false }) {
   )
 }
 
+
+// Sunglasses overlay — rendered on top of any pin in incognito mode
+function GlassesOverlay({ size = 36 }) {
+  // Sunglasses positioned over the "head" circle of AnonAvatar (cx=22 cy=13 r=5 in 44-unit space)
+  // Scale factor from 44-unit viewBox to rendered size
+  const scale = size / 44
+  const w = size
+  const h = size * 0.5  // only need top half
+  return (
+    <svg
+      width={w}
+      height={h}
+      viewBox="0 0 44 22"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none', zIndex: 10 }}
+    >
+      {/* Left lens */}
+      <rect x="8" y="10" width="11" height="7" rx="3.5" fill="#1a1a2e" fillOpacity="0.95" stroke="#a78bfa" strokeWidth="1.2"/>
+      {/* Right lens */}
+      <rect x="25" y="10" width="11" height="7" rx="3.5" fill="#1a1a2e" fillOpacity="0.95" stroke="#a78bfa" strokeWidth="1.2"/>
+      {/* Bridge */}
+      <line x1="19" y1="13" x2="25" y2="13" stroke="#a78bfa" strokeWidth="1.2"/>
+      {/* Left arm */}
+      <line x1="8" y1="13" x2="4" y2="13" stroke="#a78bfa" strokeWidth="1.2"/>
+      {/* Right arm */}
+      <line x1="36" y1="13" x2="40" y2="13" stroke="#a78bfa" strokeWidth="1.2"/>
+      {/* Left lens shine */}
+      <line x1="10" y1="12" x2="13" y2="12" stroke="white" strokeWidth="0.8" strokeOpacity="0.4"/>
+      {/* Right lens shine */}
+      <line x1="27" y1="12" x2="30" y2="12" stroke="white" strokeWidth="0.8" strokeOpacity="0.4"/>
+    </svg>
+  )
+}
+
 function relativeTime(isoString) {
   const diff = Math.floor((Date.now() - new Date(isoString).getTime()) / 1000)
   if (diff < 60) return 'just now'
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
   return `${Math.floor(diff / 86400)}d ago`
+}
+
+// Returns 'online', a relative string like '5m ago', or 'offline' (>24h or null)
+export function onlineStatus(lastSeen) {
+  if (!lastSeen) return null
+  const diffMs = Date.now() - new Date(lastSeen).getTime()
+  const diffMin = diffMs / 60_000
+  if (diffMin < 2) return 'online'
+  if (diffMin < 60) return `${Math.floor(diffMin)}m ago`
+  const diffHr = diffMin / 60
+  if (diffHr < 24) return `${Math.floor(diffHr)}h ago`
+  return 'offline'
 }
 
 export function pinAgeHours(thot) {
@@ -41,6 +87,7 @@ const bubbleBottom = AVATAR_SIZE + 10
 const bubbleLeft   = 0
 
 export default function ThotPin({ thot, isYou = false, onClick, onHype, session }) {
+  const isIncognito = thot?.is_incognito ?? false
   const [dismissed, setDismissed] = useState(false)
 
   // Reset dismissed when this pin is explicitly revealed (e.g. clicked from ProfileSheet)
@@ -154,29 +201,6 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
           </button>
         )}
 
-        {thot.is_live_pin && (
-          <>
-            <style>{`
-              @keyframes live-dot-pulse {
-                0%, 100% { opacity: 1; transform: scale(1); }
-                50%       { opacity: 0.6; transform: scale(1.3); }
-              }
-            `}</style>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '5px' }}>
-              <span style={{
-                display: 'inline-block',
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                background: '#22c55e',
-                boxShadow: '0 0 4px #22c55e88',
-                animation: 'live-dot-pulse 2s ease-in-out infinite',
-                flexShrink: 0,
-              }} />
-              <span style={{ fontSize: '10px', color: '#22c55e', fontWeight: 700, letterSpacing: '0.05em' }}>LIVE</span>
-            </div>
-          </>
-        )}
         <p style={{
           color: '#fff',
           fontSize: '14px',
@@ -212,9 +236,35 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
                 {pinType.toUpperCase()}
               </span>
             )}
+            {thot.is_incognito && (
+              <svg width="14" height="8" viewBox="0 0 18 10" fill="none" style={{ flexShrink: 0 }} aria-label="incognito">
+                <rect x="0.5" y="1.5" width="6" height="5" rx="2.5" stroke="#a78bfa" strokeWidth="1.2"/>
+                <rect x="11.5" y="1.5" width="6" height="5" rx="2.5" stroke="#a78bfa" strokeWidth="1.2"/>
+                <path d="M6.5 4H11.5" stroke="#a78bfa" strokeWidth="1.2"/>
+                <path d="M0.5 4H-1" stroke="#a78bfa" strokeWidth="1.2"/>
+                <path d="M17.5 4H19" stroke="#a78bfa" strokeWidth="1.2"/>
+              </svg>
+            )}
             <span style={{ fontSize: mob ? '14px' : '12px', color: accentColor, fontWeight: 600, whiteSpace: 'nowrap' }}>
               {thot.pen_name || 'anon'}
             </span>
+            {!thot.is_incognito && thot.last_seen_at && (() => {
+              const status = onlineStatus(thot.last_seen_at)
+              if (!status) return null
+              const isOnline = status === 'online'
+              const isOffline = status === 'offline'
+              return (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '3px', flexShrink: 0 }}>
+                  <span style={{
+                    width: '7px', height: '7px', borderRadius: '50%', flexShrink: 0, display: 'inline-block',
+                    background: isOnline ? '#22c55e' : '#475569',
+                  }} />
+                  {isOffline && (
+                    <span style={{ fontSize: '11px', color: '#475569', whiteSpace: 'nowrap' }}>offline</span>
+                  )}
+                </span>
+              )
+            })()}
             <span style={{ fontSize: mob ? '14px' : '12px', color: '#475569', whiteSpace: 'nowrap' }}>
               {relativeTime(thot.created_at)}
             </span>
@@ -259,9 +309,10 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
       {/* Anchor — hidden for your own thot, space preserved so bubble stays in position */}
       <div
         onClick={() => onClick(thot)}
-        style={{ pointerEvents: 'auto', cursor: 'pointer', width: `${AVATAR_SIZE}px`, height: `${AVATAR_SIZE}px`, visibility: isYou ? 'hidden' : 'visible' }}
+        style={{ pointerEvents: 'auto', cursor: 'pointer', width: `${AVATAR_SIZE}px`, height: `${AVATAR_SIZE}px`, visibility: isYou ? 'hidden' : 'visible', position: 'relative' }}
       >
         <AnonAvatar size={AVATAR_SIZE} color={accentColor} active={false} />
+        {isIncognito && <GlassesOverlay size={AVATAR_SIZE} />}
       </div>
     </div>
   )
@@ -269,7 +320,7 @@ export default function ThotPin({ thot, isYou = false, onClick, onHype, session 
 
 // Your location marker — clean avatar, no bubble.
 // Thot appears once as a regular ThotPin. Clicking here opens compose or your profile.
-export function YouPin({ onAvatarClick, hasThot, isAnon = false }) {
+export function YouPin({ onAvatarClick, hasThot, isAnon = false, incognito = false }) {
   return (
     <div style={{
       position: 'relative',
@@ -305,7 +356,8 @@ export function YouPin({ onAvatarClick, hasThot, isAnon = false }) {
         title={isAnon ? 'Browsing anonymously' : hasThot ? 'View your thot' : 'Drop a thot'}
         style={{ pointerEvents: isAnon ? 'none' : 'auto', cursor: isAnon ? 'default' : 'pointer', width: `${AVATAR_SIZE}px`, height: `${AVATAR_SIZE}px`, position: 'relative', zIndex: 1 }}
       >
-        <AnonAvatar size={AVATAR_SIZE} color={isAnon ? '#64748b' : '#e11d48'} active={!isAnon} />
+        <AnonAvatar size={AVATAR_SIZE} color={incognito ? '#7c3aed' : (isAnon ? '#64748b' : '#e11d48')} active={!isAnon} />
+        {incognito && <GlassesOverlay size={AVATAR_SIZE} />}
       </div>
     </div>
   )

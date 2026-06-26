@@ -121,6 +121,31 @@ CI enforces this — the `docs-sync` job will fail the build if the two versions
 
 ## Changelog
 
+### `v0.48` — Online presence + incognito bubble fix + vibe modal polish
+
+- **Online presence**: `last_seen_at` column added to `users` table (migration 027); `PUT /users/me/heartbeat` endpoint updates it every 30s from authenticated sessions
+- `enrichWithUserId` now batch-fetches `last_seen_at` for all thot authors and includes it in API responses (null for incognito thots)
+- ThotPin bubble: glasses icon shown for incognito thots; green dot = online (<2 min), relative time otherwise, hidden for >24h (no label)
+- ProfileSheet header: online dot + label ("online" in green, or relative time in slate) shown for non-self profiles
+- IncognitoSheet: no presence shown (preserves anonymity)
+- VibeButton confirm modal now portals to `document.body` to escape Mapbox stacking context; centered vertically
+- IncognitoSheet height/z-index now matches ProfileSheet (`h-[45vh] z-30`)
+
+### `v0.47` — Incognito polish + vibe radius fix
+
+- **Incognito button redesign** — replaced 🕶️ emoji with a white SVG outline glasses icon matching the app's icon style. Button now shows an **OFF** badge (dim) when inactive and an **ON** badge (purple glow) when active. YouPin turns purple and gets SVG sunglasses overlay when incognito is on; any incognito thot pin also renders the glasses overlay.
+- **Vibe radius fix** — `VibeButton` now uses the map store's current viewport radius instead of a hardcoded 1.5 km, so the AI summary always matches exactly what's visible on screen.
+
+### `v0.46` — Incognito Mode + VibeButton redesign
+
+- **Incognito Mode** — new toggle button at bottom-center of the map. When enabled (with Accept/Decline modal), thots are posted as `Anonymous` — pen_name and user_id are masked in all API responses (geo feed, single-thot, socket broadcast). The real author is stored in the DB for moderation/legal. Incognito thots are hidden from all ProfileSheets (both public and the poster's own). Tapping an incognito pin shows a minimal anonymous sheet with just the thot and the footer "This message was posted anonymously". Mode persists via `localStorage`; turning it off requires no confirmation. DB migration 026 adds `is_incognito boolean not null default false` to `thots` and rebuilds `get_thots_nearby` to include the column.
+- **VibeButton redesign** — replaced text pill with a sparkle icon (✦) matching the search/star button style. Button moves to top-left below the search icon. Now shows a confirmation modal ("Read the room") before making the OpenAI `/vibe` call. Result card anchors below the top-left button stack. All 119 server tests pass.
+
+### `v0.45` — Remove live pin feature
+
+- **Removed is_live_pin** — dropped the live pin / "pin thot" feature entirely. Removed `is_live_pin` column via migration 025, stripped it from all COLS selects and the POST insert in `server/routes/thots.js`, deleted the `PATCH /:id/location` route, removed `livePinRef`, the restore-on-mount effect, location-tracking interval, and all `localStorage` live pin state from `Map.jsx`, removed the pulsing LIVE dot UI from `ThotPin.jsx`, and deleted `server/test/livePin.test.js`. The `pin_type` and `source_url` columns (migration 022, automated news/event pins) are unaffected.
+- All 119 server tests pass.
+
 ### `v0.44` — Live pin: thot that follows your location
 
 - **New feature: Pin thot** — a second post action in ComposeDrawer. A pinned thot is posted with `is_live_pin: true` and tracks the poster's GPS position in real time. The randomization offset is computed once at post time and applied consistently to every location update, so privacy obfuscation stays stable as the user moves.

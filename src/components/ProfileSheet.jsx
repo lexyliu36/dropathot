@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { getCached, setCached, appendCached, removeFromCache } from '../lib/thotCache'
 import { useNavigate } from 'react-router-dom'
 import { X, ShieldX, ShieldCheck, Heart, MessageCircle, Upload, Flag, Trash2, UserPlus, UserMinus, MessageSquare, AlertTriangle, MoreVertical } from 'lucide-react'
-import { AnonAvatar } from './ThotPin'
+import { AnonAvatar, onlineStatus } from './ThotPin'
 import CommentThread from './CommentThread'
 import ShareSheet from './ShareSheet'
 
@@ -137,11 +138,20 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
             <AnonAvatar size={30} color={accentColor} />
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-baseline gap-1.5">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <span className="text-sm font-semibold leading-tight" style={{ color: accentColor }}>
                 {thot.pen_name || 'anon'}
               </span>
               <span className="text-slate-600 text-xs">{relativeTime(thot.created_at)}</span>
+              {thot.is_incognito && (
+                <svg width="14" height="8" viewBox="0 0 18 10" fill="none" xmlns="http://www.w3.org/2000/svg" title="Hidden post" style={{flexShrink:0}}>
+                  <rect x="0.5" y="2.5" width="6" height="5" rx="2.5" stroke="#a78bfa" strokeWidth="1.8"/>
+                  <rect x="11.5" y="2.5" width="6" height="5" rx="2.5" stroke="#a78bfa" strokeWidth="1.8"/>
+                  <line x1="6.5" y1="5" x2="11.5" y2="5" stroke="#a78bfa" strokeWidth="1.8"/>
+                  <line x1="0.5" y1="5" x2="-2" y2="4" stroke="#a78bfa" strokeWidth="1.8" strokeLinecap="round"/>
+                  <line x1="17.5" y1="5" x2="20" y2="4" stroke="#a78bfa" strokeWidth="1.8" strokeLinecap="round"/>
+                </svg>
+              )}
             </div>
 
             {/* Location label */}
@@ -315,6 +325,71 @@ function ThotCard({ thot, accentColor, highlighted, onHype, session, onDelete, d
   )
 }
 
+
+// Minimal anonymous sheet shown when tapping an incognito thot
+function IncognitoSheet({ thot, onClose, onHype, session, onFlyTo }) {
+  // Check if the viewer posted this incognito thot (stored in localStorage on post)
+  const isOwn = (() => {
+    try {
+      const ids = JSON.parse(localStorage.getItem('ownIncognitoIds') || '[]')
+      return ids.includes(thot.id)
+    } catch { return false }
+  })()
+
+  return (
+    <div className="absolute bottom-3 left-3 right-3 z-30 h-[45vh] sm:bottom-3 sm:top-3 sm:left-auto sm:right-3 sm:w-72 sm:h-auto flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden profile-sheet-anim">
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pt-2 pb-3 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(124,58,237,0.12)', border: '1px solid rgba(124,58,237,0.25)' }}>
+            <svg width="16" height="9" viewBox="0 0 18 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="0.5" y="2.5" width="6" height="5" rx="2.5" stroke="#a78bfa" strokeWidth="1.4"/>
+              <rect x="11.5" y="2.5" width="6" height="5" rx="2.5" stroke="#a78bfa" strokeWidth="1.4"/>
+              <line x1="6.5" y1="5" x2="11.5" y2="5" stroke="#a78bfa" strokeWidth="1.4"/>
+            </svg>
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <p className="text-white font-semibold text-sm">Anonymous</p>
+              {isOwn && (
+                <span className="flex items-center gap-1">
+                  <span style={{ width: '7px', height: '7px', borderRadius: '50%', display: 'inline-block', background: '#22c55e', flexShrink: 0 }} />
+                  <span className="text-xs" style={{ color: '#22c55e' }}>online</span>
+                </span>
+              )}
+            </div>
+            <p className="text-white/30 text-xs">Hidden post</p>
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-white/30 hover:text-white/60 transition-colors cursor-pointer"
+          style={{ background: 'rgba(255,255,255,0.06)' }}
+        >
+          <X size={15} />
+        </button>
+      </div>
+
+      {/* Thot card — reuse ThotCard for consistent hype/share/report UI */}
+      <div className="overflow-y-auto flex-1 px-4 pb-4">
+        <ThotCard
+          thot={isOwn ? { ...thot, pen_name: 'Anonymous', user_id: session?.userId } : { ...thot, pen_name: 'Anonymous' }}
+          accentColor="#7c3aed"
+          highlighted={true}
+          onHype={onHype}
+          session={session}
+          onFlyTo={onFlyTo}
+        />
+        <p className="text-white/25 text-[11px] mt-1 pb-4 text-center italic">
+          This message was posted anonymously
+        </p>
+      </div>
+    </div>
+  )
+}
+
+
 export default function ProfileSheet({ thot, session, isYouProfile = false, onCompose, onClose, onHype, onOpenDM, openCommentForThotId, highlightThotId, onFlyTo }) {
   const [history, setHistory] = useState(null)
   const [total, setTotal] = useState(0)
@@ -325,6 +400,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   const [following, setFollowing] = useState(0)
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+  const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false)
   const [reportState, setReportState] = useState('idle') // idle | confirm | done
   const [showMore, setShowMore] = useState(false)
   const navigate = useNavigate()
@@ -343,6 +419,19 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   const accentColor = isYou ? '#e11d48' : PIN_COLORS[thot?.pin_type] ?? (thot?.pen_name ? '#7c3aed' : '#64748b')
   const isBlocked = blockedSessions.has(sessionId)
   const [confirmBlock, setConfirmBlock] = useState(false)
+
+  // Incognito thots get a minimal anonymous sheet — no profile lookup, no follow/DM
+  if (thot?.is_incognito && !isYouProfile) {
+    return (
+      <IncognitoSheet
+        thot={thot}
+        onClose={onClose}
+        onHype={onHype}
+        session={session}
+        onFlyTo={onFlyTo}
+      />
+    )
+  }
 
   // For named users, session_id IS their auth UUID (set at login, line 222 auth.js).
   // Demo seed users have b0000000-... IDs — real auth accounts start with other UUIDs.
@@ -517,6 +606,7 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
   const allThots = history ?? (thot ? [thot] : [])
 
   return (
+    <>
     <div className="absolute bottom-3 left-3 right-3 z-30 h-[45vh] sm:bottom-3 sm:top-3 sm:left-auto sm:right-3 sm:w-72 sm:h-auto flex flex-col bg-[#0e0e1a] border border-white/10 rounded-2xl shadow-2xl overflow-hidden profile-sheet-anim">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.05] flex-shrink-0">
@@ -527,12 +617,23 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
               <span className="font-semibold text-sm leading-tight truncate" style={{ color: accentColor }}>
                 {penName || 'Anonymous'}
               </span>
-              {isYou && (
-                <span className="text-xs px-1 py-0.5 rounded-full font-medium leading-none flex-shrink-0"
-                  style={{ background: 'rgba(225,29,72,0.15)', color: '#e11d48', border: '1px solid rgba(225,29,72,0.3)' }}>
-                  you
-                </span>
-              )}
+              {thot?.last_seen_at && (() => {
+                const status = onlineStatus(thot.last_seen_at)
+                if (!status) return null
+                const isOnline = status === 'online'
+                return (
+                  <span className="flex items-center gap-1 flex-shrink-0">
+                    <span style={{
+                      width: '7px', height: '7px', borderRadius: '50%', display: 'inline-block', flexShrink: 0,
+                      background: isOnline ? '#22c55e' : '#475569',
+                    }} />
+                    <span className="text-xs" style={{ color: isOnline ? '#22c55e' : '#475569' }}>
+                      {isOnline ? 'online' : status}
+                    </span>
+                  </span>
+                )
+              })()}
+
             </div>
             <div className="flex items-center gap-2 mt-0.5">
               <p className="text-slate-600 text-xs">
@@ -549,7 +650,13 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
         <div className="flex items-center gap-1 flex-shrink-0">
             {!isYou && isAuth && targetUserId && (
               <button
-                onClick={toggleFollow}
+                onClick={() => {
+                  if (isFollowing) {
+                    setShowUnfollowConfirm(true)
+                  } else {
+                    toggleFollow()
+                  }
+                }}
                 disabled={followLoading}
                 title={isFollowing ? 'Following' : 'Follow'}
                 className={`flex items-center gap-1 px-2 py-1.5 rounded-lg text-sm font-medium transition-colors cursor-pointer disabled:opacity-40 ${
@@ -751,5 +858,40 @@ export default function ProfileSheet({ thot, session, isYouProfile = false, onCo
         </div>
       )}
     </div>
+
+      {showUnfollowConfirm && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center px-6"
+          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setShowUnfollowConfirm(false)}
+        >
+          <div
+            className="w-[min(92vw,360px)] bg-[#0e0e1a] border border-white/10 rounded-2xl p-5 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <p className="text-white font-bold text-base mb-2">Unfollow {penName}?</p>
+            <p className="text-white/50 text-sm leading-relaxed mb-5">
+              You'll stop seeing their drops in your feed. You can follow them again anytime.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowUnfollowConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium text-white/40 border border-white/10 hover:border-white/20 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { setShowUnfollowConfirm(false); toggleFollow() }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors cursor-pointer"
+                style={{ background: '#7c3aed' }}
+              >
+                Unfollow
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
   )
 }

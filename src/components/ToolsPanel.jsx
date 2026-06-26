@@ -325,6 +325,16 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
             myThots.map(thot => {
               const isActive = !thot.hidden && !thot.user_deleted && thot.expires_at && new Date(thot.expires_at) > new Date()
               return <div key={thot.id} className="py-2.5 border-b border-white/5 last:border-0">
+                {/* Glasses icon above content for incognito thots */}
+                {thot.is_incognito && (
+                  <svg width="14" height="8" viewBox="0 0 18 10" fill="none" xmlns="http://www.w3.org/2000/svg" title="Hidden post" style={{marginBottom:'4px'}}>
+                    <rect x="0.5" y="2.5" width="6" height="5" rx="2.5" stroke="#a78bfa" strokeWidth="1.8"/>
+                    <rect x="11.5" y="2.5" width="6" height="5" rx="2.5" stroke="#a78bfa" strokeWidth="1.8"/>
+                    <line x1="6.5" y1="5" x2="11.5" y2="5" stroke="#a78bfa" strokeWidth="1.8"/>
+                    <line x1="0.5" y1="5" x2="-2" y2="4" stroke="#a78bfa" strokeWidth="1.8" strokeLinecap="round"/>
+                    <line x1="17.5" y1="5" x2="20" y2="4" stroke="#a78bfa" strokeWidth="1.8" strokeLinecap="round"/>
+                  </svg>
+                )}
                 <button
                   onClick={() => isActive && onFlyTo?.(thot)}
                   disabled={!isActive}
@@ -335,7 +345,7 @@ function ProfileTab({ session, thots, onHype, onOpenProfile, onFlyTo }) {
                   {isActive ? <GeoLabel lat={thot.lat} lng={thot.lng} /> : <span className="text-slate-700 text-xs block mt-0.5">no longer on map</span>}
                 </button>
                 <div className="flex items-center mt-1.5">
-                  <span className="text-slate-600 text-xs" style={{ width: '52px', flexShrink: 0 }}>{relativeTime(thot.created_at)}</span>
+                  <span className="text-slate-600 text-xs" style={{ width: '68px', flexShrink: 0 }}>{relativeTime(thot.created_at)}</span>
                   {/* Heart — 52px */}
                   <div style={{ width: '52px', flexShrink: 0 }}>
                     <ProfileHeart thot={thot} onHype={onHype} session={session} />
